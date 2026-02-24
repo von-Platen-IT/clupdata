@@ -81,17 +81,51 @@ class CourseSchedules extends Table {
 ///
 /// [AppDatabase] coordinates all tables (`Members`, `Contracts`, `Sales`) and
 /// manages the background connection to the local SQLite file.
+/// Defines the structure for the `Trainers` table.
+class Trainers extends Table {
+  /// The unique identifier for a trainer.
+  IntColumn get id => integer().autoIncrement()();
+  /// The name of the trainer.
+  TextColumn get name => text()();
+  /// Indicates if the trainer is active.
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+}
+
+/// Defines the structure for the `CourseTypes` table.
+class CourseTypes extends Table {
+  /// The unique identifier for a course type.
+  IntColumn get id => integer().autoIncrement()();
+  /// The name of the course type.
+  TextColumn get name => text()();
+}
+
+/// Defines the structure for the `Locations` table.
+class Locations extends Table {
+  /// The unique identifier for a location.
+  IntColumn get id => integer().autoIncrement()();
+  /// The name of the location.
+  TextColumn get name => text()();
+}
+
 /// The main entry point for the Drift SQLite database.
 ///
 /// [AppDatabase] coordinates all tables and manages the background connection.
-@DriftDatabase(tables: [Members, Contracts, Sales, CourseSchedules])
+@DriftDatabase(tables: [
+  Members,
+  Contracts,
+  Sales,
+  CourseSchedules,
+  Trainers,
+  CourseTypes,
+  Locations
+])
 class AppDatabase extends _$AppDatabase {
   /// Initializes the database with a lazily opened connection.
   AppDatabase() : super(_openConnection());
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -99,6 +133,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         // Add the CourseSchedules table introduced in version 2.
         await migrator.createTable(courseSchedules);
+      }
+      if (from < 3) {
+        // Add master data tables introduced in version 3.
+        await migrator.createTable(trainers);
+        await migrator.createTable(courseTypes);
+        await migrator.createTable(locations);
       }
     },
   );

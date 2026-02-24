@@ -45,6 +45,8 @@ dependencies:
   window_manager: ^0.5.1
   mdi: ^5.0.0-nullsafety.0
   riverpod_annotation: ^4.0.2
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.11.0
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +62,8 @@ dev_dependencies:
   drift_dev: ^2.31.0
   riverpod_generator: ^4.0.3
   build_verify: ^3.1.1
+  freezed: ^3.2.5
+  json_serializable: ^6.13.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

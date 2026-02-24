@@ -22,6 +22,7 @@ class AppShell extends StatelessWidget {
     if (location.startsWith('/contracts')) return 2;
     if (location.startsWith('/pos')) return 3;
     if (location.startsWith('/calendar')) return 4;
+    if (location.startsWith('/master-data')) return 5;
     return 0; // dashboard
   }
 
@@ -41,6 +42,9 @@ class AppShell extends StatelessWidget {
         break;
       case 4:
         context.go('/calendar');
+        break;
+      case 5:
+        context.go('/master-data');
         break;
     }
   }
@@ -88,6 +92,11 @@ class AppShell extends StatelessWidget {
                       icon: Icon(Icons.calendar_month_outlined),
                       selectedIcon: Icon(Icons.calendar_month),
                       label: Text('Kursplan'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.storage_outlined),
+                      selectedIcon: Icon(Icons.storage),
+                      label: Text('Stammdaten'),
                     ),
                   ],
                 ),
