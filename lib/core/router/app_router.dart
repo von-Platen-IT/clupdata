@@ -6,6 +6,7 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/members/members_screen.dart';
 import '../../features/contracts/contracts_screen.dart';
 import '../../features/pos/pos_screen.dart';
+import '../../features/calendar/calendar_screen.dart';
 import '../../common_widgets/app_shell.dart';
 
 /// The global routing configuration for the ClupData application.
@@ -38,6 +39,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/pos',
             builder: (context, state) => const PosScreen(),
+          ),
+          GoRoute(
+            path: '/calendar',
+            builder: (context, state) => const CalendarScreen(),
           ),
         ],
       ),

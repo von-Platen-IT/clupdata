@@ -21,6 +21,7 @@ class AppShell extends StatelessWidget {
     if (location.startsWith('/members')) return 1;
     if (location.startsWith('/contracts')) return 2;
     if (location.startsWith('/pos')) return 3;
+    if (location.startsWith('/calendar')) return 4;
     return 0; // dashboard
   }
 
@@ -37,6 +38,9 @@ class AppShell extends StatelessWidget {
         break;
       case 3:
         context.go('/pos');
+        break;
+      case 4:
+        context.go('/calendar');
         break;
     }
   }
@@ -79,6 +83,11 @@ class AppShell extends StatelessWidget {
                       icon: Icon(Mdi.cashRegister),
                       selectedIcon: Icon(Mdi.cashRegister),
                       label: Text('Kasse'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.calendar_month_outlined),
+                      selectedIcon: Icon(Icons.calendar_month),
+                      label: Text('Kursplan'),
                     ),
                   ],
                 ),

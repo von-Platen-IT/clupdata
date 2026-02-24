@@ -54,18 +54,54 @@ class Sales extends Table {
   DateTimeColumn get saleDate => dateTime()();
 }
 
+/// Defines the structure for the `CourseSchedules` table.
+///
+/// This table stores recurring weekly course entries for the club schedule,
+/// displayed in the calendar timetable view.
+class CourseSchedules extends Table {
+  /// The unique identifier for a course entry.
+  IntColumn get id => integer().autoIncrement()();
+  /// The name of the course (e.g., "Boxen Anfänger").
+  TextColumn get title => text()();
+  /// The name of the trainer responsible for this course.
+  TextColumn get trainer => text()();
+  /// The weekday as an integer (1 = Monday, 7 = Sunday).
+  IntColumn get weekday => integer()();
+  /// The start hour of the course (0–23).
+  IntColumn get startHour => integer()();
+  /// The start minute of the course (0, 15, 30, 45).
+  IntColumn get startMinute => integer()();
+  /// Duration of the course in minutes (e.g., 60, 90).
+  IntColumn get durationMinutes => integer()();
+  /// Room or location of the course (e.g., "Ring 1").
+  TextColumn get location => text().withDefault(const Constant(''))();
+}
+
 /// The main entry point for the Drift SQLite database.
 ///
 /// [AppDatabase] coordinates all tables (`Members`, `Contracts`, `Sales`) and
 /// manages the background connection to the local SQLite file.
-@DriftDatabase(tables: [Members, Contracts, Sales])
+/// The main entry point for the Drift SQLite database.
+///
+/// [AppDatabase] coordinates all tables and manages the background connection.
+@DriftDatabase(tables: [Members, Contracts, Sales, CourseSchedules])
 class AppDatabase extends _$AppDatabase {
   /// Initializes the database with a lazily opened connection.
   AppDatabase() : super(_openConnection());
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        // Add the CourseSchedules table introduced in version 2.
+        await migrator.createTable(courseSchedules);
+      }
+    },
+  );
 }
 
 /// Opens the SQLite database connection lazily on a background thread.
