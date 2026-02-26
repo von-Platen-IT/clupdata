@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/router/app_router.dart';
@@ -14,6 +15,7 @@ import 'core/theme/app_theme.dart';
 /// Finally, it runs the app wrapped in a Riverpod [ProviderScope].
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('de_DE', null);
   
   // Nur auf Desktop-Systemen initialisieren
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {

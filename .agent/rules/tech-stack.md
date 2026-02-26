@@ -29,7 +29,14 @@ trigger: always_on
   - Nutze das `gap` Package anstelle von `SizedBox(height: ...)` für Abstände.
   - Nutze `shadcn_ui` (oder ähnliche moderne Flutter-Ports), falls komplexe Desktop-Komponenten (wie moderne Dialoge, Select-Boxen) benötigt werden.
 - **[MUST] DRY (Don't Repeat Yourself):** Lagere Buttons, Cards und Formular-Felder sofort in `lib/common_widgets/` aus. [NEVER] copy-paste dieselbe `TextField`-Konfiguration dreimal.
+ 
 
 ## 5. KI / VIBE-CODING WORKFLOW FÜR FLUTTER
 - **[MUST] Code Generation Step:** Da wir `freezed`, `drift` und `riverpod_generator` nutzen, [MUST] du nach jeder Änderung an Models, Providern oder Tabellen den User auffordern: *"Bitte führe `dart run build_runner build -d` aus."* (Oder führe ihn selbst aus, falls du Terminal-Zugriff hast).
 - **[MUST] Kurzer Code:** Schreibe UI-Code deklarativ und kompakt. Extrahiere komplexe Widget-Bäume in private Methoden oder kleine Hook-Widgets, um die Lesbarkeit (und den AI-Context) zu schonen.
+
+## 6. Datenstruktur
+- **[MUST] Datenstruktur ** in der Datei lib/assets/data/structur.ts werden die Schemata der Datenstruktur festgelegt. Diese Datei enthält Definitionen im JSON Format zu den Tabellen und Datenobjekten und den Relationen untereinander. Dies ist die bestimmende Quelle für Änderunge am Datenbankschema, in der Anwendungslogik und im UI. Die Konsitenz der verschiedenen Bereiche mit der Definition in lib/assets/data/structur.ts ist entscheidend.
+
+## 7. DataGrid im UI
+- **[MUST] Tabellen im UI ** beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei .agent/rules/datagrid.md

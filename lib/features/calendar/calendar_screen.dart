@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:hooks_riverpod/legacy.dart' show StateProvider;
 import '../../core/database/database.dart';
@@ -69,6 +70,12 @@ class CalendarScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Kursplan'),
         actions: [
+          FilledButton.icon(
+            onPressed: () => context.push('/master-data'),
+            icon: const Icon(Icons.storage),
+            label: const Text('Stammdaten'),
+          ),
+          const Gap(16),
           FilledButton.icon(
             onPressed: () {
               ref.read(selectedCourseIdProvider.notifier).state = null;
