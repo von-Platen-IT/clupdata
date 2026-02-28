@@ -20,10 +20,11 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/members')) return 1;
     if (location.startsWith('/leistungen')) return 2;
-    if (location.startsWith('/pos')) return 3;
-    if (location.startsWith('/calendar')) return 4;
+    if (location.startsWith('/waren')) return 3;
+    if (location.startsWith('/pos')) return 4;
+    if (location.startsWith('/calendar')) return 5;
     // Map /master-data to calendar tab as well
-    if (location.startsWith('/master-data')) return 4;
+    if (location.startsWith('/master-data')) return 5;
     return 0; // dashboard
   }
 
@@ -39,9 +40,12 @@ class AppShell extends StatelessWidget {
         context.go('/leistungen');
         break;
       case 3:
-        context.go('/pos');
+        context.go('/waren');
         break;
       case 4:
+        context.go('/pos');
+        break;
+      case 5:
         context.go('/calendar');
         break;
     }
@@ -80,6 +84,11 @@ class AppShell extends StatelessWidget {
                       icon: Icon(Mdi.fileDocumentOutline),
                       selectedIcon: Icon(Mdi.fileDocument),
                       label: Text('Leistungen'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Mdi.packageVariantClosed),
+                      selectedIcon: Icon(Mdi.packageVariant),
+                      label: Text('Waren'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Mdi.cashRegister),

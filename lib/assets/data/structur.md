@@ -106,9 +106,41 @@ _Main member entity._
 
 **Berechnete Felder (Computed):**
 
+| `alter` | `floor(days_between(geboren, today) / 365.25)` | NOT stored. Computed at runtime from 'geboren' and today's date. |
+
+### 1.6 `waren`
+_Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Eindeutige technische ID (Korrektur von waren_id). |
+| `bezeichnung` | TEXT | NotNull, MaxLen:200, Unicode | Name des Artikels, z.B. "Karate-Gi weiß" |
+| `beschreibung` | TEXT | MaxLen:2000, Unicode | Detaillierte Beschreibung, Materialeigenschaften, Pflegehinweise |
+| `kategorie` | TEXT | MaxLen:100 | Artikelgruppe, z.B. "Bekleidung", "Schutzausrüstung", "Gürtel" |
+| `groesse` | TEXT | MaxLen:50 | Z.B. S, M, L, XL, oder numerische Größen (46, 48) |
+| `farbe` | TEXT | MaxLen:50 | Farbe des Artikels (z.B. weiß, blau, rot) |
+| `geschlecht` | TEXT | Enum:[Unisex, Herren, Damen, Kinder] | |
+| `material` | TEXT | MaxLen:100 | Z.B. Baumwolle, Polyester, Leder |
+| `einkaufspreis` | REAL | | Netto-Einkaufspreis pro Einheit (als DECIMAL) |
+| `bruttopreis` | REAL | NotNull | Brutto-Verkaufspreis (als DECIMAL) |
+| `bestand` | INTEGER | Default:0 | Aktueller Lagerbestand |
+| `mindestbestand` | INTEGER | Default:0 | Untergrenze für Nachbestellung |
+| `lieferant` | TEXT | MaxLen:200 | Name des Lieferanten |
+| `hersteller` | TEXT | MaxLen:200 | Herstellerfirma |
+| `hersteller_artikelnr` | TEXT | MaxLen:100 | Hersteller-eigene Artikelnummer |
+| `gewicht_kg` | REAL | | Gewicht in kg (z.B. für Versandkosten) |
+| `einheit` | TEXT | MaxLen:50 | Verkaufseinheit: "Stück", "Paar", "Set" |
+| `bild_url` | TEXT | MaxLen:500 | Pfad/URL zum Produktbild |
+| `aktiv` | BOOLEAN | NotNull, Default:1 | 1 = aktiv, 0 = inaktiv |
+| `erstellt_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Zeitpunkt der Anlage |
+| `aktualisiert_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Zeitpunkt der letzten Änderung |
+| `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung gem. App-Standard |
+
+**Berechnete Felder (Computed):**
+
 | Feld | Formel | Kommentar |
 |---|---|---|
-| `alter` | `floor(days_between(geboren, today) / 365.25)` | NOT stored. Computed at runtime from 'geboren' and today's date. |
+| `nettopreis` | `bruttopreis / (1 + stammdaten['mwst_aktiv_schluessel'] / 100)` | NOT stored. Computed at runtime: bruttopreis / (1 + mwst/100). |
 
 ## 2. Datenbank Indizes
 
@@ -125,6 +157,9 @@ _Main member entity._
 | `stammdaten` | `idx_stammdaten_schluessel` | `schluessel` | Ja |  |
 | `stammdaten` | `idx_stammdaten_kategorie` | `kategorie` | Nein |  |
 | `bemerkung` | `idx_bemerkung_datum` | `datum_erstellt` | Nein |  |
+| `waren` | `idx_waren_bezeichnung` | `bezeichnung` | Nein |  |
+| `waren` | `idx_waren_kategorie` | `kategorie` | Nein |  |
+| `waren` | `idx_waren_aktiv` | `aktiv` | Nein |  |
 
 
 ## 3. Relationen
@@ -136,6 +171,7 @@ _Main member entity._
 | `leistung.preis_id` | `preis.id` | many-to-one | Leistung hat einen Preis |
 | `leistung.bemerkung_id` | `bemerkung.id` | many-to-one | Leistung hat eine Bemerkung |
 | `preis.bemerkung_id` | `bemerkung.id` | many-to-one | Preis hat eine Bemerkung |
+| `waren.bemerkung_id` | `bemerkung.id` | many-to-one | Ware hat eine optionale Bemerkung gem. Standard |
 
 
 ## 4. UI Konfiguration
@@ -228,6 +264,49 @@ _Main member entity._
 - **Typ**: configScreen
 - **Datenquelle**: `stammdaten`
 - **Kommentar**: Grouped by 'kategorie'. Only rows with aenderbar=1 are editable.
+
+#### Screen: Waren (`screen_waren_list`)
+- **Route**: /waren
+- **Typ**: dataGridScreen
+- **Datenquelle**: `waren`
+- **Data Grid Konfiguration:**
+  - Spalte `bezeichnung` (Bezeichnung) - text - Sort:True Filter:True
+  - Spalte `kategorie` (Kategorie) - text - Sort:True Filter:True
+  - Spalte `bestand` (Bestand) - number - Sort:True Filter:True
+  - Spalte `bruttopreis` (Brutto (€)) - number - Sort:True Filter:False
+  - Spalte `nettopreis` (Netto (€)) - number - Sort:False Filter:False
+  - Spalte `aktiv` (Aktiv) - boolean - Sort:True Filter:True
+
+#### Screen: Ware bearbeiten (`screen_ware_edit`)
+- **Route**: /waren/edit
+- **Typ**: formScreen
+- **Datenquelle**: `waren`
+- **Formular Bereiche:**
+  - **Allgemein**
+    - `bezeichnung` (Bezeichnung) - Widget: TextField
+    - `kategorie` (Kategorie) - Widget: TextField
+    - `beschreibung` (Beschreibung) - Widget: TextAreaField
+    - `aktiv` (Aktiv) - Widget: CheckboxField
+  - **Eigenschaften**
+    - `groesse` (Größe) - Widget: TextField
+    - `farbe` (Farbe) - Widget: TextField
+    - `geschlecht` (Geschlecht) - Widget: DropdownField
+    - `material` (Material) - Widget: TextField
+    - `gewicht_kg` (Gewicht (kg)) - Widget: TextField
+    - `einheit` (Einheit) - Widget: TextField
+  - **Preise & Bestand**
+    - `einkaufspreis` (Einkaufspreis (€)) - Widget: CurrencyField
+    - `bruttopreis` (Bruttopreis (€)) - Widget: CurrencyField
+    - `nettopreis` (Nettopreis (€)) - Widget: ReadOnlyField
+    - `bestand` (Bestand) - Widget: TextField
+    - `mindestbestand` (Mindestbestand) - Widget: TextField
+  - **Logistik & Hersteller**
+    - `lieferant` (Lieferant) - Widget: TextField
+    - `hersteller` (Hersteller) - Widget: TextField
+    - `hersteller_artikelnr` (Artikelnr. HF) - Widget: TextField
+  - **Bemerkung**
+    - `bemerkung_titel` (Titel) - Widget: TextField
+    - `bemerkung_text` (Text) - Widget: TextAreaField
 
 ### 4.3 Dialoge
 

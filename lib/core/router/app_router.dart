@@ -4,6 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/members/members_screen.dart';
+import '../../features/leistungen/leistungen_screen.dart';
+import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/master_data/presentation/master_data_screen.dart';
@@ -34,11 +36,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/leistungen',
-            builder: (context, state) => const Scaffold(
-              body: Center(
-                child: Text('Leistungen in Entwicklung', style: TextStyle(fontSize: 24)),
-              ),
-            ),
+            builder: (context, state) => const LeistungenScreen(),
+          ),
+          GoRoute(
+            path: '/waren',
+            builder: (context, state) => const WarenScreen(),
           ),
           GoRoute(
             path: '/pos',

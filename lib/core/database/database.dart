@@ -9,6 +9,7 @@ import 'tables/stammdaten_table.dart';
 import 'tables/preis_table.dart';
 import 'tables/leistung_table.dart';
 import 'tables/mitglied_table.dart';
+import 'tables/waren_table.dart';
 
 part 'database.g.dart';
 
@@ -20,7 +21,8 @@ part 'database.g.dart';
   Stammdaten,
   Preis,
   Leistung,
-  Mitglieds
+  Mitglieds,
+  Waren
 ])
 class AppDatabase extends _$AppDatabase {
   /// Initializes the database with a lazily opened connection.
@@ -28,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +47,8 @@ class AppDatabase extends _$AppDatabase {
           } catch (_) {}
           await migrator.createTable(table);
         }
+      } else if (from == 5) {
+        await migrator.createTable(waren);
       }
     },
     beforeOpen: (details) async {
