@@ -19,7 +19,7 @@ class AppShell extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/members')) return 1;
-    if (location.startsWith('/contracts')) return 2;
+    if (location.startsWith('/leistungen')) return 2;
     if (location.startsWith('/pos')) return 3;
     if (location.startsWith('/calendar')) return 4;
     // Map /master-data to calendar tab as well
@@ -36,7 +36,7 @@ class AppShell extends StatelessWidget {
         context.go('/members');
         break;
       case 2:
-        context.go('/contracts');
+        context.go('/leistungen');
         break;
       case 3:
         context.go('/pos');
@@ -79,7 +79,7 @@ class AppShell extends StatelessWidget {
                     NavigationRailDestination(
                       icon: Icon(Mdi.fileDocumentOutline),
                       selectedIcon: Icon(Mdi.fileDocument),
-                      label: Text('Verträge'),
+                      label: Text('Leistungen'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Mdi.cashRegister),

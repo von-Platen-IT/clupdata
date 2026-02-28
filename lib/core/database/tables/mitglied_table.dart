@@ -12,10 +12,11 @@ class Mitglieds extends Table {
   TextColumn get vorname => text().withLength(max: 100)();
   TextColumn get plz => text().nullable().withLength(max: 10)();
   TextColumn get ort => text().nullable().withLength(max: 100)();
+  TextColumn get strasse => text().nullable().withLength(max: 100)();
+  TextColumn get hausnummer => text().nullable().withLength(max: 10)();
   TextColumn get telefon1 => text().nullable().withLength(max: 50)();
   TextColumn get telefon2 => text().nullable().withLength(max: 50)();
   TextColumn get email => text().nullable().withLength(max: 200)();
-  TextColumn get geschlecht => text().nullable()(); // enum: maennlich, weiblich, divers
   DateTimeColumn get geboren => dateTime().nullable()();
   IntColumn get leistungId => integer().nullable().references(Leistung, #id, onDelete: KeyAction.setNull)();
   DateTimeColumn get vertragKontierung => dateTime().nullable()();

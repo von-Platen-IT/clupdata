@@ -28,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -36,11 +36,13 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
     },
     onUpgrade: (migrator, from, to) async {
-      // Re-create all tables on version 4 since we changed the whole schema.
+      // Re-create all tables on version 5 since we changed the whole schema.
       // NOTE: In an actual production app with existing data, this would need complex data-migration mappings
-      if (from < 4) {
+      if (from < 5) {
         for (final table in allTables) {
-          await migrator.deleteTable(table.actualTableName);
+          try {
+             await migrator.deleteTable(table.actualTableName);
+          } catch (_) {}
           await migrator.createTable(table);
         }
       }

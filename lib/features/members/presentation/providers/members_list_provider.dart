@@ -1,10 +1,9 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
-import 'package:pluto_grid/pluto_grid.dart';
 
 import 'package:clupdata/core/database/database.dart';
 import 'package:clupdata/features/members/data/members_repository.dart';
 import 'package:clupdata/features/leistungen/data/leistungen_repository.dart';
+import '../../models/member_row_data.dart';
 
 final _membersStreamProvider = StreamProvider<List<Mitglied>>((ref) {
   return ref.watch(membersRepositoryProvider).watchMembers();
@@ -14,7 +13,11 @@ final _leistungenStreamProvider = StreamProvider<List<LeistungItem>>((ref) {
   return ref.watch(leistungenRepositoryProvider).watchLeistungen();
 });
 
-final membersGridRowsProvider = Provider<AsyncValue<List<PlutoRow>>>((ref) {
+final bemerkungForMemberProvider = StreamProvider.family<BemerkungData?, int>((ref, memberId) {
+  return ref.watch(membersRepositoryProvider).watchBemerkungForMember(memberId);
+});
+
+final membersGridRowsProvider = Provider<AsyncValue<List<MemberRowData>>>((ref) {
   final membersResult = ref.watch(_membersStreamProvider);
   final leistungenResult = ref.watch(_leistungenStreamProvider);
 
@@ -33,9 +36,6 @@ final membersGridRowsProvider = Provider<AsyncValue<List<PlutoRow>>>((ref) {
     for (var l in leistungen) l.id: l
   };
 
-  final dateFormat = DateFormat('dd.MM.yyyy');
-  String formatDate(DateTime? date) => date != null ? dateFormat.format(date) : '';
-
   final rows = members.map((m) {
     final leistung = m.leistungId != null ? leistungMap[m.leistungId] : null;
 
@@ -45,21 +45,21 @@ final membersGridRowsProvider = Provider<AsyncValue<List<PlutoRow>>>((ref) {
       alter = (days / 365.25).floor();
     }
 
-    return PlutoRow(cells: {
-      'id': PlutoCell(value: m.id),
-      'name': PlutoCell(value: m.name),
-      'vorname': PlutoCell(value: m.vorname),
-      'ort': PlutoCell(value: m.ort ?? ''),
-      'telefon1': PlutoCell(value: m.telefon1 ?? ''),
-      'email': PlutoCell(value: m.email ?? ''),
-      'leistung_name': PlutoCell(value: leistung?.name ?? ''),
-      'vertrag_laufzeit_von': PlutoCell(value: formatDate(m.vertragLaufzeitVon)),
-      'vertrag_laufzeit_bis': PlutoCell(value: formatDate(m.vertragLaufzeitBis)),
-      'alter': PlutoCell(value: alter ?? ''),
-      'plz': PlutoCell(value: m.plz ?? ''),
-      'telefon2': PlutoCell(value: m.telefon2 ?? ''),
-      'vertrag_kontierung': PlutoCell(value: formatDate(m.vertragKontierung)),
-    });
+    return MemberRowData(
+      id: m.id,
+      name: m.name,
+      vorname: m.vorname,
+      ort: m.ort,
+      plz: m.plz,
+      telefon1: m.telefon1,
+      telefon2: m.telefon2,
+      email: m.email,
+      leistungName: leistung?.name,
+      vertragLaufzeitVon: m.vertragLaufzeitVon,
+      vertragLaufzeitBis: m.vertragLaufzeitBis,
+      vertragKontierung: m.vertragKontierung,
+      alter: alter,
+    );
   }).toList();
 
   return AsyncValue.data(rows);

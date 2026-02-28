@@ -12,12 +12,16 @@ abstract class AppDataGrid extends HookWidget {
   final List<PlutoColumn> columns;
   final List<PlutoRow> rows;
   final List<SortColumnConfig> sortableColumns;
+  final void Function(PlutoRow?)? onRowSelected;
+  final void Function(PlutoRow?)? onRowDoubleTap;
 
   const AppDataGrid({
     super.key,
     required this.columns,
     required this.rows,
     required this.sortableColumns,
+    this.onRowSelected,
+    this.onRowDoubleTap,
   });
 
   /// Abstract method to generate a searchable string from a row.
@@ -195,7 +199,18 @@ abstract class AppDataGrid extends HookWidget {
             rows: List.from(rows), // Initial rows
             onLoaded: (PlutoGridOnLoadedEvent event) {
               stateManager.value = event.stateManager;
+              event.stateManager.setSelectingMode(PlutoGridSelectingMode.row);
               applyFiltersAndSort();
+            },
+            onSelected: (PlutoGridOnSelectedEvent event) {
+              if (onRowSelected != null) {
+                onRowSelected!(event.row);
+              }
+            },
+            onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
+              if (onRowDoubleTap != null) {
+                onRowDoubleTap!(event.row);
+              }
             },
             onChanged: (PlutoGridOnChangedEvent event) {
               // Triggered when editing a cell, you might want to call an abstract method here
