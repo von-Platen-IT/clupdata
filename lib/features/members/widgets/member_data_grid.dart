@@ -25,7 +25,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Name',
           field: 'name',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -33,7 +33,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Vorname',
           field: 'vorname',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -41,7 +41,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Ort',
           field: 'ort',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -49,7 +49,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Telefon',
           field: 'telefon1',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: false,
         ),
@@ -57,7 +57,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'E-Mail',
           field: 'email',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: false,
         ),
@@ -73,7 +73,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Laufzeit von',
           field: 'vertrag_laufzeit_von',
           type: PlutoColumnType.date(format: 'dd.MM.yyyy'),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -81,7 +81,7 @@ class MemberDataGrid extends HookConsumerWidget {
           title: 'Laufzeit bis',
           field: 'vertrag_laufzeit_bis',
           type: PlutoColumnType.date(format: 'dd.MM.yyyy'),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -144,13 +144,11 @@ class MemberDataGrid extends HookConsumerWidget {
                row.cells['leistung_name']?.value,
              ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
           },
+          onCreateNew: () => MemberEditDialog.show(context),
           onRowDoubleTap: (event) {
              final memberId = event.row.cells['id']?.value as int;
              final clickedColumn = event.cell.column.field;
              MemberEditDialog.show(context, memberId: memberId, initialFocusField: clickedColumn); 
-          },
-          onRowSelected: (row) {
-             // Optional: Handle row selection for external details view
           },
         );
       },

@@ -32,6 +32,7 @@ class AppTextField extends StatelessWidget {
       focusNode: focusNode,
       decoration: InputDecoration(
         labelText: required ? '$label *' : label,
+        isDense: true,
         border: const OutlineInputBorder(),
         suffixIcon: suffixIcon,
       ),

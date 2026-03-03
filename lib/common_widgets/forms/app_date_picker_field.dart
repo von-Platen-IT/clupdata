@@ -20,11 +20,20 @@ class AppDatePickerField extends HookWidget {
   });
 
   Future<void> _pickDate(BuildContext context) async {
+    final firstDate = DateTime(1900);
+    final lastDate = DateTime(2100);
+
+    // Clamp the current value into the picker's valid range to avoid assertion
+    // errors when the stored date predates firstDate (e.g. historical DB entries).
+    DateTime initialDate = value ?? DateTime.now();
+    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: value ?? DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2100),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       initialEntryMode: DatePickerEntryMode.calendar,
       helpText: label,
     );

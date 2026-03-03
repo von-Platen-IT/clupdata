@@ -9,29 +9,33 @@ import 'sort_column_config.dart';
 import 'sort_settings_dialog.dart';
 
 /// The abstract base class for all tabular data screens in the application.
-/// It provides common functionality like search, sort, filter, and the base
-/// PlutoGrid setup. Child classes must inherit from this or wrap it, and provide
-/// entity-specific configuration like columns, rows mapping, and search strings.
+/// Provides common functionality: full-text search, multi-column sort,
+/// column filter, an optional "Neu" button, and the base PlutoGrid setup.
+/// Child classes configure entity-specific columns, rows, and search strings.
 class AppDataGrid extends HookWidget {
-  /// The list of items to display. Data objects are translated to PlutoRow inside the child class.
+  /// The list of [PlutoRow]s to display. Data objects are mapped to [PlutoRow]
+  /// inside the child widget via [useMemoized].
   final List<PlutoRow> rows;
 
   /// The columns defined according to structur.md rules.
   final List<PlutoColumn> columns;
 
-  /// Defines which columns can be used in the multi-sort dialog.
+  /// The columns that are available in the multi-sort dialog.
   final List<SortColumnConfig> sortableColumns;
 
-  /// Abstract hook invoked by the child class to determine if a specific row matches the search query.
-  /// E.g. (row) => row.cells['name']?.value.toString()
+  /// Called per row to build the full-text-search string.
+  /// Must return all visible cell values joined by space, lowercased.
   final String Function(PlutoRow row) toSearchString;
 
-  /// Callback when a row is single-clicked (used to update external selection state if needed).
-  /// Note: Inline editing is managed by PlutoGrid automatically if enableEditingMode is true.
+  /// Optional callback for single-click row selection.
   final void Function(PlutoRow row)? onRowSelected;
 
-  /// Callback when a row is double-clicked (mandatory trigger for the feature-specific modal edit dialog).
+  /// Callback triggered on double-click; must open the entity-specific modal.
   final void Function(PlutoGridOnRowDoubleTapEvent event) onRowDoubleTap;
+
+  /// Optional callback to open the "create new record" modal dialog.
+  /// When provided, a "Neu" [FilledButton] is added to the toolbar.
+  final VoidCallback? onCreateNew;
 
   const AppDataGrid({
     super.key,
@@ -41,34 +45,36 @@ class AppDataGrid extends HookWidget {
     required this.toSearchString,
     this.onRowSelected,
     required this.onRowDoubleTap,
+    this.onCreateNew,
   });
 
   @override
   Widget build(BuildContext context) {
-    // State Manager for PlutoGrid
+    // PlutoGrid state manager, assigned in onLoaded
     final stateManager = useState<PlutoGridStateManager?>(null);
 
-    // Search & Filter State
+    // Search & filter state
     final searchController = useTextEditingController();
     final searchText = useState<String>('');
     final activeFilters = useState<Map<String, String>>({});
     final activeSortConfigs = useState<List<SortColumnConfig>>(sortableColumns);
 
-    // Effect: Apply all filters, search, and sort to the rows
+    // Apply all filters, search, and sort chain to the grid whenever any
+    // of the dependencies change, including the initial data load.
     useEffect(() {
       final sm = stateManager.value;
       if (sm == null) return null;
 
-      // 1. Start with all rows
+      // 1. Start from the full unfiltered dataset
       var filteredRows = List<PlutoRow>.from(rows);
 
-      // 2. Apply explicit column filters
+      // 2. Apply column filters (AND-combined)
       if (activeFilters.value.isNotEmpty) {
         filteredRows = filteredRows.where((row) {
           for (final entry in activeFilters.value.entries) {
-            final colField = entry.key;
             final filterValue = entry.value.toLowerCase();
-            final cellValue = row.cells[colField]?.value?.toString().toLowerCase() ?? '';
+            final cellValue =
+                row.cells[entry.key]?.value?.toString().toLowerCase() ?? '';
             if (!cellValue.contains(filterValue)) return false;
           }
           return true;
@@ -79,12 +85,11 @@ class AppDataGrid extends HookWidget {
       if (searchText.value.isNotEmpty) {
         final query = searchText.value.toLowerCase();
         filteredRows = filteredRows.where((row) {
-          final rowString = toSearchString(row).toLowerCase();
-          return rowString.contains(query);
+          return toSearchString(row).toLowerCase().contains(query);
         }).toList();
       }
 
-      // 4. Apply multi-column sort
+      // 4. Apply multi-column sort chain (sorted by priority ascending)
       final sortChain = activeSortConfigs.value
           .where((c) => c.enabled)
           .toList()
@@ -95,44 +100,35 @@ class AppDataGrid extends HookWidget {
           for (final col in sortChain) {
             final fieldA = a.cells[col.field]?.value;
             final fieldB = b.cells[col.field]?.value;
-
             int cmp;
-            // Basic comparison, might need to be refined for specific types
             if (fieldA is Comparable && fieldB is Comparable) {
               cmp = fieldA.compareTo(fieldB);
             } else {
-               cmp = fieldA?.toString().compareTo(fieldB?.toString() ?? '') ?? 0;
+              cmp = fieldA?.toString().compareTo(fieldB?.toString() ?? '') ?? 0;
             }
-
             if (cmp != 0) return col.ascending ? cmp : -cmp;
           }
           return 0;
         });
       }
 
-      // Apply to grid (turn off pagination reset jumping)
-      // Apply to grid
+      // 5. Replace grid rows atomically
       final currentRows = sm.rows;
-      if (currentRows.isNotEmpty) {
-        sm.removeRows(currentRows);
-      }
-      if (filteredRows.isNotEmpty) {
-        sm.appendRows(filteredRows);
-      }
-      
-      // Force an update to PlutoGrid to ensure layout computes if this was the very first data load
+      if (currentRows.isNotEmpty) sm.removeRows(currentRows);
+      if (filteredRows.isNotEmpty) sm.appendRows(filteredRows);
       sm.notifyListeners();
-      
+
       return null;
-    }, [rows, searchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]); // Added stateManager.value to trigger when mounted
+    }, [rows, searchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
 
     return Column(
       children: [
-        // Toolbar
+        // ── Toolbar ────────────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
           child: Row(
             children: [
+              // Full-text search field
               Expanded(
                 child: TextField(
                   controller: searchController,
@@ -154,8 +150,9 @@ class AppDataGrid extends HookWidget {
                   onChanged: (val) => searchText.value = val,
                 ),
               ),
-              const Gap(16),
-              // Filter Button
+              const Gap(8),
+
+              // Column filter button with active-filter badge
               Badge(
                 isLabelVisible: activeFilters.value.isNotEmpty,
                 label: Text(activeFilters.value.length.toString()),
@@ -165,21 +162,22 @@ class AppDataGrid extends HookWidget {
                   onPressed: () async {
                     final result = await FilterSettingsDialog.show(
                       context,
-                      allRows: rows, // pass unfiltered rows to build autocomplete options
+                      allRows: rows,
                       columns: columns,
                       initialFilters: activeFilters.value,
                     );
-                    if (result != null) {
-                      activeFilters.value = result;
-                    }
+                    if (result != null) activeFilters.value = result;
                   },
                 ),
               ),
               const Gap(8),
-              // Sort Button
+
+              // Multi-sort button with enabled-column badge
               Badge(
                 isLabelVisible: activeSortConfigs.value.any((c) => c.enabled),
-                label: Text(activeSortConfigs.value.where((c) => c.enabled).length.toString()),
+                label: Text(
+                  activeSortConfigs.value.where((c) => c.enabled).length.toString(),
+                ),
                 child: IconButton.outlined(
                   tooltip: 'Sortierung konfigurieren',
                   icon: const Icon(Icons.filter_list),
@@ -188,36 +186,44 @@ class AppDataGrid extends HookWidget {
                       context,
                       initialConfigs: activeSortConfigs.value,
                     );
-                    if (result != null) {
-                      activeSortConfigs.value = result;
-                    }
+                    if (result != null) activeSortConfigs.value = result;
                   },
                 ),
               ),
+
+              // Optional "Neu" button — rendered only when onCreateNew is set
+              if (onCreateNew != null) ...[
+                const Gap(8),
+                FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Neu'),
+                  onPressed: onCreateNew,
+                ),
+              ],
             ],
           ),
         ),
-        // Grid
+
+        // ── PlutoGrid ──────────────────────────────────────────────────────
         Expanded(
           child: PlutoGrid(
             columns: columns,
-            rows: List.from(rows), // Initialize with current rows, effect will manage updates
+            rows: List.from(rows),
             onLoaded: (PlutoGridOnLoadedEvent event) {
               stateManager.value = event.stateManager;
-              // Set readOnly for system columns inherently if needed, but PlutoColumn config should handle it.
-              event.stateManager.setShowColumnFilter(false); // we use our own filter dialog
+              // Disable the built-in PlutoGrid column-filter row — we use
+              // our own FilterSettingsDialog instead.
+              event.stateManager.setShowColumnFilter(false);
             },
             onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
-               // Must end inline edit before opening modal!
-               stateManager.value?.setEditing(false);
-               
-               // Trigger child class logic
-               onRowDoubleTap(event);
+              // Commit any pending inline edit before opening the modal dialog
+              stateManager.value?.setEditing(false);
+              onRowDoubleTap(event);
             },
             onSelected: (PlutoGridOnSelectedEvent event) {
-               if (event.row != null && onRowSelected != null) {
-                  onRowSelected!(event.row!);
-               }
+              if (event.row != null && onRowSelected != null) {
+                onRowSelected!(event.row!);
+              }
             },
             configuration: PlutoGridConfiguration(
               style: const PlutoGridStyleConfig(
@@ -225,7 +231,9 @@ class AppDataGrid extends HookWidget {
                 enableColumnBorderHorizontal: true,
                 oddRowColor: Color(0xFFF9F9F9),
               ),
-              // German locale text per datagrid.md rule 10
+              columnFilter: PlutoGridColumnFilterConfig(
+                filters: const [...FilterHelper.defaultFilters],
+              ),
               localeText: appGermanLocaleText,
             ),
           ),

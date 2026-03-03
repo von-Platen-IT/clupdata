@@ -86,7 +86,8 @@ class AppDropdownField<T> extends HookWidget {
         },
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16),
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );

@@ -27,7 +27,7 @@ class WarenDataGrid extends HookConsumerWidget {
           title: 'Bezeichnung',
           field: 'bezeichnung',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -35,7 +35,7 @@ class WarenDataGrid extends HookConsumerWidget {
           title: 'Kategorie',
           field: 'kategorie',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -43,7 +43,7 @@ class WarenDataGrid extends HookConsumerWidget {
           title: 'Bestand',
           field: 'bestand',
           type: PlutoColumnType.number(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
           textAlign: PlutoColumnTextAlign.right,
@@ -53,7 +53,7 @@ class WarenDataGrid extends HookConsumerWidget {
           title: 'Brutto (€)',
           field: 'bruttopreis',
           type: PlutoColumnType.number(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: false,
           enableSorting: true,
           textAlign: PlutoColumnTextAlign.right,
@@ -76,7 +76,7 @@ class WarenDataGrid extends HookConsumerWidget {
           field: 'aktiv',
           type: PlutoColumnType.text(),
 // Unused in PlutoGrid 8.x, boolean columns are handled differently
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
           formatter: (value) => value == true ? 'Ja' : 'Nein',
@@ -122,10 +122,10 @@ class WarenDataGrid extends HookConsumerWidget {
                 row.cells['kategorie']?.value,
               ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
            }, 
+           onCreateNew: () => WarenEditDialog.show(context),
            onRowDoubleTap: (event) async {
               final wareId = event.row.cells['id']?.value as int;
               final clickedColumn = event.cell.column.field;
-
               WarenEditDialog.show(context, wareId: wareId, initialFocusField: clickedColumn);
            }
          );
