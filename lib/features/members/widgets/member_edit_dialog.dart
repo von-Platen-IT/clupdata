@@ -107,7 +107,7 @@ class MemberEditDialog extends HookConsumerWidget {
         ctrlName.text = m.name;
         ctrlVorname.text = m.vorname;
         ctrlGeboren.value = m.geboren;
-        // ctrlGeschlecht.text = m.geschlecht ?? ''; // Not in DB schema yet
+        ctrlGeschlecht.text = m.geschlecht ?? '';
         
         ctrlPlz.text = m.plz ?? '';
         ctrlOrt.text = m.ort ?? '';
@@ -170,7 +170,7 @@ class MemberEditDialog extends HookConsumerWidget {
            name: drift.Value(ctrlName.text),
            vorname: drift.Value(ctrlVorname.text),
            geboren: drift.Value(ctrlGeboren.value),
-           // geschlecht: drift.Value(ctrlGeschlecht.text.isEmpty ? null : ctrlGeschlecht.text), // Not in DB schema yet
+           geschlecht: drift.Value(ctrlGeschlecht.text.isEmpty ? null : ctrlGeschlecht.text),
            plz: drift.Value(ctrlPlz.text.isEmpty ? null : ctrlPlz.text),
            ort: drift.Value(ctrlOrt.text.isEmpty ? null : ctrlOrt.text),
            strasse: drift.Value(ctrlStrasse.text.isEmpty ? null : ctrlStrasse.text),
@@ -193,7 +193,7 @@ class MemberEditDialog extends HookConsumerWidget {
               vorname: ctrlVorname.text,
               anrede: companion.anrede.value,
               geboren: companion.geboren.value,
-              // geschlecht: companion.geschlecht.value, // Not in DB schema yet
+              geschlecht: companion.geschlecht.value,
               plz: companion.plz.value,
               ort: companion.ort.value,
               strasse: companion.strasse.value,

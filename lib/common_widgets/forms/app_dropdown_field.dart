@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 /// A reusable standard dropdown field optimized for desktop usage and keyboard traversal.
-class AppDropdownField<T> extends StatelessWidget {
+/// Uses DropdownMenu to support text input and autocomplete filtering.
+class AppDropdownField<T> extends HookWidget {
   final TextEditingController controller;
   final String label;
   final bool required;
@@ -21,27 +23,72 @@ class AppDropdownField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the initially selected value based on the controller's current text
-    final initialSelection = options.where((o) => getLabel(o) == controller.text).firstOrNull;
+    // 1. Manage FocusNode via hooks to ensure it's disposed and attached correctly
+    final internalFocusNode = useFocusNode();
+    final effectiveFocusNode = focusNode ?? internalFocusNode;
 
-    return DropdownButtonFormField<T>(
-      value: initialSelection,
-      focusNode: focusNode,
-      decoration: InputDecoration(
-        labelText: required ? '$label *' : label,
-        border: const OutlineInputBorder(),
-      ),
-      items: options.map((option) {
-        return DropdownMenuItem<T>(
-          value: option,
-          child: Text(getLabel(option)),
-        );
-      }).toList(),
-      onChanged: (T? newValue) {
-        if (newValue != null) {
-          controller.text = getLabel(newValue);
+    // 2. Add listener to validate text on focus loss
+    useEffect(() {
+      void onFocusChange() {
+        if (!effectiveFocusNode.hasFocus) {
+          final currentText = controller.text;
+          final match = options.where((o) => getLabel(o) == currentText).firstOrNull;
+          if (match == null && currentText.isNotEmpty) {
+            // Not a valid option: clear the invalid input
+            controller.text = '';
+          }
+        }
+      }
+
+      effectiveFocusNode.addListener(onFocusChange);
+      return () => effectiveFocusNode.removeListener(onFocusChange);
+    }, [effectiveFocusNode, controller, options, getLabel]);
+
+    // Determine the initially selected value based on the controller's current text
+    final initialSelection = useMemoized(
+      () => options.where((o) => getLabel(o) == controller.text).firstOrNull,
+      [options, controller.text, getLabel]
+    );
+
+    return Focus(
+      // The outer Focus catches tab traversal out of the internal DropdownMenu structure
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) {
+          final currentText = controller.text;
+          final match = options.where((o) => getLabel(o) == currentText).firstOrNull;
+          if (match == null && currentText.isNotEmpty) {
+            controller.text = '';
+          }
         }
       },
+      child: DropdownMenu<T>(
+        controller: controller,
+        focusNode: effectiveFocusNode,
+        initialSelection: initialSelection,
+        label: Text(required ? '$label *' : label),
+        enableFilter: true,
+        requestFocusOnTap: true,
+        // Disable the trailing icon from participating in keyboard focus traversal
+        trailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_down)),
+        selectedTrailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_up)),
+        expandedInsets: EdgeInsets.zero, // Fills parent width like a normal input field
+        dropdownMenuEntries: options.map((option) {
+          return DropdownMenuEntry<T>(
+            value: option,
+            label: getLabel(option),
+          );
+        }).toList(),
+        onSelected: (T? newValue) {
+          if (newValue != null) {
+            controller.text = getLabel(newValue);
+            effectiveFocusNode.nextFocus();
+          }
+        },
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        ),
+      ),
     );
   }
 }

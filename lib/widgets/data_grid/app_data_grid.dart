@@ -209,9 +209,9 @@ class AppDataGrid extends HookWidget {
             },
             onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
                // Must end inline edit before opening modal!
-               stateManager.value?.setKeepFocus(false);
+               stateManager.value?.setEditing(false);
                
-               // Trigger child class logic (which should open modal and pass event.cell.column.field for focus)
+               // Trigger child class logic
                onRowDoubleTap(event);
             },
             onSelected: (PlutoGridOnSelectedEvent event) {

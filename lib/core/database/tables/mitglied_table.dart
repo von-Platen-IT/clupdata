@@ -18,6 +18,7 @@ class Mitglieds extends Table {
   TextColumn get telefon2 => text().nullable().withLength(max: 50)();
   TextColumn get email => text().nullable().withLength(max: 200)();
   DateTimeColumn get geboren => dateTime().nullable()();
+  TextColumn get geschlecht => text().nullable()(); // Enum:[maennlich, weiblich, divers]
   IntColumn get leistungId => integer().nullable().references(Leistung, #id, onDelete: KeyAction.setNull)();
   DateTimeColumn get vertragKontierung => dateTime().nullable()();
   DateTimeColumn get vertragLaufzeitVon => dateTime().nullable()();
