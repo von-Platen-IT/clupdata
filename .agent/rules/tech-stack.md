@@ -36,8 +36,14 @@ trigger: always_on
 - **[MUST] Code Generation Step:** Da wir `freezed`, `drift` und `riverpod_generator` nutzen, [MUST] du nach jeder Änderung an Models, Providern oder Tabellen den User auffordern: *"Bitte führe `dart run build_runner build -d` aus."* (Oder führe ihn selbst aus, falls du Terminal-Zugriff hast).
 - **[MUST] Kurzer Code:** Schreibe UI-Code deklarativ und kompakt. Extrahiere komplexe Widget-Bäume in private Methoden oder kleine Hook-Widgets, um die Lesbarkeit (und den AI-Context) zu schonen.
 
-## 6. Datenstruktur
-- **[MUST] Datenstruktur:* in der Datei lib/assets/data/structur.md gilt als *single source of truth* für das schema und die struktur der datenbank. beachte die versionierung bei der datenabkentwicklung wie sie in der Datei DatabaseMigration.md vorgegeben wird.
+## 6. PERFORMANCE-REGELN
+- **[MUST] Selektives Rebuilding:** Nutze `ref.watch(provider.select((v) => v.field))` wenn nur ein Teil des State benötigt wird. Vermeide unnötige Widget-Rebuilds durch überbeschriebene Provider.
+- **[MUST] Kein Mapping im Build:** Row-Mappings (z.B. `List<FeatureRowData>` → `List<PlutoRow>`) dürfen [NEVER] direkt im `build()`-Aufruf eines Widgets stattfinden. Nutze stattdessen `useMemoized(() => ..., [dependencies])` in HookWidgets oder einen dedizierten Provider.
+- **[MUST] Berechnete Felder im Provider:** Computed values (z.B. `nettopreis`, `alter`) müssen im Riverpod Provider oder im RowData-Mapping berechnet werden — niemals im DataGrid oder Dialog-Widget selbst.
+- **[MUST] Streams statt Polling:** Nutze Drift's `.watch()` Streams für alle Listenansichten. [NEVER] manuell Daten neu laden (`refetch`). Riverpod `StreamProvider` bindet den Stream reaktiv ein.
 
-## 7. DataGrid im UI
-- **[MUST] Tabellen im UI ** beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei .agent/rules/datagrid.md
+## 7. Datenstruktur
+- **[MUST] Datenstruktur:** Die Datei `lib/assets/data/structur.md` gilt als *single source of truth* für das Schema und die Struktur der Datenbank. Beachte die Versionierung bei der Datenbankentwicklung wie sie in der Datei `DatabaseMigration.md` vorgegeben wird.
+
+## 8. DataGrid im UI
+- **[MUST] Tabellen im UI:** Beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei `.agent/rules/datagrid.md` und `.agent/rules/app_data_grid.md`.

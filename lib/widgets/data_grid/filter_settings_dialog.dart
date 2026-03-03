@@ -1,28 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:gap/gap.dart';
 import 'package:pluto_grid/pluto_grid.dart';
+import 'package:gap/gap.dart';
 
 class FilterSettingsDialog extends HookWidget {
+  final List<PlutoRow> allRows;
   final List<PlutoColumn> columns;
-  final List<PlutoRow> allRows; // Raw unfiltered rows to extract unique values
-  final Map<String, String> activeFilters;
+  final Map<String, String> initialFilters;
 
   const FilterSettingsDialog({
     super.key,
-    required this.columns,
     required this.allRows,
-    required this.activeFilters,
+    required this.columns,
+    required this.initialFilters,
   });
+
+  static Future<Map<String, String>?> show(
+    BuildContext context, {
+    required List<PlutoRow> allRows,
+    required List<PlutoColumn> columns,
+    required Map<String, String> initialFilters,
+  }) {
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => FilterSettingsDialog(
+        allRows: allRows,
+        columns: columns,
+        initialFilters: initialFilters,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Only show columns that are allowed to be filtered
-    final filterableColumns = columns.where((c) => c.enableFilterMenuItem).toList();
-    
-    // State to hold current edits
-    final filtersState = useState<Map<String, String>>(Map.from(activeFilters));
-    final resetTrigger = useState(0);
+    // Only keep columns that have filtering explicitly enabled
+    final filterableColumns = useMemoized(() {
+      return columns.where((c) => c.enableFilterMenuItem).toList();
+    }, [columns]);
+
+    // Local state to keep track of changes before applying
+    final filterState = useState<Map<String, String>>(
+      Map.fromEntries(initialFilters.entries.where((e) => e.value.isNotEmpty)),
+    );
+
+    // Helper functions to get unique values for autocomplete
+    List<String> getUniqueValuesForColumn(String field) {
+      final values = allRows
+          .map((r) => r.cells[field]?.value?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      return values;
+    }
 
     return AlertDialog(
       title: Row(
@@ -32,153 +62,105 @@ class FilterSettingsDialog extends HookWidget {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
+            tooltip: 'Schließen',
           ),
         ],
       ),
       content: SizedBox(
-        width: 350,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: filterableColumns.map((col) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      col.title,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const Gap(8),
-                    _FilterAutocomplete(
-                      // We use resetTrigger as a key part to force rebuild on reset
-                      key: ValueKey('${col.field}_${resetTrigger.value}'),
-                      initialValue: filtersState.value[col.field] ?? '',
-                      options: _getDistinctValuesForColumn(col.field),
-                      onChanged: (val) {
-                        final newFilters = Map<String, String>.from(filtersState.value);
-                        if (val.trim().isEmpty) {
-                          newFilters.remove(col.field);
-                        } else {
-                          newFilters[col.field] = val;
-                        }
-                        filtersState.value = newFilters;
-                      },
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ),
+        width: 400,
+        child: filterableColumns.isEmpty
+            ? const Text('Keine filterbaren Spalten konfiguriert.')
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: filterableColumns.length,
+                separatorBuilder: (context, index) => const Gap(16),
+                itemBuilder: (context, index) {
+                  final col = filterableColumns[index];
+                  final options = useMemoized(
+                      () => getUniqueValuesForColumn(col.field),
+                      [col.field, allRows]);
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        col.title,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const Gap(4),
+                      Autocomplete<String>(
+                        initialValue: TextEditingValue(
+                          text: filterState.value[col.field] ?? '',
+                        ),
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) {
+                            return options;
+                          }
+                          return options.where((String option) {
+                            return option
+                                .toLowerCase()
+                                .contains(textEditingValue.text.toLowerCase());
+                          });
+                        },
+                        onSelected: (String selection) {
+                           filterState.value = {
+                             ...filterState.value,
+                             col.field: selection,
+                           };
+                        },
+                        fieldViewBuilder: (context, textEditingController,
+                            focusNode, onFieldSubmitted) {
+                          // keep controller in sync with state if external clear happens
+                          // We hook into the text controller to update the state on every keystroke
+                          textEditingController.addListener(() {
+                            final text = textEditingController.text;
+                            final currentVal = filterState.value[col.field] ?? '';
+                            if (text != currentVal) {
+                               filterState.value = {
+                                 ...filterState.value,
+                                 col.field: text,
+                               };
+                            }
+                          });
+
+                          return TextField(
+                            controller: textEditingController,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                              hintText: 'Nach ${col.title} filtern...',
+                              suffixIcon: const Icon(Icons.arrow_drop_down),
+                            ),
+                            onSubmitted: (String value) {
+                              onFieldSubmitted();
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(
           onPressed: () {
-            filtersState.value = {};
-            resetTrigger.value++;
+            // Reset filters
+            Navigator.of(context).pop(<String, String>{});
           },
           child: const Text('Filter zurücksetzen'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(filtersState.value),
+          onPressed: () {
+            Navigator.of(context).pop(filterState.value);
+          },
           child: const Text('Anwenden'),
         ),
       ],
-    );
-  }
-
-  List<String> _getDistinctValuesForColumn(String field) {
-    final values = allRows
-        .map((row) => row.cells[field]?.value?.toString() ?? '')
-        .where((val) => val.trim().isNotEmpty)
-        .toSet()
-        .toList();
-    values.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return values;
-  }
-}
-
-class _FilterAutocomplete extends HookWidget {
-  final String initialValue;
-  final List<String> options;
-  final ValueChanged<String> onChanged;
-
-  const _FilterAutocomplete({
-    super.key,
-    required this.initialValue,
-    required this.options,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final focusNode = useFocusNode();
-    final controller = useTextEditingController(text: initialValue);
-
-    return LayoutBuilder(
-      builder: (context, constraints) => Autocomplete<String>(
-        initialValue: TextEditingValue(text: initialValue),
-        optionsBuilder: (TextEditingValue textEditingValue) {
-          if (textEditingValue.text.isEmpty) {
-            return options;
-          }
-          final query = textEditingValue.text.toLowerCase();
-          return options.where((option) => option.toLowerCase().contains(query));
-        },
-        onSelected: (String selection) {
-          onChanged(selection);
-        },
-        fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-          // Sync changes from free typing, not just selection
-          controller.text = textEditingController.text;
-          return TextField(
-            controller: textEditingController,
-            focusNode: focusNode,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              suffixIcon: const Icon(Icons.arrow_drop_down),
-              hintText: 'Alle',
-            ),
-            onChanged: onChanged,
-            onSubmitted: (_) => onFieldSubmitted(),
-          );
-        },
-        optionsViewBuilder: (context, onSelected, options) {
-          return Align(
-            alignment: Alignment.topLeft,
-            child: Material(
-              elevation: 4.0,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: 200,
-                  maxWidth: constraints.maxWidth,
-                ),
-                child: ListView.builder(
-                  padding: EdgeInsets.zero,
-                  shrinkWrap: true,
-                  itemCount: options.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final String option = options.elementAt(index);
-                    return InkWell(
-                      onTap: () {
-                        onSelected(option);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(option),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }

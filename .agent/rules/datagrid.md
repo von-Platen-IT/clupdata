@@ -133,25 +133,42 @@ String toSearchString(PlutoRow row) {
 
 ---
 
-## 5. Feature: Column Header Sort (Single Column)
+## 5. Feature: Inline Editing vs ReadOnly
+
+Each column in every DataGrid can be configured as editable or read-only per the project requirements.
+
+- **[MUST]** The property `enableEditingMode: true/false` on `PlutoColumn` must be explicitly set.
+- **[MUST]** If a column is read-only in the grid, the corresponding input field in the modal Edit/Create dialog must also be read-only (`readOnly: true` or `enabled: false`).
+
+---
+
+## 6. Interaction Rules: Single-Click vs Double-Click
+
+- **Single Click**: A single click on a cell in the DataGrid enters inline editing mode for that specific cell (if `enableEditingMode` is true for that column).
+- **Double Click**: A double-click on any row/cell opens the full modal Edit/Create dialog for that entire record.
+- **[MUST]** If inline editing is active, it must be terminated/committed before the modal dialog opens on a double-click.
+
+---
+
+## 7. Feature: Column Header Sort (Single Column)
 
 - Clicking a **column header** toggles ascending / descending sort on that column.
 - This is the standard PlutoGrid `onSort` behaviour — enable it via
   `PlutoColumn(enableSorting: true, ...)`.
-- Single-column header sort coexists with the multi-column sort dialog (Section 6).
+- Single-column header sort coexists with the multi-column sort dialog (Section 8).
   When the multi-sort dialog is applied it takes precedence and resets header sort state.
 
 ---
 
-## 6. Feature: Multi-Column Sort Dialog
+## 8. Feature: Multi-Column Sort Dialog
 
-### 6.1 Trigger
+### 8.1 Trigger
 
 A button in the toolbar with a **stylised funnel / filter icon**
 (`Icons.filter_list` or a custom coffee-filter SVG icon).  
 Tooltip: `"Sortierung konfigurieren"`.
 
-### 6.2 Dialog: Sort Settings
+### 8.2 Dialog: Sort Settings
 
 Opens as a **modal bottom sheet or `AlertDialog`** with the following content:
 
@@ -172,7 +189,7 @@ Opens as a **modal bottom sheet or `AlertDialog`** with the following content:
 └─────────────────────────────────────────┘
 ```
 
-### 6.3 Interaction Rules
+### 8.3 Interaction Rules
 
 | Element | Behaviour |
 |---------|-----------|
@@ -182,7 +199,7 @@ Opens as a **modal bottom sheet or `AlertDialog`** with the following content:
 | **Übernehmen** | Applies the sort chain to the grid. PlutoGrid rows are sorted client-side in priority order. |
 | **Abbrechen** | Closes dialog without changes. |
 
-### 6.4 Sort Application Logic
+### 8.4 Sort Application Logic
 
 ```
 Sort chain = sortableColumns
@@ -200,14 +217,14 @@ rows.sort((a, b) {
 
 ---
 
-## 7. Feature: Column Filter Dialog
+## 9. Feature: Column Filter Dialog
 
-### 7.1 Trigger
+### 9.1 Trigger
 
 A second button in the toolbar — icon: `Icons.tune` or `Icons.filter_alt`.  
 Tooltip: `"Spaltenfilter"`.
 
-### 7.2 Dialog: Filter Settings
+### 9.2 Dialog: Filter Settings
 
 Opens as a **modal dialog or side sheet** listing every column that has
 `enableFilterMenuItem: true` set in its `PlutoColumn` definition.
@@ -230,7 +247,7 @@ Opens as a **modal dialog or side sheet** listing every column that has
 └──────────────────────────────────────────┘
 ```
 
-### 7.3 Autocomplete Behaviour
+### 9.3 Autocomplete Behaviour
 
 Each column field is represented by an **`Autocomplete<String>` widget**:
 
@@ -240,7 +257,7 @@ Each column field is represented by an **`Autocomplete<String>` widget**:
 - The user may also type a free value not in the list.
 - Matching is case-insensitive substring.
 
-### 7.4 Filter Application Logic
+### 9.4 Filter Application Logic
 
 - Multiple column filters are combined with **AND** logic.
 - Active filters are indicated on the filter button (e.g. badge with count).
@@ -250,7 +267,7 @@ Each column field is represented by an **`Autocomplete<String>` widget**:
 
 ---
 
-## 8. Localisation
+## 10. Localisation
 
 | Concern | Implementation |
 |---------|---------------|
@@ -283,7 +300,7 @@ const PlutoGridLocaleText(
 
 ---
 
-## 9. PlutoGrid Base Configuration
+## 11. PlutoGrid Base Configuration
 
 Every instantiation of `AppDataGrid` must apply the following
 `PlutoGridConfiguration` as default:
@@ -306,7 +323,26 @@ PlutoGridConfiguration(
 
 ---
 
-## 10. Naming & File Conventions
+## 12. Feature: Column Visibility & Ordering
+
+Every concrete child class of `AppDataGrid` may define which columns are **visible by default**. Columns can be toggled by the user at runtime via the PlutoGrid built-in column menu (`enableDropToResize`, `enableContextMenu`).
+
+- **[MUST]** The initial column order MUST match the `Data Grid Konfiguration` in `structur.md` exactly.
+- **[MUST]** Computed columns (e.g. `nettopreis`, `alter`) MUST have `enableEditingMode: false` and `enableSorting` set as per `structur.md`.
+- **[MUST]** Non-visible columns (e.g. `id`, internal FKs) MUST NOT appear in the `columns` list passed to `AppDataGrid`. They are passed only as data in `PlutoRow.cells` without a corresponding `PlutoColumn`.
+
+---
+
+## 13. Performance Rules
+
+- **[MUST] `useMemoized` for Row Mapping:** The conversion of `List<FeatureRowData>` to `List<PlutoRow>` MUST be wrapped in `useMemoized(() => ..., [dependencies])` in the child widget. Row mapping [NEVER] happens inside the `build()` call directly.
+- **[MUST] Computed Fields in Provider:** Computed values (`nettopreis`, `alter`, etc.) MUST be calculated in the Riverpod provider or in the RowData mapping — never inside the DataGrid widget or dialog.
+- **[MUST] Stream-Driven:** All data sources are Drift `.watch()` streams wrapped in Riverpod `StreamProvider`. Never poll / manually refresh data.
+- **[MUST] Selective Rebuilds:** Use `ref.watch(provider.select(...))` in child widgets when only a subset of the provider state is needed.
+
+---
+
+## 14. Naming & File Conventions
 
 ```
 lib/
@@ -326,7 +362,7 @@ lib/
 
 ---
 
-## 11. Checklist for Every New DataGrid Screen
+## 15. Checklist for Every New DataGrid Screen
 
 Before submitting code for a new table view, verify:
 
@@ -339,8 +375,13 @@ Before submitting code for a new table view, verify:
 - [ ] Sort dialog uses `ReorderableListView` with checkbox + direction toggle.
 - [ ] Toolbar buttons have tooltips in German.
 - [ ] No other grid/table widget imported or used.
+- [ ] Column order matches `structur.md` exactly.
+- [ ] Computed columns are `enableEditingMode: false`, computed in Provider.
+- [ ] Row mapping uses `useMemoized`, NOT inline in `build()`.
+- [ ] Modal dialog receives `initialFocusField` from clicked cell. (See `app_data_grid.md`)
+- [ ] Inline-edit save/commit is called before opening modal dialog on double-click.
 
 ---
 
-*Last updated: 2026-02-26 — Version 1.0*
+*Last updated: 2026-03-02 — Version 1.1*
 

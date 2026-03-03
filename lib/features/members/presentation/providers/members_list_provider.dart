@@ -21,12 +21,13 @@ final membersGridRowsProvider = Provider<AsyncValue<List<MemberRowData>>>((ref) 
   final membersResult = ref.watch(_membersStreamProvider);
   final leistungenResult = ref.watch(_leistungenStreamProvider);
 
-  if (membersResult.isLoading || leistungenResult.isLoading) {
-    return const AsyncValue.loading();
-  }
-
   if (membersResult.hasError) {
     return AsyncValue.error(membersResult.error!, membersResult.stackTrace ?? StackTrace.current);
+  }
+
+  // If we don't have basic data yet, and it's loading
+  if (!membersResult.hasValue || !leistungenResult.hasValue) {
+    return const AsyncValue.loading();
   }
 
   final List<Mitglied> members = membersResult.hasValue ? membersResult.value! : [];

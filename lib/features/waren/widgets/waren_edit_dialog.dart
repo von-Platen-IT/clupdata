@@ -1,291 +1,444 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
 
 import '../../../../common_widgets/forms/app_text_field.dart';
-import '../../stammdaten/data/stammdaten_repository.dart';
+import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/waren_repository.dart';
 import '../presentation/providers/waren_list_provider.dart';
 
 class WarenEditDialog extends HookConsumerWidget {
-  final WarenDetail? details;
+  final int? wareId;
+  final String? initialFocusField;
 
-  const WarenEditDialog({super.key, this.details});
+  const WarenEditDialog({
+    super.key,
+    this.wareId,
+    this.initialFocusField,
+  });
 
-  static Future<void> show(BuildContext context, {WarenDetail? details}) {
+  static Future<void> show(
+    BuildContext context, {
+    int? wareId,
+    String? initialFocusField,
+  }) {
     return showDialog(
       context: context,
-      builder: (context) => WarenEditDialog(details: details),
+      barrierDismissible: false,
+      builder: (context) => WarenEditDialog(
+        wareId: wareId,
+        initialFocusField: initialFocusField,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isEditing = details != null;
+    final detailsAsync = ref.watch(watchWarenDetailsProvider);
+    final detailsList = detailsAsync.value ?? [];
+    final details = wareId != null ? detailsList.where((d) => d.ware.id == wareId).firstOrNull : null;
+    
+    final settingsAsync = ref.watch(stammdatenSettingsMapForWarenProvider);
+    final mwstRate = useMemoized(() {
+      final settings = settingsAsync.value ?? {};
+      final mwstKey = settings['mwst_aktiv_schluessel'] ?? 'mwst_standard';
+      return double.tryParse(settings[mwstKey] ?? '19') ?? 19.0;
+    }, [settingsAsync.value]);
 
-    // Allgemein
-    final bezeichnungCtrl = useTextEditingController(text: details?.ware.bezeichnung ?? '');
-    final kategorieCtrl = useTextEditingController(text: details?.ware.kategorie ?? '');
-    final beschreibungCtrl = useTextEditingController(text: details?.ware.beschreibung ?? '');
-    final aktivCtrl = useState<bool>(details?.ware.aktiv ?? true);
+    final mwstMultiplier = 1 + (mwstRate / 100);
+
+    final isLoadingConfig = wareId != null && detailsAsync.isLoading;
+
+    // 2. Controllers - Allgemein
+    final ctrlBezeichnung = useTextEditingController();
+    final ctrlKategorie = useTextEditingController();
+    final ctrlBeschreibung = useTextEditingController();
+    final ctrlAktiv = useState<bool>(true);
 
     // Eigenschaften
-    final groesseCtrl = useTextEditingController(text: details?.ware.groesse ?? '');
-    final farbeCtrl = useTextEditingController(text: details?.ware.farbe ?? '');
-    final geschlechtCtrl = useState<String?>(details?.ware.geschlecht);
-    final materialCtrl = useTextEditingController(text: details?.ware.material ?? '');
-    final gewichtCtrl = useTextEditingController(text: details?.ware.gewichtKg?.toString() ?? '');
-    final einheitCtrl = useTextEditingController(text: details?.ware.einheit ?? 'Stück');
+    final ctrlGroesse = useTextEditingController();
+    final ctrlFarbe = useTextEditingController();
+    final ctrlGeschlecht = useTextEditingController();
+    final ctrlMaterial = useTextEditingController();
+    final ctrlGewichtKg = useTextEditingController();
+    final ctrlEinheit = useTextEditingController();
 
     // Preise & Bestand
-    final einkaufsCtrl = useTextEditingController(text: details?.ware.einkaufspreis?.toString() ?? '');
-    final bruttoCtrl = useTextEditingController(text: details?.ware.bruttopreis.toString() ?? '');
-    final bestandCtrl = useTextEditingController(text: details?.ware.bestand.toString() ?? '0');
-    final minBestandCtrl = useTextEditingController(text: details?.ware.mindestbestand.toString() ?? '0');
+    final ctrlEinkaufspreis = useTextEditingController();
+    final ctrlBruttopreis = useTextEditingController();
+    final ctrlNettopreis = useTextEditingController();
+    final ctrlBestand = useTextEditingController();
+    final ctrlMindestbestand = useTextEditingController();
 
     // Logistik
-    final lieferantCtrl = useTextEditingController(text: details?.ware.lieferant ?? '');
-    final herstellerCtrl = useTextEditingController(text: details?.ware.hersteller ?? '');
-    final artikelnrCtrl = useTextEditingController(text: details?.ware.herstellerArtikelnr ?? '');
+    final ctrlLieferant = useTextEditingController();
+    final ctrlHersteller = useTextEditingController();
+    final ctrlHerstellerArtikelnr = useTextEditingController();
 
     // Bemerkung
-    final bemerkungTitelCtrl = useTextEditingController(text: details?.bemerkung?.titel ?? '');
-    final bemerkungTextCtrl = useTextEditingController(text: details?.bemerkung?.textValue ?? '');
+    final ctrlBemerkungTitel = useTextEditingController();
+    final ctrlBemerkungText = useTextEditingController();
 
-    final isLoadingAsync = useState(false);
+    // 3. Focus Nodes
+    final fnBezeichnung = useFocusNode();
+    final fnKategorie = useFocusNode();
+    final fnBeschreibung = useFocusNode();
+    final fnGroesse = useFocusNode();
+    final fnFarbe = useFocusNode();
+    final fnGeschlecht = useFocusNode();
+    final fnMaterial = useFocusNode();
+    final fnGewichtKg = useFocusNode();
+    final fnEinheit = useFocusNode();
+    final fnEinkaufspreis = useFocusNode();
+    final fnBruttopreis = useFocusNode();
+    final fnBestand = useFocusNode();
+    final fnMindestbestand = useFocusNode();
+    final fnLieferant = useFocusNode();
+    final fnHersteller = useFocusNode();
+    final fnHerstellerArtikelnr = useFocusNode();
 
-    // Watch Stammdaten for live net computation
-    final stammdatenAsync = ref.watch(stammdatenSettingsMapForWarenProvider);
-    final settings = stammdatenAsync.value ?? {};
-    final mwstKey = settings['mwst_aktiv_schluessel'] ?? 'mwst_standard';
-    final mwstValueStr = settings[mwstKey] ?? '19';
-    final mwstRate = double.tryParse(mwstValueStr) ?? 19.0;
+    // 4. Initialization
+    useEffect(() {
+       if (details != null) {
+          final w = details.ware;
+          ctrlBezeichnung.text = w.bezeichnung;
+          ctrlKategorie.text = w.kategorie ?? '';
+          ctrlBeschreibung.text = w.beschreibung ?? '';
+          ctrlAktiv.value = w.aktiv;
 
-    useListenable(bruttoCtrl);
-    final bruttoVal = double.tryParse(bruttoCtrl.text.replaceAll(',', '.')) ?? 0.0;
-    final nettoVal = bruttoVal / (1 + (mwstRate / 100));
+          ctrlGroesse.text = w.groesse ?? '';
+          ctrlFarbe.text = w.farbe ?? '';
+          ctrlGeschlecht.text = w.geschlecht ?? '';
+          ctrlMaterial.text = w.material ?? '';
+          ctrlGewichtKg.text = w.gewichtKg?.toString() ?? '';
+          ctrlEinheit.text = w.einheit ?? '';
 
-    Future<void> save() async {
-      if (bezeichnungCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bezeichnung ist Pflichtfeld')));
-        return;
+          ctrlEinkaufspreis.text = w.einkaufspreis?.toStringAsFixed(2) ?? '';
+          ctrlBruttopreis.text = w.bruttopreis.toStringAsFixed(2);
+          ctrlNettopreis.text = (w.bruttopreis / mwstMultiplier).toStringAsFixed(2);
+          ctrlBestand.text = w.bestand.toString();
+          ctrlMindestbestand.text = w.mindestbestand.toString();
+
+          ctrlLieferant.text = w.lieferant ?? '';
+          ctrlHersteller.text = w.hersteller ?? '';
+          ctrlHerstellerArtikelnr.text = w.herstellerArtikelnr ?? '';
+
+          final b = details.bemerkung;
+          ctrlBemerkungTitel.text = b?.titel ?? '';
+          ctrlBemerkungText.text = b?.textValue ?? '';
+       } else {
+          // Defaults for new item
+          ctrlBestand.text = '0';
+          ctrlMindestbestand.text = '0';
+       }
+       return null;
+    }, [details, mwstMultiplier]);
+
+    // Track active updates to avoid loop
+    final isUpdatingPrice = useState(false);
+
+    useEffect(() {
+      void updateNetto() {
+        if (isUpdatingPrice.value) return;
+        final bruttoVal = double.tryParse(ctrlBruttopreis.text.replaceAll(',', '.'));
+        if (bruttoVal != null) {
+          isUpdatingPrice.value = true;
+          ctrlNettopreis.text = (bruttoVal / mwstMultiplier).toStringAsFixed(2);
+          isUpdatingPrice.value = false;
+        } else if (ctrlBruttopreis.text.isEmpty) {
+          isUpdatingPrice.value = true;
+          ctrlNettopreis.text = '';
+          isUpdatingPrice.value = false;
+        }
       }
-      final parsedBrutto = double.tryParse(bruttoCtrl.text.replaceAll(',', '.'));
-      if (parsedBrutto == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gültiger Bruttopreis benötigt')));
-        return;
+
+      void updateBrutto() {
+        if (isUpdatingPrice.value) return;
+        final nettoVal = double.tryParse(ctrlNettopreis.text.replaceAll(',', '.'));
+        if (nettoVal != null) {
+          isUpdatingPrice.value = true;
+          ctrlBruttopreis.text = (nettoVal * mwstMultiplier).toStringAsFixed(2);
+          isUpdatingPrice.value = false;
+        } else if (ctrlNettopreis.text.isEmpty) {
+          isUpdatingPrice.value = true;
+          ctrlBruttopreis.text = '';
+          isUpdatingPrice.value = false;
+        }
       }
 
-      final parsedEinkauf = double.tryParse(einkaufsCtrl.text.replaceAll(',', '.'));
-      final parsedGewicht = double.tryParse(gewichtCtrl.text.replaceAll(',', '.'));
-      final parsedBestand = int.tryParse(bestandCtrl.text) ?? 0;
-      final parsedMinBestand = int.tryParse(minBestandCtrl.text) ?? 0;
+      ctrlBruttopreis.addListener(updateNetto);
+      ctrlNettopreis.addListener(updateBrutto);
 
-      isLoadingAsync.value = true;
+      return () {
+        ctrlBruttopreis.removeListener(updateNetto);
+        ctrlNettopreis.removeListener(updateBrutto);
+      };
+    }, [mwstMultiplier]);
+
+    // 5. Auto Focus
+    useEffect(() {
+      if (!isLoadingConfig && initialFocusField != null) {
+         WidgetsBinding.instance.addPostFrameCallback((_) {
+            switch (initialFocusField) {
+              case 'bezeichnung': fnBezeichnung.requestFocus(); break;
+              case 'kategorie': fnKategorie.requestFocus(); break;
+              case 'bestand': fnBestand.requestFocus(); break;
+              case 'bruttopreis': fnBruttopreis.requestFocus(); break;
+            }
+         });
+      }
+      return null;
+    }, [isLoadingConfig, initialFocusField]);
+
+    final isSaving = useState(false);
+
+    Future<void> saveWare() async {
+      if (ctrlBezeichnung.text.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bezeichnung ist ein Pflichtfeld.')));
+         return;
+      }
+
+      final bruttoVal = double.tryParse(ctrlBruttopreis.text.replaceAll(',', '.'));
+      if (bruttoVal == null) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ungültiger Bruttopreis.')));
+         return;
+      }
+
+      isSaving.value = true;
       try {
         final repo = ref.read(warenRepositoryProvider);
+
         await repo.saveWareFull(
-          wareId: details?.ware.id,
-          bezeichnung: bezeichnungCtrl.text.trim(),
-          beschreibung: beschreibungCtrl.text.trim(),
-          kategorie: kategorieCtrl.text.trim(),
-          groesse: groesseCtrl.text.trim(),
-          farbe: farbeCtrl.text.trim(),
-          geschlecht: geschlechtCtrl.value,
-          material: materialCtrl.text.trim(),
-          einkaufspreis: parsedEinkauf,
-          bruttopreis: parsedBrutto,
-          bestand: parsedBestand,
-          mindestbestand: parsedMinBestand,
-          lieferant: lieferantCtrl.text.trim(),
-          hersteller: herstellerCtrl.text.trim(),
-          herstellerArtikelnr: artikelnrCtrl.text.trim(),
-          gewichtKg: parsedGewicht,
-          einheit: einheitCtrl.text.trim(),
-          aktiv: aktivCtrl.value,
+          wareId: wareId,
+          bezeichnung: ctrlBezeichnung.text,
+          beschreibung: ctrlBeschreibung.text,
+          kategorie: ctrlKategorie.text,
+          groesse: ctrlGroesse.text,
+          farbe: ctrlFarbe.text,
+          geschlecht: ctrlGeschlecht.text,
+          material: ctrlMaterial.text,
+          einkaufspreis: double.tryParse(ctrlEinkaufspreis.text.replaceAll(',', '.')),
+          bruttopreis: bruttoVal,
+          bestand: int.tryParse(ctrlBestand.text) ?? 0,
+          mindestbestand: int.tryParse(ctrlMindestbestand.text) ?? 0,
+          lieferant: ctrlLieferant.text,
+          hersteller: ctrlHersteller.text,
+          herstellerArtikelnr: ctrlHerstellerArtikelnr.text,
+          gewichtKg: double.tryParse(ctrlGewichtKg.text.replaceAll(',', '.')),
+          einheit: ctrlEinheit.text,
+          aktiv: ctrlAktiv.value,
           existingBemerkungId: details?.bemerkung?.id,
-          bemerkungTitel: bemerkungTitelCtrl.text.trim(),
-          bemerkungText: bemerkungTextCtrl.text.trim(),
+          bemerkungTitel: ctrlBemerkungTitel.text,
+          bemerkungText: ctrlBemerkungText.text,
         );
-        if (context.mounted) Navigator.of(context).pop();
+
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erfolgreich gespeichert')));
+        }
       } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+        if (context.mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
+        }
       } finally {
-        if (context.mounted) isLoadingAsync.value = false;
+        isSaving.value = false;
       }
     }
 
-    final scrollController = useScrollController();
+    if (isLoadingConfig) {
+       return const AlertDialog(content: SizedBox(width: 100, height: 100, child: Center(child: CircularProgressIndicator())));
+    }
 
-    return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
-      child: AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          if (!isSaving.value) {
+            saveWare();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: AlertDialog(
+          title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(wareId == null ? 'Neue Ware' : 'Ware bearbeiten'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 800,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               // Allgemein
+               Text('Allgemein', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Expanded(flex: 3, child: AppTextField(controller: ctrlBezeichnung, label: 'Bezeichnung', focusNode: fnBezeichnung)),
+                   const Gap(8),
+                   Expanded(flex: 2, child: AppTextField(controller: ctrlKategorie, label: 'Kategorie', focusNode: fnKategorie)),
+                 ],
+               ),
+               const Gap(8),
+               AppTextField(controller: ctrlBeschreibung, label: 'Beschreibung', focusNode: fnBeschreibung, maxLines: 2),
+               const Gap(8),
+               Row(
+                 children: [
+                   Checkbox(value: ctrlAktiv.value, onChanged: (v) => ctrlAktiv.value = v ?? false),
+                   const Text('Aktiv (für Verkauf verfügbar)'),
+                 ],
+               ),
+               const Gap(24),
+
+               // Eigenschaften
+               Text('Eigenschaften', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlGroesse, label: 'Größe', focusNode: fnGroesse)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlFarbe, label: 'Farbe', focusNode: fnFarbe)),
+                   const Gap(8),
+                   Expanded(child: AppDropdownField<String>(
+                      controller: ctrlGeschlecht,
+                      label: 'Geschlecht',
+                      focusNode: fnGeschlecht,
+                      options: const ['Unisex', 'Herren', 'Damen', 'Kinder'],
+                      getLabel: (v) => v,
+                   )),
+                 ],
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlMaterial, label: 'Material', focusNode: fnMaterial)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlGewichtKg, label: 'Gewicht (kg)', focusNode: fnGewichtKg)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlEinheit, label: 'Einheit', focusNode: fnEinheit)),
+                 ],
+               ),
+               const Gap(24),
+
+               // Preise & Bestand
+               Text('Preise & Bestand', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlEinkaufspreis, label: 'Einkaufspreis (€)', focusNode: fnEinkaufspreis)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlBruttopreis, label: 'VK Brutto', focusNode: fnBruttopreis)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlNettopreis, label: 'VK Netto')),
+                 ],
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlBestand, label: 'Bestand', focusNode: fnBestand)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlMindestbestand, label: 'Mindestbestand', focusNode: fnMindestbestand)),
+                 ],
+               ),
+               const Gap(24),
+
+               // Logistik
+               Text('Logistik & Hersteller', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlLieferant, label: 'Lieferant', focusNode: fnLieferant)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlHersteller, label: 'Hersteller', focusNode: fnHersteller)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlHerstellerArtikelnr, label: 'Artikelnr. HF', focusNode: fnHerstellerArtikelnr)),
+                 ],
+               ),
+               const Gap(24),
+
+               // Bemerkung
+               Text('Bemerkung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
+            ],
+          ),
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        if (wareId != null)
+           TextButton.icon(
+             icon: const Icon(Icons.delete, color: Colors.red),
+             label: const Text('Löschen', style: TextStyle(color: Colors.red)),
+             onPressed: () async {
+               final confirm = await showDialog<bool>(
+                 context: context,
+                 builder: (ctx) => AlertDialog(
+                   title: const Text('Wirklich löschen?'),
+                   content: const Text('Möchten Sie diese Ware unwiderruflich löschen?'),
+                   actions: [
+                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+                     FilledButton(
+                       style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                       onPressed: () => Navigator.of(ctx).pop(true), 
+                       child: const Text('Löschen'),
+                     ),
+                   ]
+                 )
+               );
+               if (confirm == true && context.mounted) {
+                 try {
+                   await ref.read(warenRepositoryProvider).deleteWare(wareId!);
+                   if (context.mounted) {
+                     Navigator.of(context).pop();
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ware erfolgreich gelöscht')));
+                   }
+                 } catch (e) {
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
+                   }
+                 }
+               }
+             },
+           )
+        else
+           const SizedBox.shrink(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(isEditing ? 'Ware bearbeiten' : 'Neue Ware anlegen'),
-            IconButton(
-              icon: const Icon(Icons.close),
+            TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              splashRadius: 20,
+              child: const Text('Abbrechen'),
+            ),
+            const Gap(8),
+            FilledButton.icon(
+              onPressed: isSaving.value ? null : saveWare,
+              icon: isSaving.value 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save),
+              label: const Text('Speichern'),
             ),
           ],
         ),
-        content: FocusTraversalOrder(
-          order: const NumericFocusOrder(1),
-          child: SizedBox(
-            width: 800,
-            height: 700,
-            child: Scrollbar(
-              controller: scrollController,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Allgemein ---
-                      const Text('Allgemein', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: AppTextField(controller: bezeichnungCtrl, label: 'Bezeichnung', required: true),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            flex: 1,
-                            child: AppTextField(controller: kategorieCtrl, label: 'Kategorie'),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      AppTextField(controller: beschreibungCtrl, label: 'Beschreibung', maxLines: 3, textInputAction: TextInputAction.none),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Checkbox(value: aktivCtrl.value, onChanged: (v) => aktivCtrl.value = v ?? true),
-                          const Text('Artikel ist aktiv (im Verkauf)'),
-                        ],
-                      ),
-                      const Gap(32),
-
-                      // --- Eigenschaften ---
-                      const Text('Eigenschaften', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(child: AppTextField(controller: groesseCtrl, label: 'Größe')),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: farbeCtrl, label: 'Farbe')),
-                          const Gap(16),
-                          Expanded(
-                            child: DropdownButtonFormField<String?>(
-                              value: geschlechtCtrl.value,
-                              decoration: const InputDecoration(labelText: 'Geschlecht', border: OutlineInputBorder()),
-                              items: const [
-                                DropdownMenuItem(value: null, child: Text('- Keine Angabe -')),
-                                DropdownMenuItem(value: 'Unisex', child: Text('Unisex')),
-                                DropdownMenuItem(value: 'Herren', child: Text('Herren')),
-                                DropdownMenuItem(value: 'Damen', child: Text('Damen')),
-                                DropdownMenuItem(value: 'Kinder', child: Text('Kinder')),
-                              ],
-                              onChanged: (v) => geschlechtCtrl.value = v,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      Row(
-                        children: [
-                          Expanded(child: AppTextField(controller: materialCtrl, label: 'Material')),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: gewichtCtrl, label: 'Gewicht (kg)', keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: einheitCtrl, label: 'Einheit (Stück, Paar)')),
-                        ],
-                      ),
-                      const Gap(32),
-
-                      // --- Preise & Bestand ---
-                      const Text('Preise & Bestand', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(child: AppTextField(controller: einkaufsCtrl, label: 'Einkaufspreis Netto (€)', keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: bruttoCtrl, label: 'Verkaufspreis Brutto (€)', required: true, keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: TextEditingController(text: nettoVal.toStringAsFixed(2)), label: 'Nettopreis (berechnet)', readOnly: true)),
-                        ],
-                      ),
-                      const Gap(16),
-                      Row(
-                        children: [
-                          Expanded(child: AppTextField(controller: bestandCtrl, label: 'Aktueller Bestand', keyboardType: TextInputType.number)),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: minBestandCtrl, label: 'Mindestbestand', keyboardType: TextInputType.number)),
-                          const Gap(16),
-                          const Spacer(), // Empty space to align
-                        ],
-                      ),
-                      const Gap(32),
-
-                      // --- Logistik & Hersteller ---
-                      const Text('Logistik & Hersteller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(child: AppTextField(controller: lieferantCtrl, label: 'Lieferant')),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: herstellerCtrl, label: 'Hersteller')),
-                          const Gap(16),
-                          Expanded(child: AppTextField(controller: artikelnrCtrl, label: 'Hersteller Artikelnr.')),
-                        ],
-                      ),
-                      const Gap(32),
-
-                      // --- Bemerkung ---
-                      const Text('Lokale Bemerkung', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                      const Divider(),
-                      const Gap(8),
-                      AppTextField(controller: bemerkungTitelCtrl, label: 'Bemerkung Titel'),
-                      const Gap(16),
-                      AppTextField(controller: bemerkungTextCtrl, label: 'Bemerkung Text', maxLines: 4, textInputAction: TextInputAction.none),
-                      const Gap(32),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+      ],
         ),
-        actions: [
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(2),
-            child: TextButton(
-              onPressed: isLoadingAsync.value ? null : () => Navigator.of(context).pop(),
-              child: const Text('Abbrechen'),
-            ),
-          ),
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(3),
-            child: ElevatedButton(
-              onPressed: isLoadingAsync.value ? null : save,
-              child: isLoadingAsync.value
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Speichern'),
-            ),
-          ),
-        ],
       ),
     );
   }

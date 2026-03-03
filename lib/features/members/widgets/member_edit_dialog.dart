@@ -1,422 +1,448 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
-import '../../../common_widgets/forms/app_text_field.dart';
 import 'package:gap/gap.dart';
+import 'package:drift/drift.dart' as drift;
 
-import '../../../core/database/database.dart';
+import '../../../../common_widgets/forms/app_text_field.dart';
+import '../../../../common_widgets/forms/app_dropdown_field.dart';
+import '../../../../common_widgets/forms/app_date_picker_field.dart';
+import '../../../../core/database/database.dart';
 import '../data/members_repository.dart';
 
-/// Modal dialog for creating or editing a member.
 class MemberEditDialog extends HookConsumerWidget {
-  final Mitglied? member;
+  final int? memberId;
+  final String? initialFocusField;
 
-  const MemberEditDialog({super.key, this.member});
+  const MemberEditDialog({
+    super.key,
+    this.memberId,
+    this.initialFocusField,
+  });
 
-  static Future<void> show(BuildContext context, {Mitglied? member}) {
+  static Future<void> show(
+    BuildContext context, {
+    int? memberId,
+    String? initialFocusField,
+  }) {
     return showDialog(
       context: context,
-      builder: (context) => MemberEditDialog(member: member),
+      barrierDismissible: false, // Must use Cancel or X to close
+      builder: (context) => MemberEditDialog(
+        memberId: memberId,
+        initialFocusField: initialFocusField,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isEditing = member != null;
+    // 1. Load data
+    final memberAsync = useMemoized(() {
+      if (memberId == null) return Future.value(null);
+      return ref.read(membersRepositoryProvider).getMemberById(memberId!);
+    }, [memberId]);
+    
+    final memberSnapshot = useFuture(memberAsync);
+    final bemerkungAsync = useMemoized(() {
+      final mId = memberSnapshot.data?.bemerkungId;
+      if (mId == null) return Future.value(null);
+      return ref.read(membersRepositoryProvider).getBemerkungById(mId);
+    }, [memberSnapshot.data?.bemerkungId]);
+    final bemerkungSnapshot = useFuture(bemerkungAsync);
 
-    // Helper functions for date formatting and parsing
-    String formatDate(DateTime? date) {
-      if (date == null) return '';
-      return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-    }
+    final isLoadingConfig = memberId != null && 
+        (memberSnapshot.connectionState == ConnectionState.waiting || 
+         bemerkungSnapshot.connectionState == ConnectionState.waiting);
 
-    DateTime? parseDateLocal(String text) {
-      final t = text.trim();
-      if (t.isEmpty) return null;
-      final parts = t.split(RegExp(r'[\.\-\/]')); // robust split
-      if (parts.length == 3) {
-        final d = int.tryParse(parts[0]);
-        final m = int.tryParse(parts[1]);
-        int? y = int.tryParse(parts[2]);
-        if (d != null && m != null && y != null) {
-          if (y < 100) y += 2000; // heuristic for 2 digit years
-          return DateTime(y, m, d);
-        }
+    // 2. Form Controllers
+    // Person
+    final ctrlAnrede = useTextEditingController();
+    final ctrlName = useTextEditingController();
+    final ctrlVorname = useTextEditingController();
+    final ctrlGeboren = useState<DateTime?>(null);
+    final ctrlGeschlecht = useTextEditingController();
+    
+    // Kontakt
+    final ctrlPlz = useTextEditingController();
+    final ctrlOrt = useTextEditingController();
+    final ctrlStrasse = useTextEditingController();
+    final ctrlHausnummer = useTextEditingController();
+    final ctrlTelefon1 = useTextEditingController();
+    final ctrlTelefon2 = useTextEditingController();
+    final ctrlEmail = useTextEditingController();
+    
+    // Vertrag
+    final ctrlVertragKontierung = useState<DateTime?>(null);
+    final ctrlVertragLaufzeitVon = useState<DateTime?>(null);
+    final ctrlVertragLaufzeitBis = useState<DateTime?>(null);
+    
+    // Bemerkung
+    final ctrlBemerkungTitel = useTextEditingController();
+    final ctrlBemerkungText = useTextEditingController();
+
+    // 3. Focus Nodes
+    final fnAnrede = useFocusNode();
+    final fnName = useFocusNode();
+    final fnVorname = useFocusNode();
+    final fnGeboren = useFocusNode();
+    final fnGeschlecht = useFocusNode();
+    final fnPlz = useFocusNode();
+    final fnOrt = useFocusNode();
+    final fnStrasse = useFocusNode();
+    final fnHausnummer = useFocusNode();
+    final fnTelefon1 = useFocusNode();
+    final fnTelefon2 = useFocusNode();
+    final fnEmail = useFocusNode();
+    final fnVertragKontierung = useFocusNode();
+    final fnVertragLaufzeitVon = useFocusNode();
+    final fnVertragLaufzeitBis = useFocusNode();
+    
+    // 4. Initialize Data
+    useEffect(() {
+      if (memberSnapshot.hasData) {
+        final m = memberSnapshot.data!;
+        ctrlAnrede.text = m.anrede ?? '';
+        ctrlName.text = m.name;
+        ctrlVorname.text = m.vorname;
+        ctrlGeboren.value = m.geboren;
+        // ctrlGeschlecht.text = m.geschlecht ?? ''; // Not in DB schema yet
+        
+        ctrlPlz.text = m.plz ?? '';
+        ctrlOrt.text = m.ort ?? '';
+        ctrlStrasse.text = m.strasse ?? '';
+        ctrlHausnummer.text = m.hausnummer ?? '';
+        ctrlTelefon1.text = m.telefon1 ?? '';
+        ctrlTelefon2.text = m.telefon2 ?? '';
+        ctrlEmail.text = m.email ?? '';
+        
+        ctrlVertragKontierung.value = m.vertragKontierung;
+        ctrlVertragLaufzeitVon.value = m.vertragLaufzeitVon;
+        ctrlVertragLaufzeitBis.value = m.vertragLaufzeitBis;
+      }
+      
+      if (bemerkungSnapshot.hasData) {
+        final b = bemerkungSnapshot.data!;
+        ctrlBemerkungTitel.text = b.titel;
+        ctrlBemerkungText.text = b.textValue ?? '';
       }
       return null;
-    }
+    }, [memberSnapshot.data, bemerkungSnapshot.data]);
 
-    // --- State controllers ---
-    final anredeCtrl = useState<String?>(member?.anrede);
-    final vornameCtrl = useTextEditingController(text: member?.vorname ?? '');
-    final nameCtrl = useTextEditingController(text: member?.name ?? '');
-    final geborenCtrl = useTextEditingController(text: formatDate(member?.geboren));
-
-    final strasseCtrl = useTextEditingController(text: member?.strasse ?? '');
-    final hausnummerCtrl = useTextEditingController(text: member?.hausnummer ?? '');
-    final plzCtrl = useTextEditingController(text: member?.plz ?? '');
-    final ortCtrl = useTextEditingController(text: member?.ort ?? '');
-    final telefon1Ctrl = useTextEditingController(text: member?.telefon1 ?? '');
-    final telefon2Ctrl = useTextEditingController(text: member?.telefon2 ?? '');
-    final emailCtrl = useTextEditingController(text: member?.email ?? '');
-
-    final leistungIdCtrl = useState<int?>(member?.leistungId);
-    final vertragKontierungCtrl = useTextEditingController(text: formatDate(member?.vertragKontierung ?? DateTime.now()));
-    final vertragLaufzeitVonCtrl = useTextEditingController(text: formatDate(member?.vertragLaufzeitVon));
-    final vertragLaufzeitBisCtrl = useTextEditingController(text: formatDate(member?.vertragLaufzeitBis));
-    
-    final bemerkungTitelCtrl = useTextEditingController(text: '');
-    final bemerkungTextCtrl = useTextEditingController(text: '');
-
+    // 5. Auto Focus based on initialFocusField
     useEffect(() {
-      if (isEditing && member!.bemerkungId != null) {
-        ref.read(membersRepositoryProvider).getBemerkungById(member!.bemerkungId!).then((b) {
-          if (b != null && context.mounted) {
-            bemerkungTitelCtrl.text = b.titel;
-            bemerkungTextCtrl.text = b.textValue ?? '';
+      if (!isLoadingConfig && initialFocusField != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          switch (initialFocusField) {
+            case 'name': fnName.requestFocus(); break;
+            case 'vorname': fnVorname.requestFocus(); break;
+            case 'ort': fnOrt.requestFocus(); break;
+            case 'telefon1': fnTelefon1.requestFocus(); break;
+            case 'email': fnEmail.requestFocus(); break;
+            case 'vertrag_laufzeit_von': fnVertragLaufzeitVon.requestFocus(); break;
+            case 'vertrag_laufzeit_bis': fnVertragLaufzeitBis.requestFocus(); break;
+            // Add more mappings if needed based on AppDataGrid columns
           }
         });
       }
       return null;
-    }, []);
+    }, [isLoadingConfig, initialFocusField]);
 
-    final isLoadingAsync = useState(false);
+    final isSaving = useState(false);
 
-    Future<void> selectDate(BuildContext context, TextEditingController ctrl) async {
-      final initial = parseDateLocal(ctrl.text) ?? DateTime.now();
-      final picked = await showDatePicker(
-        context: context,
-        initialDate: initial,
-        firstDate: DateTime(1900),
-        lastDate: DateTime(2100),
-      );
-      if (picked != null) {
-        ctrl.text = formatDate(picked);
-      }
-    }
-
-    Future<void> save() async {
-      if (vornameCtrl.text.trim().isEmpty || nameCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vorname und Nachname sind Pflichtfelder')),
-        );
-        return;
+    // Save Action
+    Future<void> saveMember() async {
+      // Very basic validation
+      if (ctrlName.text.isEmpty || ctrlVorname.text.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name und Vorname sind Pflichtfelder.')));
+         return;
       }
 
-      isLoadingAsync.value = true;
+      isSaving.value = true;
       try {
         final repo = ref.read(membersRepositoryProvider);
         
-        final companion = MitgliedsCompanion.insert(
-            anrede: drift.Value(anredeCtrl.value),
-            vorname: vornameCtrl.text.trim(),
-            name: nameCtrl.text.trim(),
-            strasse: drift.Value(strasseCtrl.text.trim()),
-            hausnummer: drift.Value(hausnummerCtrl.text.trim()),
-            plz: drift.Value(plzCtrl.text.trim()),
-            ort: drift.Value(ortCtrl.text.trim()),
-            telefon1: drift.Value(telefon1Ctrl.text.trim()),
-            telefon2: drift.Value(telefon2Ctrl.text.trim()),
-            email: drift.Value(emailCtrl.text.trim()),
-            geboren: drift.Value(parseDateLocal(geborenCtrl.text)),
-            leistungId: drift.Value(leistungIdCtrl.value),
-            vertragKontierung: drift.Value(parseDateLocal(vertragKontierungCtrl.text)),
-            vertragLaufzeitVon: drift.Value(parseDateLocal(vertragLaufzeitVonCtrl.text)),
-            vertragLaufzeitBis: drift.Value(parseDateLocal(vertragLaufzeitBisCtrl.text)),
+        // 1. Save member
+        final companion = MitgliedsCompanion(
+           id: memberId != null ? drift.Value(memberId!) : const drift.Value.absent(),
+           anrede: drift.Value(ctrlAnrede.text.isEmpty ? null : ctrlAnrede.text),
+           name: drift.Value(ctrlName.text),
+           vorname: drift.Value(ctrlVorname.text),
+           geboren: drift.Value(ctrlGeboren.value),
+           // geschlecht: drift.Value(ctrlGeschlecht.text.isEmpty ? null : ctrlGeschlecht.text), // Not in DB schema yet
+           plz: drift.Value(ctrlPlz.text.isEmpty ? null : ctrlPlz.text),
+           ort: drift.Value(ctrlOrt.text.isEmpty ? null : ctrlOrt.text),
+           strasse: drift.Value(ctrlStrasse.text.isEmpty ? null : ctrlStrasse.text),
+           hausnummer: drift.Value(ctrlHausnummer.text.isEmpty ? null : ctrlHausnummer.text),
+           telefon1: drift.Value(ctrlTelefon1.text.isEmpty ? null : ctrlTelefon1.text),
+           telefon2: drift.Value(ctrlTelefon2.text.isEmpty ? null : ctrlTelefon2.text),
+           email: drift.Value(ctrlEmail.text.isEmpty ? null : ctrlEmail.text),
+           vertragKontierung: drift.Value(ctrlVertragKontierung.value),
+           vertragLaufzeitVon: drift.Value(ctrlVertragLaufzeitVon.value),
+           vertragLaufzeitBis: drift.Value(ctrlVertragLaufzeitBis.value),
         );
 
-        int? bemerkungId = member?.bemerkungId;
-        final title = bemerkungTitelCtrl.text.trim();
-        final text = bemerkungTextCtrl.text.trim();
-        if (title.isNotEmpty || text.isNotEmpty) {
-           bemerkungId = await repo.saveBemerkung(bemerkungId, title, text);
-        }
-
-        final finalCompanion = companion.copyWith(
-          bemerkungId: drift.Value(bemerkungId),
-        );
-
-        if (isEditing) {
-          final updated = member!.copyWith(
-            anrede: finalCompanion.anrede,
-            vorname: finalCompanion.vorname.value,
-            name: finalCompanion.name.value,
-            strasse: finalCompanion.strasse,
-            hausnummer: finalCompanion.hausnummer,
-            plz: finalCompanion.plz,
-            ort: finalCompanion.ort,
-            telefon1: finalCompanion.telefon1,
-            telefon2: finalCompanion.telefon2,
-            email: finalCompanion.email,
-            geboren: finalCompanion.geboren,
-            leistungId: finalCompanion.leistungId,
-            vertragKontierung: finalCompanion.vertragKontierung,
-            vertragLaufzeitVon: finalCompanion.vertragLaufzeitVon,
-            vertragLaufzeitBis: finalCompanion.vertragLaufzeitBis,
-            bemerkungId: finalCompanion.bemerkungId,
-          );
-          await repo.updateMember(updated);
+        int savedMemberId;
+        if (memberId == null) {
+           savedMemberId = await repo.addMember(companion);
         } else {
-          await repo.addMember(finalCompanion);
+           await repo.updateMember(Mitglied(
+              id: memberId!,
+              name: ctrlName.text,
+              vorname: ctrlVorname.text,
+              anrede: companion.anrede.value,
+              geboren: companion.geboren.value,
+              // geschlecht: companion.geschlecht.value, // Not in DB schema yet
+              plz: companion.plz.value,
+              ort: companion.ort.value,
+              strasse: companion.strasse.value,
+              hausnummer: companion.hausnummer.value,
+              telefon1: companion.telefon1.value,
+              telefon2: companion.telefon2.value,
+              email: companion.email.value,
+              vertragKontierung: companion.vertragKontierung.value,
+              vertragLaufzeitVon: companion.vertragLaufzeitVon.value,
+              vertragLaufzeitBis: companion.vertragLaufzeitBis.value,
+              leistungId: memberSnapshot.data?.leistungId,
+              bemerkungId: memberSnapshot.data?.bemerkungId,
+           ));
+           savedMemberId = memberId!;
         }
-        
+
+        // 2. Save bemerkung if not empty
+        final bemerkungTitel = ctrlBemerkungTitel.text.trim();
+        final bemerkungText = ctrlBemerkungText.text.trim();
+        if (bemerkungTitel.isNotEmpty || bemerkungText.isNotEmpty) {
+           await repo.saveMemberRemark(
+             savedMemberId, 
+             memberSnapshot.data?.bemerkungId, 
+             bemerkungTitel.isNotEmpty ? bemerkungTitel : 'Bemerkung', 
+             bemerkungText,
+           );
+        }
+
         if (context.mounted) {
           Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erfolgreich gespeichert')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fehler beim Speichern: $e')),
-          );
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
         }
       } finally {
-        if (context.mounted) {
-          isLoadingAsync.value = false;
-        }
+        isSaving.value = false;
       }
     }
 
-    final scrollController = useScrollController();
+    if (isLoadingConfig) {
+       return const AlertDialog(content: SizedBox(width: 100, height: 100, child: Center(child: CircularProgressIndicator())));
+    }
 
-    return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
-      child: AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          if (!isSaving.value) {
+            saveMember();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: AlertDialog(
+          title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(memberId == null ? 'Neues Mitglied' : 'Mitglied bearbeiten'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 800,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               // Section Person
+               Text('Person', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               AppDropdownField<String>(
+                  controller: ctrlAnrede,
+                  label: 'Anrede',
+                  focusNode: fnAnrede,
+                  options: const ['Herr', 'Frau', 'Divers', 'Keine'],
+                  getLabel: (v) => v,
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlVorname, label: 'Vorname', focusNode: fnVorname)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlName, label: 'Name', focusNode: fnName)),
+                 ],
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                    Expanded(child: AppDatePickerField(
+                       value: ctrlGeboren.value,
+                       onChanged: (v) => ctrlGeboren.value = v,
+                       label: 'Geburtsdatum',
+                       focusNode: fnGeboren,
+                    )),
+                    const Gap(8),
+                    Expanded(child: AppDropdownField<String>(
+                       controller: ctrlGeschlecht,
+                       label: 'Geschlecht',
+                       focusNode: fnGeschlecht,
+                       options: const ['maennlich', 'weiblich', 'divers'],
+                       getLabel: (v) => v,
+                    )),
+                 ],
+               ),
+               const Gap(24),
+               
+               // Section Kontakt
+               Text('Kontakt', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(flex: 3, child: AppTextField(controller: ctrlStrasse, label: 'Straße', focusNode: fnStrasse)),
+                   const Gap(8),
+                   Expanded(flex: 1, child: AppTextField(controller: ctrlHausnummer, label: 'Hausnummer', focusNode: fnHausnummer)),
+                 ],
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(flex: 1, child: AppTextField(controller: ctrlPlz, label: 'PLZ', focusNode: fnPlz)),
+                   const Gap(8),
+                   Expanded(flex: 3, child: AppTextField(controller: ctrlOrt, label: 'Ort', focusNode: fnOrt)),
+                 ],
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                   Expanded(child: AppTextField(controller: ctrlTelefon1, label: 'Telefon 1', focusNode: fnTelefon1)),
+                   const Gap(8),
+                   Expanded(child: AppTextField(controller: ctrlTelefon2, label: 'Telefon 2', focusNode: fnTelefon2)),
+                 ],
+               ),
+               const Gap(8),
+               AppTextField(controller: ctrlEmail, label: 'E-Mail', focusNode: fnEmail),
+               const Gap(24),
+
+               // Section Vertrag
+               Row(
+                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                 children: [
+                    Text('Vertrag', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ElevatedButton(onPressed: () {}, child: const Text('Vertragsaktion')), // Placeholder for vertrag_start_action
+                 ],
+               ),
+               const Gap(8),
+               AppDatePickerField(
+                  value: ctrlVertragKontierung.value,
+                  onChanged: (v) => ctrlVertragKontierung.value = v,
+                  label: 'Kontierung',
+                  focusNode: fnVertragKontierung,
+               ),
+               const Gap(8),
+               Row(
+                 children: [
+                    Expanded(child: AppDatePickerField(
+                       value: ctrlVertragLaufzeitVon.value,
+                       onChanged: (v) => ctrlVertragLaufzeitVon.value = v,
+                       label: 'Laufzeit von',
+                       focusNode: fnVertragLaufzeitVon,
+                    )),
+                    const Gap(8),
+                    Expanded(child: AppDatePickerField(
+                       value: ctrlVertragLaufzeitBis.value,
+                       onChanged: (v) => ctrlVertragLaufzeitBis.value = v,
+                       label: 'Laufzeit bis',
+                       focusNode: fnVertragLaufzeitBis,
+                    )),
+                 ],
+               ),
+               const Gap(24),
+
+               // Bemerkung
+               Text('Bemerkung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
+            ],
+          ),
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        if (memberId != null)
+           TextButton.icon(
+             icon: const Icon(Icons.delete, color: Colors.red),
+             label: const Text('Löschen', style: TextStyle(color: Colors.red)),
+             onPressed: () async {
+               final confirm = await showDialog<bool>(
+                 context: context,
+                 builder: (ctx) => AlertDialog(
+                   title: const Text('Wirklich löschen?'),
+                   content: const Text('Möchten Sie dieses Mitglied unwiderruflich löschen?'),
+                   actions: [
+                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+                     FilledButton(
+                       style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                       onPressed: () => Navigator.of(ctx).pop(true), 
+                       child: const Text('Löschen'),
+                     ),
+                   ]
+                 )
+               );
+               if (confirm == true && context.mounted) {
+                 try {
+                   await ref.read(membersRepositoryProvider).deleteMember(memberId!);
+                   if (context.mounted) {
+                     Navigator.of(context).pop();
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mitglied erfolgreich gelöscht')));
+                   }
+                 } catch (e) {
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
+                   }
+                 }
+               }
+             },
+           )
+        else
+           const SizedBox.shrink(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(isEditing ? 'Mitglied bearbeiten' : 'Neues Mitglied anlegen'),
-            IconButton(
-              icon: const Icon(Icons.close),
+            TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              splashRadius: 20,
+              child: const Text('Abbrechen'),
+            ),
+            const Gap(8),
+            FilledButton.icon(
+              onPressed: isSaving.value ? null : saveMember,
+              icon: isSaving.value 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save),
+              label: const Text('Speichern'),
             ),
           ],
         ),
-        content: FocusTraversalOrder(
-          order: const NumericFocusOrder(1),
-          child: SizedBox(
-            width: 700,
-            height: 600, // Make it tall enough but scrollable inside constraints
-            child: Scrollbar(
-              controller: scrollController,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16.0), // Padding to avoid scrollbar overlap
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Sektion: Person ---
-                      const Text('Person', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      SizedBox(
-                        width: 250,
-                        child: DropdownButtonFormField<String>(
-                          value: anredeCtrl.value,
-                          decoration: const InputDecoration(labelText: 'Anrede', border: OutlineInputBorder()),
-                          items: const [
-                            DropdownMenuItem(value: null, child: Text('- Keine -')),
-                            DropdownMenuItem(value: 'Herr', child: Text('Herr')),
-                            DropdownMenuItem(value: 'Frau', child: Text('Frau')),
-                            DropdownMenuItem(value: 'Divers', child: Text('Divers')),
-                          ],
-                          onChanged: (val) => anredeCtrl.value = val,
-                        ),
-                      ),
-                      const Gap(16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AppTextField(
-                              controller: vornameCtrl,
-                              label: 'Vorname',
-                              required: true,
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            child: AppTextField(
-                              controller: nameCtrl,
-                              label: 'Nachname',
-                              required: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      AppTextField(
-                        controller: geborenCtrl,
-                        label: 'Geburtsdatum (TT.MM.JJJJ)',
-                        keyboardType: TextInputType.datetime,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.calendar_today),
-                          onPressed: () => selectDate(context, geborenCtrl),
-                        ),
-                      ),
-                      
-                      const Gap(32),
-        
-                      // --- Sektion: Kontakt ---
-                      const Text('Kontakt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: AppTextField(
-                              controller: strasseCtrl,
-                              label: 'Straße',
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            flex: 1,
-                            child: AppTextField(
-                              controller: hausnummerCtrl,
-                              label: 'Nr.',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      Row(
-                        children: [
-                           Expanded(
-                            flex: 1,
-                            child: AppTextField(
-                              controller: plzCtrl,
-                              label: 'PLZ',
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            flex: 2,
-                            child: AppTextField(
-                              controller: ortCtrl,
-                              label: 'Ort',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AppTextField(
-                              controller: telefon1Ctrl,
-                              label: 'Telefon 1',
-                              keyboardType: TextInputType.phone,
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            child: AppTextField(
-                              controller: telefon2Ctrl,
-                              label: 'Telefon 2',
-                              keyboardType: TextInputType.phone,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(16),
-                      AppTextField(
-                        controller: emailCtrl,
-                        label: 'E-Mail',
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-        
-                      const Gap(32),
-        
-                      // --- Sektion: Vertrag ---
-                      if (isEditing) ...[
-                        const Text('Vertrag', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        const Divider(),
-                        const Gap(8),
-                        AppTextField(
-                          controller: vertragKontierungCtrl,
-                          label: 'Kontierung (TT.MM.JJJJ)',
-                          keyboardType: TextInputType.datetime,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.calendar_today),
-                            onPressed: () => selectDate(context, vertragKontierungCtrl),
-                          ),
-                        ),
-                        const Gap(16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppTextField(
-                                controller: vertragLaufzeitVonCtrl,
-                                label: 'Laufzeit von (TT.MM.JJJJ)',
-                                keyboardType: TextInputType.datetime,
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  onPressed: () => selectDate(context, vertragLaufzeitVonCtrl),
-                                ),
-                              ),
-                            ),
-                            const Gap(16),
-                            Expanded(
-                              child: AppTextField(
-                                controller: vertragLaufzeitBisCtrl,
-                                label: 'Laufzeit bis (TT.MM.JJJJ)',
-                                keyboardType: TextInputType.datetime,
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  onPressed: () => selectDate(context, vertragLaufzeitBisCtrl),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const Gap(32),
-                      ],
-        
-                      // --- Sektion: Bemerkung ---
-                      const Text('Bemerkung', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      AppTextField(
-                        controller: bemerkungTitelCtrl,
-                        label: 'Bemerkung Titel',
-                      ),
-                      const Gap(16),
-                      AppTextField(
-                        controller: bemerkungTextCtrl,
-                        label: 'Bemerkung Text',
-                        maxLines: 4,
-                        textInputAction: TextInputAction.none,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+      ],
         ),
-        actions: [
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(2),
-            child: TextButton(
-              onPressed: isLoadingAsync.value ? null : () => Navigator.of(context).pop(),
-              child: const Text('Abbrechen'),
-            ),
-          ),
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(3),
-            child: ElevatedButton(
-              onPressed: isLoadingAsync.value ? null : save,
-              child: isLoadingAsync.value
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Speichern'),
-            ),
-          ),
-        ],
       ),
     );
   }

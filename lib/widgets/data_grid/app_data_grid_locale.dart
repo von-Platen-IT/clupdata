@@ -1,26 +1,25 @@
 import 'package:pluto_grid/pluto_grid.dart';
 
-const appGermanLocaleText = PlutoGridLocaleText(
-  unfreezeColumn: 'Spalte lösen',
+const PlutoGridLocaleText appGermanLocaleText = PlutoGridLocaleText(
+  unfreezeColumn: 'Spalte fixieren aufheben',
   freezeColumnToStart: 'Spalte am Anfang fixieren',
   freezeColumnToEnd: 'Spalte am Ende fixieren',
   autoFitColumn: 'Spaltenbreite anpassen',
   hideColumn: 'Spalte ausblenden',
   setColumns: 'Spalten bearbeiten',
-  setFilter: 'Spaltenfilter setzen',
+  setFilter: 'Filter setzen',
   resetFilter: 'Filter zurücksetzen',
-  setColumnsTitle: 'Spalten ein-/ausblenden',
+  setColumnsTitle: 'Spalten Titel',
   filterColumn: 'Spalte',
   filterType: 'Typ',
   filterValue: 'Wert',
   filterAllColumns: 'Alle Spalten',
   filterContains: 'Enthält',
-  filterEquals: 'Ist gleich',
+  filterEquals: 'Gleich',
   filterStartsWith: 'Beginnt mit',
   filterEndsWith: 'Endet mit',
   filterGreaterThan: 'Größer als',
-  filterGreaterThanOrEqualTo: 'Größer oder gleich',
+  filterGreaterThanOrEqualTo: 'Größer als oder gleich',
   filterLessThan: 'Kleiner als',
-  filterLessThanOrEqualTo: 'Kleiner oder gleich',
-  loadingText: 'Wird geladen...',
+  filterLessThanOrEqualTo: 'Kleiner als oder gleich',
 );

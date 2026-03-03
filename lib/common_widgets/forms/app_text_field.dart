@@ -10,6 +10,7 @@ class AppTextField extends StatelessWidget {
   final int maxLines;
   final Widget? suffixIcon;
   final bool readOnly;
+  final FocusNode? focusNode;
 
   const AppTextField({
     super.key,
@@ -21,12 +22,14 @@ class AppTextField extends StatelessWidget {
     this.maxLines = 1,
     this.suffixIcon,
     this.readOnly = false,
+    this.focusNode,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       decoration: InputDecoration(
         labelText: required ? '$label *' : label,
         border: const OutlineInputBorder(),

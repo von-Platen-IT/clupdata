@@ -22,16 +22,16 @@ AsyncValue<List<LeistungRowData>> leistungenGridRows(Ref ref) {
   final detailsAsync = ref.watch(watchLeistungenDetailsProvider);
   final settingsAsync = ref.watch(stammdatenSettingsMapProvider);
 
-  if (detailsAsync.isLoading || settingsAsync.isLoading) {
-    return const AsyncValue.loading();
-  }
-  
   if (detailsAsync.hasError) {
     return AsyncValue.error(detailsAsync.error!, detailsAsync.stackTrace!);
   }
-  
   if (settingsAsync.hasError) {
     return AsyncValue.error(settingsAsync.error!, settingsAsync.stackTrace!);
+  }
+
+  // If we don't have basic data yet, and it's loading
+  if (!detailsAsync.hasValue || !settingsAsync.hasValue) {
+    return const AsyncValue.loading();
   }
 
   final details = detailsAsync.value ?? [];

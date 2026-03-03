@@ -1,209 +1,294 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
 
 import '../../../../common_widgets/forms/app_text_field.dart';
-import '../../stammdaten/data/stammdaten_repository.dart';
+import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/leistungen_repository.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
 
 class LeistungEditDialog extends HookConsumerWidget {
   final LeistungsDetail? details;
+  final String? initialFocusField;
 
-  const LeistungEditDialog({super.key, this.details});
+  const LeistungEditDialog({
+    super.key,
+    this.details,
+    this.initialFocusField,
+  });
 
-  static Future<void> show(BuildContext context, {LeistungsDetail? details}) {
+  static Future<void> show(
+    BuildContext context, {
+    LeistungsDetail? details,
+    String? initialFocusField,
+  }) {
     return showDialog(
       context: context,
-      builder: (context) => LeistungEditDialog(details: details),
+      barrierDismissible: false,
+      builder: (context) => LeistungEditDialog(
+        details: details,
+        initialFocusField: initialFocusField,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isEditing = details != null;
+    // 1. Load Settings for MwSt
+    final settingsAsync = ref.watch(stammdatenSettingsMapProvider);
+    final mwstRate = useMemoized(() {
+      final settings = settingsAsync.value ?? {};
+      final mwstKey = settings['mwst_aktiv_schluessel'] ?? 'mwst_standard';
+      return double.tryParse(settings[mwstKey] ?? '19') ?? 19.0;
+    }, [settingsAsync.value]);
 
-    final nameCtrl = useTextEditingController(text: details?.leistung.name ?? '');
-    final laufzeitCtrl = useState<String>(details?.leistung.laufzeit ?? 'monatlich');
-    final bruttoCtrl = useTextEditingController(text: details?.preis.bruttopreis.toString() ?? '');
+    final mwstMultiplier = 1 + (mwstRate / 100);
+
+    // Controller Setup
+    final ctrlName = useTextEditingController(text: details?.leistung.name ?? '');
+    final ctrlLaufzeit = useTextEditingController(text: details?.leistung.laufzeit ?? 'monatlich');
     
-    final bemerkungTitelCtrl = useTextEditingController(text: details?.bemerkung?.titel ?? '');
-    final bemerkungTextCtrl = useTextEditingController(text: details?.bemerkung?.textValue ?? '');
+    // We treat brutto as string for text input
+    final initialBrutto = details?.preis.bruttopreis ?? 0.0;
+    final initialNetto = initialBrutto / mwstMultiplier;
 
-    final isLoadingAsync = useState(false);
+    final ctrlBrutto = useTextEditingController(
+       text: initialBrutto > 0 ? initialBrutto.toStringAsFixed(2) : ''
+    );
+    final ctrlNetto = useTextEditingController(
+       text: initialNetto > 0 ? initialNetto.toStringAsFixed(2) : ''
+    );
+    
+    // Flags to prevent infinite listener loops
+    final isUpdatingPrice = useState(false);
 
-    // Watch Stammdaten for live net computation
-    final stammdatenAsync = ref.watch(stammdatenSettingsMapProvider);
-    final settings = stammdatenAsync.value ?? {};
-    final mwstKey = settings['mwst_aktiv_schluessel'] ?? 'mwst_standard';
-    final mwstValueStr = settings[mwstKey] ?? '19';
-    final mwstRate = double.tryParse(mwstValueStr) ?? 19.0;
+    useEffect(() {
+      void updateNetto() {
+        if (isUpdatingPrice.value) return;
+        final bruttoVal = double.tryParse(ctrlBrutto.text.replaceAll(',', '.'));
+        if (bruttoVal != null) {
+          isUpdatingPrice.value = true;
+          ctrlNetto.text = (bruttoVal / mwstMultiplier).toStringAsFixed(2);
+          isUpdatingPrice.value = false;
+        } else if (ctrlBrutto.text.isEmpty) {
+          isUpdatingPrice.value = true;
+          ctrlNetto.text = '';
+          isUpdatingPrice.value = false;
+        }
+      }
 
-    useListenable(bruttoCtrl);
-    final bruttoVal = double.tryParse(bruttoCtrl.text.replaceAll(',', '.')) ?? 0.0;
-    final nettoVal = bruttoVal / (1 + (mwstRate / 100));
+      void updateBrutto() {
+        if (isUpdatingPrice.value) return;
+        final nettoVal = double.tryParse(ctrlNetto.text.replaceAll(',', '.'));
+        if (nettoVal != null) {
+          isUpdatingPrice.value = true;
+          ctrlBrutto.text = (nettoVal * mwstMultiplier).toStringAsFixed(2);
+          isUpdatingPrice.value = false;
+        } else if (ctrlNetto.text.isEmpty) {
+          isUpdatingPrice.value = true;
+          ctrlBrutto.text = '';
+          isUpdatingPrice.value = false;
+        }
+      }
+
+      ctrlBrutto.addListener(updateNetto);
+      ctrlNetto.addListener(updateBrutto);
+
+      return () {
+        ctrlBrutto.removeListener(updateNetto);
+        ctrlNetto.removeListener(updateBrutto);
+      };
+    }, [mwstMultiplier]);
+    
+    final ctrlBemerkungTitel = useTextEditingController(text: details?.bemerkung?.titel ?? '');
+    final ctrlBemerkungText = useTextEditingController(text: details?.bemerkung?.textValue ?? '');
+
+    // Focus Node Setup
+    final fnName = useFocusNode();
+    final fnLaufzeit = useFocusNode();
+    final fnBrutto = useFocusNode();
+
+    // Auto Focus logic
+    useEffect(() {
+      if (initialFocusField != null) {
+         WidgetsBinding.instance.addPostFrameCallback((_) {
+            switch (initialFocusField) {
+              case 'name': fnName.requestFocus(); break;
+              case 'laufzeit': fnLaufzeit.requestFocus(); break;
+              case 'bruttopreis': fnBrutto.requestFocus(); break;
+            }
+         });
+      }
+      return null;
+    }, [initialFocusField]);
+
+    final isSaving = useState(false);
 
     Future<void> save() async {
-      if (nameCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name ist Pflichtfeld')));
-        return;
-      }
-      final parsedBrutto = double.tryParse(bruttoCtrl.text.replaceAll(',', '.'));
-      if (parsedBrutto == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gültiger Bruttopreis benötigt')));
-        return;
+      if (ctrlName.text.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name ist ein Pflichtfeld.')));
+         return;
       }
 
-      isLoadingAsync.value = true;
+      final bruttoVal = double.tryParse(ctrlBrutto.text.replaceAll(',', '.'));
+      if (bruttoVal == null) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ungültiger Bruttopreis.')));
+         return;
+      }
+
+      isSaving.value = true;
       try {
         final repo = ref.read(leistungenRepositoryProvider);
+        
         await repo.saveLeistungFull(
           leistungId: details?.leistung.id,
-          name: nameCtrl.text.trim(),
-          laufzeit: laufzeitCtrl.value,
+          name: ctrlName.text,
+          laufzeit: ctrlLaufzeit.text,
           existingPreisId: details?.preis.id,
-          bruttopreis: parsedBrutto,
+          bruttopreis: bruttoVal,
           existingBemerkungId: details?.bemerkung?.id,
-          bemerkungTitel: bemerkungTitelCtrl.text.trim(),
-          bemerkungText: bemerkungTextCtrl.text.trim(),
+          bemerkungTitel: ctrlBemerkungTitel.text,
+          bemerkungText: ctrlBemerkungText.text,
         );
-        if (context.mounted) Navigator.of(context).pop();
+
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erfolgreich gespeichert')));
+        }
       } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+        if (context.mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
+        }
       } finally {
-        if (context.mounted) isLoadingAsync.value = false;
+        isSaving.value = false;
       }
     }
 
-    final scrollController = useScrollController();
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          if (!isSaving.value) {
+            save();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: AlertDialog(
+          title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(details == null ? 'Neue Leistung' : 'Leistung bearbeiten'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 600,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               Text('Leistung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               AppTextField(controller: ctrlName, label: 'Name', focusNode: fnName),
+               const Gap(8),
+               AppDropdownField<String>(
+                  controller: ctrlLaufzeit,
+                  label: 'Laufzeit',
+                  focusNode: fnLaufzeit,
+                  options: const ['einmalig', 'monatlich', 'quartalsweise', 'jaehrlich'],
+                  getLabel: (v) => v,
+               ),
+               const Gap(24),
 
-    return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
-      child: AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               Text('Preis', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               Row(
+                 children: [
+                    Expanded(child: AppTextField(controller: ctrlBrutto, label: 'Bruttopreis (€)', focusNode: fnBrutto)),
+                    const Gap(8),
+                    Expanded(child: AppTextField(controller: ctrlNetto, label: 'Nettopreis (€)')),
+                 ],
+               ),
+               const Gap(24),
+               
+               Text('Bemerkung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
+               const Gap(8),
+               AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
+            ],
+          ),
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        if (details?.leistung.id != null)
+           TextButton.icon(
+             icon: const Icon(Icons.delete, color: Colors.red),
+             label: const Text('Löschen', style: TextStyle(color: Colors.red)),
+             onPressed: () async {
+               final confirm = await showDialog<bool>(
+                 context: context,
+                 builder: (ctx) => AlertDialog(
+                   title: const Text('Wirklich löschen?'),
+                   content: const Text('Möchten Sie diese Leistung unwiderruflich löschen?'),
+                   actions: [
+                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+                     FilledButton(
+                       style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                       onPressed: () => Navigator.of(ctx).pop(true), 
+                       child: const Text('Löschen'),
+                     ),
+                   ]
+                 )
+               );
+               if (confirm == true && context.mounted) {
+                 try {
+                   await ref.read(leistungenRepositoryProvider).deleteLeistung(details!.leistung.id);
+                   if (context.mounted) {
+                     Navigator.of(context).pop();
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leistung erfolgreich gelöscht')));
+                   }
+                 } catch (e) {
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
+                   }
+                 }
+               }
+             },
+           )
+        else
+           const SizedBox.shrink(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(isEditing ? 'Leistung bearbeiten' : 'Neue Leistung anlegen'),
-            IconButton(
-              icon: const Icon(Icons.close),
+            TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              splashRadius: 20,
+              child: const Text('Abbrechen'),
+            ),
+            const Gap(8),
+            FilledButton.icon(
+              onPressed: isSaving.value ? null : save,
+              icon: isSaving.value 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save),
+              label: const Text('Speichern'),
             ),
           ],
         ),
-        content: FocusTraversalOrder(
-          order: const NumericFocusOrder(1),
-          child: SizedBox(
-            width: 600,
-            height: 500,
-            child: Scrollbar(
-              controller: scrollController,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Leistung', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: AppTextField(
-                              controller: nameCtrl,
-                              label: 'Name',
-                              required: true,
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            flex: 1,
-                            child: DropdownButtonFormField<String>(
-                              value: laufzeitCtrl.value,
-                              decoration: const InputDecoration(labelText: 'Laufzeit', border: OutlineInputBorder()),
-                              items: const [
-                                DropdownMenuItem(value: 'einmalig', child: Text('einmalig')),
-                                DropdownMenuItem(value: 'monatlich', child: Text('monatlich')),
-                                DropdownMenuItem(value: 'quartalsweise', child: Text('quartalsweise')),
-                                DropdownMenuItem(value: 'jaehrlich', child: Text('jährlich')),
-                              ],
-                              onChanged: (v) => laufzeitCtrl.value = v ?? 'monatlich',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(32),
-
-                      const Text('Preis', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AppTextField(
-                              controller: bruttoCtrl,
-                              label: 'Bruttopreis (€)',
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              required: true,
-                            ),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            child: AppTextField(
-                              controller: TextEditingController(text: nettoVal.toStringAsFixed(2)),
-                              label: 'Nettopreis (€) [bei $mwstRate% MwSt]',
-                              readOnly: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(32),
-
-                      const Text('Bemerkung', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const Gap(8),
-                      AppTextField(
-                        controller: bemerkungTitelCtrl,
-                        label: 'Bemerkung Titel',
-                      ),
-                      const Gap(16),
-                      AppTextField(
-                        controller: bemerkungTextCtrl,
-                        label: 'Bemerkung Text',
-                        maxLines: 4,
-                        textInputAction: TextInputAction.none,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+      ],
         ),
-        actions: [
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(2),
-            child: TextButton(
-              onPressed: isLoadingAsync.value ? null : () => Navigator.of(context).pop(),
-              child: const Text('Abbrechen'),
-            ),
-          ),
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(3),
-            child: ElevatedButton(
-              onPressed: isLoadingAsync.value ? null : save,
-              child: isLoadingAsync.value
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Speichern'),
-            ),
-          ),
-        ],
       ),
     );
   }

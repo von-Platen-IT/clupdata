@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:gap/gap.dart';
+
 import 'sort_column_config.dart';
 
 class SortSettingsDialog extends HookWidget {
-  final List<SortColumnConfig> initialConfig;
+  final List<SortColumnConfig> initialConfigs;
 
-  const SortSettingsDialog({super.key, required this.initialConfig});
+  const SortSettingsDialog({
+    super.key,
+    required this.initialConfigs,
+  });
+
+  static Future<List<SortColumnConfig>?> show(
+    BuildContext context, {
+    required List<SortColumnConfig> initialConfigs,
+  }) {
+    return showDialog<List<SortColumnConfig>>(
+      context: context,
+      builder: (context) => SortSettingsDialog(
+        initialConfigs: initialConfigs,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Deep copy the config to allow local modification without affecting the parent
-    // until "Übernehmen" is clicked.
-    final configState = useState<List<SortColumnConfig>>(
-      initialConfig.map((c) => SortColumnConfig(
-        field: c.field,
-        label: c.label,
-        enabled: c.enabled,
-        ascending: c.ascending,
-        priority: c.priority,
-      )).toList()..sort((a, b) => a.priority.compareTo(b.priority)),
+    // Local copy of configs to allow cancellation
+    final configs = useState<List<SortColumnConfig>>(
+      initialConfigs.map((c) => c.copyWith()).toList()..sort((a, b) => a.priority.compareTo(b.priority)),
     );
 
     return AlertDialog(
@@ -30,78 +38,74 @@ class SortSettingsDialog extends HookWidget {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
+            tooltip: 'Schließen',
           ),
         ],
       ),
       content: SizedBox(
-        width: 400,
-        height: 400,
+        width: 450,
+        height: 350,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Ziehen Sie Spalten in die gewünschte Reihenfolge. Aktivieren Sie per Checkbox.',
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
-            const Gap(16),
+            const SizedBox(height: 16),
             Expanded(
               child: ReorderableListView.builder(
-                itemCount: configState.value.length,
-                onReorder: (oldIndex, newIndex) {
-                  if (newIndex > oldIndex) {
+                itemCount: configs.value.length,
+                onReorder: (int oldIndex, int newIndex) {
+                  if (oldIndex < newIndex) {
                     newIndex -= 1;
                   }
-                  final newConfig = List<SortColumnConfig>.from(configState.value);
-                  final item = newConfig.removeAt(oldIndex);
-                  newConfig.insert(newIndex, item);
+                  final item = configs.value.removeAt(oldIndex);
+                  configs.value.insert(newIndex, item);
                   
                   // Update priorities
-                  for (int i = 0; i < newConfig.length; i++) {
-                    newConfig[i].priority = i;
+                  for (var i = 0; i < configs.value.length; i++) {
+                    configs.value[i].priority = i;
                   }
                   
-                  configState.value = newConfig;
+                  // trigger rebuild
+                  configs.value = List.from(configs.value);
                 },
                 itemBuilder: (context, index) {
-                  final item = configState.value[index];
+                  final config = configs.value[index];
                   return Container(
-                    key: ValueKey(item.field),
+                    key: ValueKey(config.field),
+                    margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                          width: 1,
-                        ),
-                      ),
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: ListTile(
-                      contentPadding: EdgeInsets.zero,
                       leading: Checkbox(
-                        value: item.enabled,
+                        value: config.enabled,
                         onChanged: (val) {
-                          final newConfig = List<SortColumnConfig>.from(configState.value);
-                          newConfig[index].enabled = val ?? false;
-                          configState.value = newConfig;
+                          config.enabled = val ?? false;
+                          configs.value = List.from(configs.value);
                         },
                       ),
-                      title: Text(item.label),
+                      title: Text(config.label),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: Icon(
-                              item.ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                              config.ascending ? Icons.arrow_upward : Icons.arrow_downward,
                               size: 20,
+                              color: config.enabled ? null : Colors.grey.shade400,
                             ),
-                            onPressed: () {
-                              final newConfig = List<SortColumnConfig>.from(configState.value);
-                              newConfig[index].ascending = !newConfig[index].ascending;
-                              configState.value = newConfig;
-                            },
-                            tooltip: item.ascending ? 'Aufsteigend' : 'Absteigend',
+                            onPressed: config.enabled ? () {
+                              config.ascending = !config.ascending;
+                              configs.value = List.from(configs.value);
+                            } : null,
+                            tooltip: config.ascending ? 'Aufsteigend (klicken für absteigend)' : 'Absteigend (klicken für aufsteigend)',
                           ),
-                          const Gap(8),
-                          const Icon(Icons.drag_handle),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.drag_handle, color: Colors.grey),
                         ],
                       ),
                     ),
@@ -118,7 +122,9 @@ class SortSettingsDialog extends HookWidget {
           child: const Text('Abbrechen'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(configState.value),
+          onPressed: () {
+            Navigator.of(context).pop(configs.value);
+          },
           child: const Text('Übernehmen'),
         ),
       ],
