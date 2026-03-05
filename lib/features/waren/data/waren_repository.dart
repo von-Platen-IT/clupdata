@@ -31,6 +31,14 @@ class WarenRepository {
     });
   }
 
+  Stream<BemerkungData?> watchBemerkungForWare(int wareId) {
+    final query = _db.select(_db.waren).join([
+      drift.leftOuterJoin(_db.bemerkung, _db.bemerkung.id.equalsExp(_db.waren.bemerkungId))
+    ])..where(_db.waren.id.equals(wareId));
+    
+    return query.watchSingleOrNull().map((row) => row?.readTableOrNull(_db.bemerkung));
+  }
+
   Future<int> _saveBemerkungBaseLogic(int? existingId, String titel, String text) async {
     if (existingId != null) {
       await (_db.update(_db.bemerkung)..where((b) => b.id.equals(existingId))).write(

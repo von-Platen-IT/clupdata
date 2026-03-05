@@ -33,7 +33,7 @@ class AppDataGrid extends HookWidget {
   final String Function(PlutoRow row) toSearchString;
 
   /// Optional callback for single-click row selection.
-  final void Function(PlutoRow row)? onRowSelected;
+  final void Function(PlutoRow? row)? onRowSelected;
 
   /// Triggered when a row is activated — either by double-click or by pressing
   /// [LogicalKeyboardKey.enter] while the row is focused.
@@ -42,9 +42,6 @@ class AppDataGrid extends HookWidget {
   /// cell that was focused, used to set initial focus in the modal dialog.
   final void Function(PlutoRow row, String fieldName) onRowActivated;
 
-  /// Optional callback to open the "create new record" modal dialog.
-  /// When provided, a "Neu" [FilledButton] is added to the toolbar.
-  final VoidCallback? onCreateNew;
 
   const AppDataGrid({
     super.key,
@@ -54,7 +51,6 @@ class AppDataGrid extends HookWidget {
     required this.toSearchString,
     this.onRowSelected,
     required this.onRowActivated,
-    this.onCreateNew,
   });
 
   @override
@@ -129,6 +125,27 @@ class AppDataGrid extends HookWidget {
 
       return null;
     }, [rows, searchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
+
+    // Track active row selection because PlutoGridMode.normal doesn't trigger onSelected reliably
+    useEffect(() {
+      final sm = stateManager.value;
+      if (sm == null) return null;
+
+      PlutoRow? lastSelectedRow = sm.currentRow;
+
+      void listener() {
+        final currentRow = sm.currentRow;
+        if (currentRow != lastSelectedRow) {
+          lastSelectedRow = currentRow;
+          if (onRowSelected != null) {
+            onRowSelected!(currentRow);
+          }
+        }
+      }
+
+      sm.addListener(listener);
+      return () => sm.removeListener(listener);
+    }, [stateManager.value, onRowSelected]);
 
     /// Opens the dialog for the currently focused row/cell.
     /// Called from both the Enter key handler and the double-click handler.
@@ -212,15 +229,7 @@ class AppDataGrid extends HookWidget {
                 ),
               ),
 
-              // Optional "Neu" button — rendered only when onCreateNew is set
-              if (onCreateNew != null) ...[
-                const Gap(8),
-                FilledButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Neu'),
-                  onPressed: onCreateNew,
-                ),
-              ],
+
             ],
           ),
         ),
@@ -251,11 +260,6 @@ class AppDataGrid extends HookWidget {
               onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
                 stateManager.value?.setEditing(false);
                 onRowActivated(event.row, event.cell.column.field);
-              },
-              onSelected: (PlutoGridOnSelectedEvent event) {
-                if (event.row != null && onRowSelected != null) {
-                  onRowSelected!(event.row!);
-                }
               },
               configuration: PlutoGridConfiguration(
                 style: const PlutoGridStyleConfig(

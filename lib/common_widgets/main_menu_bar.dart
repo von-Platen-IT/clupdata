@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
+import '../features/members/widgets/member_edit_dialog.dart';
+import '../features/leistungen/widgets/leistung_edit_dialog.dart';
+import '../features/waren/widgets/waren_edit_dialog.dart';
+
 class MainMenuBar extends StatelessWidget {
   const MainMenuBar({super.key});
 
@@ -31,6 +35,32 @@ class MainMenuBar extends StatelessWidget {
                 child: const Text('Beenden'),
                 onTap: () {
                   exit(0);
+                },
+              ),
+            ],
+          ),
+          _MenuButton(
+            title: 'Erstellen',
+            items: [
+              PopupMenuItem(
+                child: const Text('Mitglied'),
+                onTap: () {
+                  // Dialog zum Hinzufügen eines Mitglieds öffnen
+                  MemberEditDialog.show(context);
+                },
+              ),
+              PopupMenuItem(
+                child: const Text('Leistung'),
+                onTap: () {
+                  // Dialog zum Hinzufügen einer Leistung öffnen
+                  LeistungEditDialog.show(context);
+                },
+              ),
+              PopupMenuItem(
+                child: const Text('Ware'),
+                onTap: () {
+                  // Dialog zum Hinzufügen einer Ware öffnen
+                  WarenEditDialog.show(context);
                 },
               ),
             ],

@@ -11,7 +11,12 @@ import '../widgets/waren_edit_dialog.dart';
 import '../presentation/providers/waren_list_provider.dart';
 
 class WarenDataGrid extends HookConsumerWidget {
-  const WarenDataGrid({super.key});
+  final void Function(PlutoRow? row)? onRowSelected;
+
+  const WarenDataGrid({
+    super.key,
+    this.onRowSelected,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -122,7 +127,7 @@ class WarenDataGrid extends HookConsumerWidget {
                 row.cells['kategorie']?.value,
               ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
            }, 
-           onCreateNew: () => WarenEditDialog.show(context),
+           onRowSelected: onRowSelected,
            onRowActivated: (row, fieldName) {
               final wareId = row.cells['id']?.value as int;
               WarenEditDialog.show(context, wareId: wareId, initialFocusField: fieldName);

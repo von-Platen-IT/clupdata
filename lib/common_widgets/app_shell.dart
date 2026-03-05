@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mdi/mdi.dart';
+import 'package:gap/gap.dart';
 import 'main_menu_bar.dart';
 
 /// The main structural wrapper (shell) for the application UI.
@@ -8,53 +10,38 @@ import 'main_menu_bar.dart';
 /// This widget provides the persistent navigation layout including the
 /// top [MainMenuBar] and the side [NavigationRail]. It acts as the 
 /// container for different feature screens which are provided via the
-/// [child] property and updated by the declarative router logic (`go_router`).
-class AppShell extends StatelessWidget {
-  /// The current feature screen widget to display inside the shell.
-  final Widget child;
+/// [navigationShell] property and updated by the declarative router logic (`go_router`).
+class AppShell extends HookWidget {
+  /// The navigation shell providing the current stateful route branches.
+  final StatefulNavigationShell navigationShell;
 
   /// Creates a new AppShell.
-  const AppShell({super.key, required this.child});
+  const AppShell({super.key, required this.navigationShell});
 
-  int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/members')) return 1;
-    if (location.startsWith('/leistungen')) return 2;
-    if (location.startsWith('/waren')) return 3;
-    if (location.startsWith('/pos')) return 4;
-    if (location.startsWith('/calendar')) return 5;
-    // Map /master-data to calendar tab as well
-    if (location.startsWith('/master-data')) return 5;
-    return 0; // dashboard
-  }
-
-  void _onItemTapped(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        context.go('/');
-        break;
-      case 1:
-        context.go('/members');
-        break;
-      case 2:
-        context.go('/leistungen');
-        break;
-      case 3:
-        context.go('/waren');
-        break;
-      case 4:
-        context.go('/pos');
-        break;
-      case 5:
-        context.go('/calendar');
-        break;
-    }
+  void _onItemTapped(int index) {
+    // Using goBranch as recommended for StatefulShellRoute
+    navigationShell.goBranch(
+      index,
+      // A common pattern when using bottom navigation bars is to support
+      // navigating to the initial location when tapping the item that is
+      // already active.
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = _calculateSelectedIndex(context);
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 900;
+    
+    // State hook to toggle the expanded state of the sidebar locally
+    final isExtended = useState(isDesktop);
+
+    // Keep the state in sync with screen size changes mostly, but allow overrides
+    useEffect(() {
+      isExtended.value = isDesktop;
+      return null;
+    }, [isDesktop]);
 
     return Scaffold(
       body: Column(
@@ -65,10 +52,66 @@ class AppShell extends StatelessWidget {
             child: Row(
               children: [
                 NavigationRail(
-                  selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) => _onItemTapped(index, context),
-                  labelType: isDesktop ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-                  extended: isDesktop, // Erweitert auf großen Bildschirmen
+                  selectedIndex: navigationShell.currentIndex,
+                  onDestinationSelected: _onItemTapped,
+                  labelType: isExtended.value ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                  extended: isExtended.value, 
+                  leading: Padding(
+                    padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                    child: Column(
+                      children: [
+                        if (isExtended.value)
+                          Row(
+                            children: [
+                              const Gap(16),
+                              const Text(
+                                'ClupData',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.deepOrange,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const Gap(24),
+                              IconButton(
+                                icon: const Icon(Icons.menu_open),
+                                tooltip: 'Menü reduzieren',
+                                onPressed: () => isExtended.value = false,
+                              ),
+                              const Gap(8),
+                            ],
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.menu),
+                            tooltip: 'Menü erweitern',
+                            onPressed: () => isExtended.value = true,
+                          ),
+                        const Gap(16),
+                      ],
+                    ),
+                  ),
+                  trailing: Expanded(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.settings_outlined),
+                              tooltip: 'Einstellungen',
+                              onPressed: () {
+                                // TODO: Add settings navigation or dialog
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   destinations: const [
                     NavigationRailDestination(
                       icon: Icon(Mdi.viewDashboardOutline),
@@ -104,7 +147,7 @@ class AppShell extends StatelessWidget {
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
                 Expanded(
-                  child: child,
+                  child: navigationShell,
                 ),
               ],
             ),

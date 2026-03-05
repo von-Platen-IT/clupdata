@@ -11,7 +11,12 @@ import '../widgets/member_edit_dialog.dart';
 import '../presentation/providers/members_list_provider.dart';
 
 class MemberDataGrid extends HookConsumerWidget {
-  const MemberDataGrid({super.key});
+  final void Function(PlutoRow? row)? onRowSelected;
+
+  const MemberDataGrid({
+    super.key,
+    this.onRowSelected,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -144,7 +149,7 @@ class MemberDataGrid extends HookConsumerWidget {
                row.cells['leistung_name']?.value,
              ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
           },
-          onCreateNew: () => MemberEditDialog.show(context),
+          onRowSelected: onRowSelected,
           onRowActivated: (row, fieldName) {
              final memberId = row.cells['id']?.value as int;
              MemberEditDialog.show(context, memberId: memberId, initialFocusField: fieldName);

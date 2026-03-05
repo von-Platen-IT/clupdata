@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -21,38 +21,62 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      ShellRoute(
-        builder: (context, state, child) {
-          return AppShell(child: child);
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return AppShell(navigationShell: navigationShell);
         },
-        routes: [
-          GoRoute(
-            path: '/',
-            builder: (context, state) => const DashboardScreen(),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const DashboardScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/members',
-            builder: (context, state) => const MembersScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/members',
+                builder: (context, state) => const MembersScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/leistungen',
-            builder: (context, state) => const LeistungenScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/leistungen',
+                builder: (context, state) => const LeistungenScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/waren',
-            builder: (context, state) => const WarenScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/waren',
+                builder: (context, state) => const WarenScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/pos',
-            builder: (context, state) => const PosScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/pos',
+                builder: (context, state) => const PosScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/calendar',
-            builder: (context, state) => const CalendarScreen(),
-          ),
-          GoRoute(
-            path: '/master-data',
-            builder: (context, state) => const MasterDataScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/calendar',
+                builder: (context, state) => const CalendarScreen(),
+              ),
+              GoRoute(
+                path: '/master-data',
+                builder: (context, state) => const MasterDataScreen(),
+              ),
+            ],
           ),
         ],
       ),

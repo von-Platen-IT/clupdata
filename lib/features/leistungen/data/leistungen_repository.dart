@@ -38,6 +38,14 @@ class LeistungenRepository {
     });
   }
 
+  Stream<BemerkungData?> watchBemerkungForLeistung(int leistungId) {
+    final query = _db.select(_db.leistung).join([
+      drift.leftOuterJoin(_db.bemerkung, _db.bemerkung.id.equalsExp(_db.leistung.bemerkungId))
+    ])..where(_db.leistung.id.equals(leistungId));
+    
+    return query.watchSingleOrNull().map((row) => row?.readTableOrNull(_db.bemerkung));
+  }
+
   Future<int> _saveBemerkungBaseLogic(int? existingId, String titel, String text) async {
     if (existingId != null) {
       await (_db.update(_db.bemerkung)..where((b) => b.id.equals(existingId))).write(

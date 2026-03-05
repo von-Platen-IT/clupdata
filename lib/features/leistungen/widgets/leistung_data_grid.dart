@@ -11,7 +11,12 @@ import '../widgets/leistung_edit_dialog.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
 
 class LeistungDataGrid extends HookConsumerWidget {
-  const LeistungDataGrid({super.key});
+  final void Function(PlutoRow? row)? onRowSelected;
+
+  const LeistungDataGrid({
+    super.key,
+    this.onRowSelected,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -100,6 +105,7 @@ class LeistungDataGrid extends HookConsumerWidget {
                 row.cells['laufzeit']?.value,
               ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
            }, 
+           onRowSelected: onRowSelected,
            onRowActivated: (row, fieldName) async {
               final leistungId = row.cells['id']?.value as int;
 

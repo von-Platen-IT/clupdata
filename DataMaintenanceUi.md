@@ -1,4 +1,4 @@
-# AI Coding Agent — Configuration: Generic DataMaintenanceUi (AppDataTable)
+# AI Coding Agent — Configuration: Generic DataMaintenanceUi (AppDataGrid)
 
 > **Scope:** This document defines the binding rules, architecture, and implementation guidelines for tabular data administration views (Create, Read, Update, Delete + Remarks) in this Flutter project.
 > The AI coding agent MUST follow these guidelines to ensure UI consistency and code reusability across all feature domains (e.g., Members, Contracts, Services).
@@ -7,39 +7,27 @@
 
 ## 1. Architectural Principle & Motivation
 
-We **DO NOT** use complex third-party grid packages (like `pluto_grid`) for data tables due to performance overhead, state management issues, and null-check crashes.
-
-Instead, we use a custom, highly optimized generic widget: **`AppDataTable<T>`**.
-This widget is strictly object-oriented, strongly typed, and integrates seamlessly with Flutter hooks and Riverpod.
+We use `pluto_grid` for all data tables. To ensure consistency and to encapsulate generic behaviors (search, filtering, sorting, layout), we use a custom base widget: **`AppDataGrid`**.
+This widget integrates seamlessly with Flutter hooks, Riverpod, and the PlutoGrid ecosystem.
 
 ---
 
 ## 2. Core Components
 
-### 2.1 `AppDataTable<T>` (The Generic UI)
-Located in `lib/widgets/data_grid/app_data_table.dart`.
+### 2.1 `AppDataGrid` (The Generic UI)
+Located in `lib/widgets/data_grid/app_data_grid.dart`.
 
 **Key features:**
-- Stripped of Material animation overhead (uses `GestureDetector` instead of `InkWell`).
-- Handles sorting internally.
-- Handles text-based searching internally (if `searchFilter` is provided).
-- Triggers events via `onRowSelected(T item)` and `onRowDoubleTap(T item)`.
+- Centralized `pluto_grid` initialization and styling.
+- Extensible multi-column sort dialog and full text search via `toSearchString`.
+- Triggers events via `onRowSelected(PlutoRow row)` and `onRowActivated(PlutoRow row, String fieldName)`.
 
-### 2.2 `DataTableColumn<T>`
-Located in `lib/widgets/data_grid/data_table_column.dart`.
+### 2.2 `FeatureScreenScaffold` (The Screen Scaffold)
+Located in `lib/common_widgets/feature_screen_scaffold.dart`.
 
-Every column in the table is mapped through this model:
-```dart
-DataTableColumn<T>(
-  label: 'Spaltenname',
-  valueExtractor: (item) => item.textEigenschaft,
-  sortExtractor: (item) => item.datumOderZahl, // Optional: Für sauberes Sortieren von z.B. Strings als DateTime
-  sortable: true,
-  flex: 2, // Optional: Relative Breite, falls fixedWidth nicht genutzt wird
-  fixedWidth: 70, // Optional: Strikte Pixelbreite, für z.B. Icons
-  cellBuilder: (item) => Widget, // Optional: Custom Rendering
-)
-```
+Every Data Maintenance screen MUST be wrapped inside this Scaffold, which provides:
+- The AppBar with "Neu" and contextual "Löschen" buttons.
+- Standardized layout handling.
 
 ---
 
@@ -79,32 +67,32 @@ final featureGridRowsProvider = Provider<AsyncValue<List<FeatureRowData>>>((ref)
 
 ## 4. UI Layout Rules (The "Master-Detail" Screen)
 
-Every Data Maintenance screen MUST follow this strict structural layout pattern using a `Scaffold` and a `Column`:
+Every Data Maintenance screen MUST follow this strict structural layout pattern using a `FeatureScreenScaffold`:
 
 ### 4.1 Screen Structure
 ```dart
-Scaffold(
-  appBar: AppBar(
-    title: const Text('Titel'),
-    actions: [ /* "Neu" Button triggers EditDialog */ ],
-  ),
+return FeatureScreenScaffold(
+  title: 'Titel',
+  hasSelection: selectedRowId.value != null,
+  onCreateNew: () => EditDialog.show(context),
+  onDeleteSelection: () => _deleteLogic(),
   body: Column(
     children: [
       Expanded(
-        child: /* AppDataTable<T> injected here */
+        child: /* AppDataGrid injected here */
       ),
-      if (selectedItemId.value != null)
-        _BemerkungDetailView(itemId: selectedItemId.value!),
+      if (selectedRowId.value != null)
+        _BemerkungDetailView(itemId: selectedRowId.value!),
     ],
   ),
-)
+);
 ```
 
-**[CRITICAL LAYOUT RULE]:** The table (`AppDataTable`) MUST ALWAYS be wrapped in an `Expanded` widget so it claims all remaining vertical space. The optional remarks/details panel at the bottom (`_BemerkungDetailView`) takes ONLY the space it needs (`MainAxisSize.min`).
+**[CRITICAL LAYOUT RULE]:** The grid (`AppDataGrid`) MUST ALWAYS be wrapped in an `Expanded` widget so it claims all remaining vertical space. The optional remarks/details panel at the bottom (`_BemerkungDetailView`) takes ONLY the space it needs (`MainAxisSize.min`).
 
 ### 4.2 Handling Interaction
-- **Single Click (`onRowSelected`)**: Stores the ID of the clicked row into a local `useState<int?>` to unfold the bottom Bemerkung panel.
-- **Double Click (`onRowDoubleTap`)**: Fetches the **complete, full database entity** via a `Repository` using the ID and opens the `EditDialog`.
+- **Single Click (`onRowSelected`)**: Stores the ID of the clicked row into a local `useState<int?>` to unfold the bottom Bemerkung panel and enable the "Löschen" button.
+- **Double Click (`onRowActivated`)**: Fetches the **complete, full database entity** via a `Repository` using the ID and opens the `EditDialog`.
 
 ---
 
@@ -146,7 +134,7 @@ If asked to implement a new `DataMaintenanceUi` for a feature (e.g. `Contracts`)
 1. **Verify DB Schema**: Ensure the parent table has a `bemerkung_id` foreign key.
 2. **Model**: Create a `*RowData` `freezed` class exposing what the table should show.
 3. **Riverpod View-Model**: Write `*GridRowsProvider` returning `AsyncValue<List<*RowData>>`.
-4. **Build UI Scaffold**: Scaffold -> Column -> Expanded(`AppDataTable`) -> Conditional `_BemerkungDetailView`.
-5. **Add Actions**: Map `onRowDoubleTap` to `FeatureEditDialog.show(context)`.
+4. **Build UI Scaffold**: `FeatureScreenScaffold` -> Column -> Expanded(`AppDataGrid`) -> Conditional `_BemerkungDetailView`.
+5. **Add Actions**: Map `onRowActivated` to `FeatureEditDialog.show(context)`.
 6. **Implement Dialog**: Dialog consists of a `FocusTraversalGroup` > `AlertDialog`. It accepts `(isEditing ? 'Bearbeiten' : 'Neu')` and writes fields via Riverpod to the Repository. Include the dialog-closing `IconButton(Icons.close)` in the `title: Row(...)`.
 7. **Testing**: Trigger `dart run build_runner build -d`, review layout logic. No complex graphical animations inside the DataGrid components.
