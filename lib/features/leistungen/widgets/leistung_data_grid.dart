@@ -27,7 +27,7 @@ class LeistungDataGrid extends HookConsumerWidget {
           title: 'Name',
           field: 'name',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -35,7 +35,7 @@ class LeistungDataGrid extends HookConsumerWidget {
           title: 'Laufzeit',
           field: 'laufzeit',
           type: PlutoColumnType.text(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
         ),
@@ -43,7 +43,7 @@ class LeistungDataGrid extends HookConsumerWidget {
           title: 'Brutto (€)',
           field: 'bruttopreis',
           type: PlutoColumnType.number(),
-          enableEditingMode: true,
+          enableEditingMode: false,
           enableFilterMenuItem: false,
           enableSorting: true,
           textAlign: PlutoColumnTextAlign.right,
@@ -100,16 +100,15 @@ class LeistungDataGrid extends HookConsumerWidget {
                 row.cells['laufzeit']?.value,
               ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
            }, 
-           onRowDoubleTap: (event) async {
-              final leistungId = event.row.cells['id']?.value as int;
-              final clickedColumn = event.cell.column.field;
+           onRowActivated: (row, fieldName) async {
+              final leistungId = row.cells['id']?.value as int;
 
-              // Need to fetch details including preis/bemerkung to pass to dialog
+              // Fetch full details (incl. preis/bemerkung) before opening dialog
               final detailsList = await ref.read(watchLeistungenDetailsProvider.future);
               final details = detailsList.where((d) => d.leistung.id == leistungId).firstOrNull;
 
               if (context.mounted && details != null) {
-                 LeistungEditDialog.show(context, details: details, initialFocusField: clickedColumn);
+                 LeistungEditDialog.show(context, details: details, initialFocusField: fieldName);
               }
            }
          );

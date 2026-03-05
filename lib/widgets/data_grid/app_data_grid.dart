@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
@@ -9,9 +10,13 @@ import 'sort_column_config.dart';
 import 'sort_settings_dialog.dart';
 
 /// The abstract base class for all tabular data screens in the application.
-/// Provides common functionality: full-text search, multi-column sort,
-/// column filter, an optional "Neu" button, and the base PlutoGrid setup.
-/// Child classes configure entity-specific columns, rows, and search strings.
+/// Provides common functionality: full-text search, multi-column sort, column
+/// filter, an optional "Neu" button, and the base PlutoGrid setup.
+///
+/// Keyboard navigation:
+/// - Arrow keys navigate between cells (PlutoGrid native behaviour).
+/// - [LogicalKeyboardKey.enter] opens the entity-specific modal dialog for the
+///   currently focused row/cell by invoking [onRowActivated].
 class AppDataGrid extends HookWidget {
   /// The list of [PlutoRow]s to display. Data objects are mapped to [PlutoRow]
   /// inside the child widget via [useMemoized].
@@ -30,8 +35,12 @@ class AppDataGrid extends HookWidget {
   /// Optional callback for single-click row selection.
   final void Function(PlutoRow row)? onRowSelected;
 
-  /// Callback triggered on double-click; must open the entity-specific modal.
-  final void Function(PlutoGridOnRowDoubleTapEvent event) onRowDoubleTap;
+  /// Triggered when a row is activated — either by double-click or by pressing
+  /// [LogicalKeyboardKey.enter] while the row is focused.
+  ///
+  /// [row] is the activated [PlutoRow]; [fieldName] is the column field of the
+  /// cell that was focused, used to set initial focus in the modal dialog.
+  final void Function(PlutoRow row, String fieldName) onRowActivated;
 
   /// Optional callback to open the "create new record" modal dialog.
   /// When provided, a "Neu" [FilledButton] is added to the toolbar.
@@ -44,7 +53,7 @@ class AppDataGrid extends HookWidget {
     required this.sortableColumns,
     required this.toSearchString,
     this.onRowSelected,
-    required this.onRowDoubleTap,
+    required this.onRowActivated,
     this.onCreateNew,
   });
 
@@ -120,6 +129,18 @@ class AppDataGrid extends HookWidget {
 
       return null;
     }, [rows, searchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
+
+    /// Opens the dialog for the currently focused row/cell.
+    /// Called from both the Enter key handler and the double-click handler.
+    void activateCurrentCell() {
+      final sm = stateManager.value;
+      if (sm == null) return;
+      final row = sm.currentRow;
+      final cell = sm.currentCell;
+      if (row == null || cell == null) return;
+      sm.setEditing(false);
+      onRowActivated(row, cell.column.field);
+    }
 
     return Column(
       children: [
@@ -204,37 +225,49 @@ class AppDataGrid extends HookWidget {
           ),
         ),
 
-        // ── PlutoGrid ──────────────────────────────────────────────────────
+        // ── PlutoGrid with Enter-key interception ──────────────────────────
         Expanded(
-          child: PlutoGrid(
-            columns: columns,
-            rows: List.from(rows),
-            onLoaded: (PlutoGridOnLoadedEvent event) {
-              stateManager.value = event.stateManager;
-              // Disable the built-in PlutoGrid column-filter row — we use
-              // our own FilterSettingsDialog instead.
-              event.stateManager.setShowColumnFilter(false);
-            },
-            onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
-              // Commit any pending inline edit before opening the modal dialog
-              stateManager.value?.setEditing(false);
-              onRowDoubleTap(event);
-            },
-            onSelected: (PlutoGridOnSelectedEvent event) {
-              if (event.row != null && onRowSelected != null) {
-                onRowSelected!(event.row!);
+          child: Focus(
+            // onKeyEvent bubbles up from PlutoGrid's internal focus tree.
+            // Since editing is disabled, PlutoGrid does not consume Enter —
+            // we handle it here to activate the dialog for the current row.
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.enter) {
+                activateCurrentCell();
+                return KeyEventResult.handled;
               }
+              return KeyEventResult.ignored;
             },
-            configuration: PlutoGridConfiguration(
-              style: const PlutoGridStyleConfig(
-                enableColumnBorderVertical: true,
-                enableColumnBorderHorizontal: true,
-                oddRowColor: Color(0xFFF9F9F9),
+            child: PlutoGrid(
+              columns: columns,
+              rows: List.from(rows),
+              onLoaded: (PlutoGridOnLoadedEvent event) {
+                stateManager.value = event.stateManager;
+                // Disable the built-in PlutoGrid column-filter row — we use
+                // our own FilterSettingsDialog instead.
+                event.stateManager.setShowColumnFilter(false);
+              },
+              onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
+                stateManager.value?.setEditing(false);
+                onRowActivated(event.row, event.cell.column.field);
+              },
+              onSelected: (PlutoGridOnSelectedEvent event) {
+                if (event.row != null && onRowSelected != null) {
+                  onRowSelected!(event.row!);
+                }
+              },
+              configuration: PlutoGridConfiguration(
+                style: const PlutoGridStyleConfig(
+                  enableColumnBorderVertical: true,
+                  enableColumnBorderHorizontal: true,
+                  oddRowColor: Color(0xFFF9F9F9),
+                ),
+                columnFilter: PlutoGridColumnFilterConfig(
+                  filters: const [...FilterHelper.defaultFilters],
+                ),
+                localeText: appGermanLocaleText,
               ),
-              columnFilter: PlutoGridColumnFilterConfig(
-                filters: const [...FilterHelper.defaultFilters],
-              ),
-              localeText: appGermanLocaleText,
             ),
           ),
         ),

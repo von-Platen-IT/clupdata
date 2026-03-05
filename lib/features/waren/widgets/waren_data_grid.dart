@@ -123,10 +123,9 @@ class WarenDataGrid extends HookConsumerWidget {
               ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
            }, 
            onCreateNew: () => WarenEditDialog.show(context),
-           onRowDoubleTap: (event) async {
-              final wareId = event.row.cells['id']?.value as int;
-              final clickedColumn = event.cell.column.field;
-              WarenEditDialog.show(context, wareId: wareId, initialFocusField: clickedColumn);
+           onRowActivated: (row, fieldName) {
+              final wareId = row.cells['id']?.value as int;
+              WarenEditDialog.show(context, wareId: wareId, initialFocusField: fieldName);
            }
          );
       },

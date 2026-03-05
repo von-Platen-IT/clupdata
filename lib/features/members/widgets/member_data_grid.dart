@@ -145,10 +145,9 @@ class MemberDataGrid extends HookConsumerWidget {
              ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
           },
           onCreateNew: () => MemberEditDialog.show(context),
-          onRowDoubleTap: (event) {
-             final memberId = event.row.cells['id']?.value as int;
-             final clickedColumn = event.cell.column.field;
-             MemberEditDialog.show(context, memberId: memberId, initialFocusField: clickedColumn); 
+          onRowActivated: (row, fieldName) {
+             final memberId = row.cells['id']?.value as int;
+             MemberEditDialog.show(context, memberId: memberId, initialFocusField: fieldName);
           },
         );
       },
