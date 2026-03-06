@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/members/members_screen.dart';
+import '../../features/beitraege/beitraege_screen.dart';
 import '../../features/leistungen/leistungen_screen.dart';
 import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
@@ -47,6 +48,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/leistungen',
                 builder: (context, state) => const LeistungenScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/beitraege',
+                builder: (context, state) => const BeitraegeScreen(),
               ),
             ],
           ),

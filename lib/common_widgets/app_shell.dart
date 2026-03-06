@@ -104,7 +104,7 @@ class AppShell extends HookWidget {
                               icon: const Icon(Icons.settings_outlined),
                               tooltip: 'Einstellungen',
                               onPressed: () {
-                                // TODO: Add settings navigation or dialog
+                                context.push('/master-data');
                               },
                             ),
                           ],
@@ -129,14 +129,19 @@ class AppShell extends HookWidget {
                       label: Text('Leistungen'),
                     ),
                     NavigationRailDestination(
+                      icon: Icon(Mdi.cashMultiple),
+                      selectedIcon: Icon(Mdi.cashMultiple),
+                      label: Text('Beiträge'),
+                    ),
+                    NavigationRailDestination(
                       icon: Icon(Mdi.packageVariantClosed),
                       selectedIcon: Icon(Mdi.packageVariant),
                       label: Text('Waren'),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Mdi.cashRegister),
-                      selectedIcon: Icon(Mdi.cashRegister),
-                      label: Text('Kasse'),
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long),
+                      label: Text('Rechnungen'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Icons.calendar_month_outlined),

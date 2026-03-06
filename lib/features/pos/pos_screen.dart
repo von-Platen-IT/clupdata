@@ -12,8 +12,8 @@ class PosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Kasse / POS')),
-      body: const Center(child: Text('Kasse kommt bald...')),
+      appBar: AppBar(title: const Text('Rechnungen')),
+      body: const Center(child: Text('Rechnungen kommen bald...')),
     );
   }
 }

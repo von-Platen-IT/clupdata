@@ -27,22 +27,8 @@ class AppDropdownField<T> extends HookWidget {
     final internalFocusNode = useFocusNode();
     final effectiveFocusNode = focusNode ?? internalFocusNode;
 
-    // 2. Add listener to validate text on focus loss
-    useEffect(() {
-      void onFocusChange() {
-        if (!effectiveFocusNode.hasFocus) {
-          final currentText = controller.text;
-          final match = options.where((o) => getLabel(o) == currentText).firstOrNull;
-          if (match == null && currentText.isNotEmpty) {
-            // Not a valid option: clear the invalid input
-            controller.text = '';
-          }
-        }
-      }
-
-      effectiveFocusNode.addListener(onFocusChange);
-      return () => effectiveFocusNode.removeListener(onFocusChange);
-    }, [effectiveFocusNode, controller, options, getLabel]);
+    // Workaround for Flutter DropdownMenu not closing its overlay on Tab focus loss
+    final dropdownKey = useState(UniqueKey());
 
     // Determine the initially selected value based on the controller's current text
     final initialSelection = useMemoized(
@@ -59,9 +45,13 @@ class AppDropdownField<T> extends HookWidget {
           if (match == null && currentText.isNotEmpty) {
             controller.text = '';
           }
+          // Workaround: Flutter DropdownMenu doesn't always close its overlay on Tab focus loss.
+          // Forcing a rebuild with a new key guarantees destruction of the open MenuAnchor.
+          dropdownKey.value = UniqueKey();
         }
       },
       child: DropdownMenu<T>(
+        key: dropdownKey.value,
         controller: controller,
         focusNode: effectiveFocusNode,
         initialSelection: initialSelection,

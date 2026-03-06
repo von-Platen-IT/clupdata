@@ -143,7 +143,9 @@ class AppDataGrid extends HookWidget {
         if (currentRow != lastSelectedRow) {
           lastSelectedRow = currentRow;
           if (onRowSelected != null) {
-            onRowSelected!(currentRow);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) onRowSelected!(currentRow);
+            });
           }
         }
       }

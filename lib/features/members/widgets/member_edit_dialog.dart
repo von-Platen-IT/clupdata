@@ -11,6 +11,8 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
+import '../../leistungen/presentation/providers/leistungen_list_provider.dart';
+import '../../leistungen/models/leistung_row_data.dart';
 import '../data/members_repository.dart';
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
@@ -63,9 +65,13 @@ class MemberEditDialog extends HookConsumerWidget {
     }, [memberSnapshot.data?.bemerkungId]);
     final bemerkungSnapshot = useFuture(bemerkungAsync);
 
+    final leistungenAsync = ref.watch(leistungenGridRowsProvider);
+    final leistungen = leistungenAsync.value ?? [];
+
     final isLoadingConfig = memberId != null &&
         (memberSnapshot.connectionState == ConnectionState.waiting ||
-            bemerkungSnapshot.connectionState == ConnectionState.waiting);
+            bemerkungSnapshot.connectionState == ConnectionState.waiting ||
+            leistungenAsync.isLoading);
 
     // ── Form Controllers ───────────────────────────────────────────────────
     // Person
@@ -85,6 +91,7 @@ class MemberEditDialog extends HookConsumerWidget {
     final ctrlEmail = useTextEditingController();
 
     // Vertrag
+    final ctrlLeistung = useTextEditingController();
     final ctrlVertragKontierung = useState<DateTime?>(null);
     final ctrlVertragLaufzeitVon = useState<DateTime?>(null);
     final ctrlVertragLaufzeitBis = useState<DateTime?>(null);
@@ -106,6 +113,7 @@ class MemberEditDialog extends HookConsumerWidget {
     final fnTelefon1 = useFocusNode();
     final fnTelefon2 = useFocusNode();
     final fnEmail = useFocusNode();
+    final fnLeistung = useFocusNode();
     final fnVertragKontierung = useFocusNode();
     final fnVertragLaufzeitVon = useFocusNode();
     final fnVertragLaufzeitBis = useFocusNode();
@@ -131,6 +139,13 @@ class MemberEditDialog extends HookConsumerWidget {
         ctrlVertragKontierung.value = m.vertragKontierung;
         ctrlVertragLaufzeitVon.value = m.vertragLaufzeitVon;
         ctrlVertragLaufzeitBis.value = m.vertragLaufzeitBis;
+        
+        if (m.leistungId != null) {
+          final leistung = leistungen.where((l) => l.id == m.leistungId).firstOrNull;
+          if (leistung != null) {
+            ctrlLeistung.text = leistung.name;
+          }
+        }
       }
       if (bemerkungSnapshot.hasData && bemerkungSnapshot.data != null) {
         final b = bemerkungSnapshot.data!;
@@ -138,7 +153,7 @@ class MemberEditDialog extends HookConsumerWidget {
         ctrlBemerkungText.text = b.textValue ?? '';
       }
       return null;
-    }, [memberSnapshot.data, bemerkungSnapshot.data]);
+    }, [memberSnapshot.data, bemerkungSnapshot.data, leistungen]);
 
     // ── Auto Focus (contextual editing from grid double-click) ─────────────
     useEffect(() {
@@ -150,6 +165,7 @@ class MemberEditDialog extends HookConsumerWidget {
             case 'ort': fnOrt.requestFocus();
             case 'telefon1': fnTelefon1.requestFocus();
             case 'email': fnEmail.requestFocus();
+            case 'leistung_name': fnLeistung.requestFocus();
             case 'vertrag_laufzeit_von': fnVertragLaufzeitVon.requestFocus();
             case 'vertrag_laufzeit_bis': fnVertragLaufzeitBis.requestFocus();
             default: fnVorname.requestFocus(); // sensible default for new entries
@@ -193,9 +209,13 @@ class MemberEditDialog extends HookConsumerWidget {
           vertragLaufzeitBis: drift.Value(ctrlVertragLaufzeitBis.value),
         );
 
+        final selectedLeistung = leistungen.where((l) => l.name == ctrlLeistung.text).firstOrNull;
+        
         int savedMemberId;
         if (memberId == null) {
-          savedMemberId = await repo.addMember(companion);
+          savedMemberId = await repo.addMember(companion.copyWith(
+            leistungId: drift.Value(selectedLeistung?.id),
+          ));
         } else {
           await repo.updateMember(Mitglied(
             id: memberId!,
@@ -214,7 +234,7 @@ class MemberEditDialog extends HookConsumerWidget {
             vertragKontierung: companion.vertragKontierung.value,
             vertragLaufzeitVon: companion.vertragLaufzeitVon.value,
             vertragLaufzeitBis: companion.vertragLaufzeitBis.value,
-            leistungId: memberSnapshot.data?.leistungId,
+            leistungId: selectedLeistung?.id,
             bemerkungId: memberSnapshot.data?.bemerkungId,
           ));
           savedMemberId = memberId!;
@@ -413,6 +433,14 @@ class MemberEditDialog extends HookConsumerWidget {
 
                   // ── Vertrag ────────────────────────────────────────────
                   const AppSectionHeader('Vertrag'),
+                  const Gap(8),
+                  AppDropdownField<LeistungRowData>(
+                    controller: ctrlLeistung,
+                    label: 'Vertragsart',
+                    focusNode: fnLeistung,
+                    options: leistungen,
+                    getLabel: (l) => l.name,
+                  ),
                   const Gap(8),
                   AppDatePickerField(
                     value: ctrlVertragKontierung.value,
