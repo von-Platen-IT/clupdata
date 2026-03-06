@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'bemerkung_table.dart';
 import 'leistung_table.dart';
+import 'preis_table.dart';
 
 /// Defines the structure for the `mitglied` table.
 /// Main member entity.
@@ -23,6 +24,7 @@ class Mitglieds extends Table {
   DateTimeColumn get vertragKontierung => dateTime().nullable()();
   DateTimeColumn get vertragLaufzeitVon => dateTime().nullable()();
   DateTimeColumn get vertragLaufzeitBis => dateTime().nullable()();
+  IntColumn get preisId => integer().nullable().references(Preis, #id, onDelete: KeyAction.setNull)();
   IntColumn get bemerkungId => integer().nullable().references(Bemerkung, #id, onDelete: KeyAction.setNull)();
 
   // drift indexes are defined in AppDatabase or using @TableIndex but we configure them centrally in the Database class definition to conform with the structured setup.

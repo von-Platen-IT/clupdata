@@ -114,9 +114,9 @@ class AppShell extends HookWidget {
                   ),
                   destinations: const [
                     NavigationRailDestination(
-                      icon: Icon(Mdi.viewDashboardOutline),
-                      selectedIcon: Icon(Mdi.viewDashboard),
-                      label: Text('Dashboard'),
+                      icon: Icon(Mdi.homeOutline),
+                      selectedIcon: Icon(Mdi.home),
+                      label: Text('Start'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Mdi.accountGroupOutline),

@@ -23,8 +23,10 @@ class MemberDataGrid extends HookConsumerWidget {
     final rowsAsync = ref.watch(membersGridRowsProvider);
 
     // Columns based on structur.md:
-    // name, vorname, ort, telefon1, email, leistung_name, vertrag_laufzeit_von, vertrag_laufzeit_bis, alter
+    // name, vorname, ort, telefon1, email, leistung_name, beitrag, vertrag_laufzeit_von, vertrag_laufzeit_bis, alter
     final columns = useMemoized<List<PlutoColumn>>(() {
+      final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
+
       return [
         PlutoColumn(
           title: 'Name',
@@ -73,6 +75,17 @@ class MemberDataGrid extends HookConsumerWidget {
           enableEditingMode: false, // from lookup
           enableFilterMenuItem: true,
           enableSorting: true,
+        ),
+        PlutoColumn(
+          title: 'Beitrag',
+          field: 'beitrag',
+          type: PlutoColumnType.number(),
+          enableEditingMode: false,
+          enableFilterMenuItem: true,
+          enableSorting: true,
+          textAlign: PlutoColumnTextAlign.right,
+          titleTextAlign: PlutoColumnTextAlign.right,
+          formatter: (value) => (value as num?) != null && value != 0 ? currencyFormatter.format(value) : '',
         ),
         PlutoColumn(
           title: 'Laufzeit von',
@@ -125,6 +138,7 @@ class MemberDataGrid extends HookConsumerWidget {
             'telefon1': PlutoCell(value: m.telefon1 ?? ''),
             'email': PlutoCell(value: m.email ?? ''),
             'leistung_name': PlutoCell(value: m.leistungName ?? ''),
+            'beitrag': PlutoCell(value: m.beitrag ?? 0.0),
             'vertrag_laufzeit_von': PlutoCell(value: m.vertragLaufzeitVon != null ? dateFormat.format(m.vertragLaufzeitVon!) : ''),
             'vertrag_laufzeit_bis': PlutoCell(value: m.vertragLaufzeitBis != null ? dateFormat.format(m.vertragLaufzeitBis!) : ''),
             'alter': PlutoCell(value: m.alter ?? 0),

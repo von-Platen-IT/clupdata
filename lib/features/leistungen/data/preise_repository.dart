@@ -13,6 +13,10 @@ class PreiseRepository {
     return _db.select(_db.preis).watch();
   }
 
+  Future<PreisItem?> getPreisById(int id) {
+    return (_db.select(_db.preis)..where((p) => p.id.equals(id))).getSingleOrNull();
+  }
+
   Future<int> addPreis(PreisCompanion price) async {
     return _db.into(_db.preis).insert(price);
   }

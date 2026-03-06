@@ -20,5 +20,6 @@ abstract class MemberRowData with _$MemberRowData {
     DateTime? vertragLaufzeitBis,
     DateTime? vertragKontierung,
     int? alter,
+    double? beitrag,
   }) = _MemberRowData;
 }

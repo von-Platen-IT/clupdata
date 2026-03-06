@@ -89,6 +89,7 @@ _Main member entity._
 | `anrede` | TEXT | Enum:[Herr, Frau, Divers, Keine] |  |
 | `name` | TEXT | NotNull, MaxLen:100, Unicode |  |
 | `vorname` | TEXT | NotNull, MaxLen:100, Unicode |  |
+| `preis_id` | INTEGER | FK->preis.id(SET NULL) |  |
 | `plz` | TEXT | MaxLen:10 |  |
 | `ort` | TEXT | MaxLen:100, Unicode |  |
 | `Strasse` | TEXT | MaxLen:100, Unicode |  |
@@ -202,6 +203,7 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
   - Spalte `telefon1` (Telefon) - text - Sort:False Filter:True
   - Spalte `email` (E-Mail) - text - Sort:False Filter:True
   - Spalte `leistung_name` (Vertragsart) - text - Sort:True Filter:True
+  - Spalte `beitrag` (Beitrag) - text - Sort:True Filter:True
   - Spalte `vertrag_laufzeit_von` (Laufzeit von) - date - Sort:True Filter:True
   - Spalte `vertrag_laufzeit_bis` (Laufzeit bis) - date - Sort:True Filter:True
   - Spalte `alter` (Alter) - number - Sort:True Filter:False

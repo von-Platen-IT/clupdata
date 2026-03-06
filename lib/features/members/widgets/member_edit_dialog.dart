@@ -13,6 +13,7 @@ import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
 import '../../leistungen/presentation/providers/leistungen_list_provider.dart';
 import '../../leistungen/models/leistung_row_data.dart';
+import '../../leistungen/data/preise_repository.dart';
 import '../data/members_repository.dart';
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
@@ -65,12 +66,20 @@ class MemberEditDialog extends HookConsumerWidget {
     }, [memberSnapshot.data?.bemerkungId]);
     final bemerkungSnapshot = useFuture(bemerkungAsync);
 
+    final preisAsync = useMemoized(() {
+      final pId = memberSnapshot.data?.preisId;
+      if (pId == null) return Future<PreisItem?>.value(null);
+      return ref.read(preiseRepositoryProvider).getPreisById(pId);
+    }, [memberSnapshot.data?.preisId]);
+    final preisSnapshot = useFuture(preisAsync);
+
     final leistungenAsync = ref.watch(leistungenGridRowsProvider);
     final leistungen = leistungenAsync.value ?? [];
 
     final isLoadingConfig = memberId != null &&
         (memberSnapshot.connectionState == ConnectionState.waiting ||
             bemerkungSnapshot.connectionState == ConnectionState.waiting ||
+            preisSnapshot.connectionState == ConnectionState.waiting ||
             leistungenAsync.isLoading);
 
     // ── Form Controllers ───────────────────────────────────────────────────
@@ -92,6 +101,7 @@ class MemberEditDialog extends HookConsumerWidget {
 
     // Vertrag
     final ctrlLeistung = useTextEditingController();
+    final ctrlBeitrag = useTextEditingController();
     final ctrlVertragKontierung = useState<DateTime?>(null);
     final ctrlVertragLaufzeitVon = useState<DateTime?>(null);
     final ctrlVertragLaufzeitBis = useState<DateTime?>(null);
@@ -114,6 +124,7 @@ class MemberEditDialog extends HookConsumerWidget {
     final fnTelefon2 = useFocusNode();
     final fnEmail = useFocusNode();
     final fnLeistung = useFocusNode();
+    final fnBeitrag = useFocusNode();
     final fnVertragKontierung = useFocusNode();
     final fnVertragLaufzeitVon = useFocusNode();
     final fnVertragLaufzeitBis = useFocusNode();
@@ -146,6 +157,9 @@ class MemberEditDialog extends HookConsumerWidget {
             ctrlLeistung.text = leistung.name;
           }
         }
+        if (preisSnapshot.hasData && preisSnapshot.data != null) {
+          ctrlBeitrag.text = preisSnapshot.data!.bruttopreis.toStringAsFixed(2);
+        }
       }
       if (bemerkungSnapshot.hasData && bemerkungSnapshot.data != null) {
         final b = bemerkungSnapshot.data!;
@@ -153,7 +167,21 @@ class MemberEditDialog extends HookConsumerWidget {
         ctrlBemerkungText.text = b.textValue ?? '';
       }
       return null;
-    }, [memberSnapshot.data, bemerkungSnapshot.data, leistungen]);
+    }, [memberSnapshot.data, bemerkungSnapshot.data, preisSnapshot.data, leistungen]);
+
+    // ── Auto-fill Beitrag ──────────────────────────────────────────────────
+    useEffect(() {
+      void onLeistungChanged() {
+        if (ctrlBeitrag.text.trim().isEmpty && ctrlLeistung.text.isNotEmpty) {
+          final selected = leistungen.where((l) => l.name == ctrlLeistung.text).firstOrNull;
+          if (selected != null) {
+            ctrlBeitrag.text = selected.bruttopreis.toStringAsFixed(2);
+          }
+        }
+      }
+      ctrlLeistung.addListener(onLeistungChanged);
+      return () => ctrlLeistung.removeListener(onLeistungChanged);
+    }, [leistungen, ctrlBeitrag, ctrlLeistung]);
 
     // ── Auto Focus (contextual editing from grid double-click) ─────────────
     useEffect(() {
@@ -166,6 +194,7 @@ class MemberEditDialog extends HookConsumerWidget {
             case 'telefon1': fnTelefon1.requestFocus();
             case 'email': fnEmail.requestFocus();
             case 'leistung_name': fnLeistung.requestFocus();
+            case 'beitrag': fnBeitrag.requestFocus();
             case 'vertrag_laufzeit_von': fnVertragLaufzeitVon.requestFocus();
             case 'vertrag_laufzeit_bis': fnVertragLaufzeitBis.requestFocus();
             default: fnVorname.requestFocus(); // sensible default for new entries
@@ -211,10 +240,30 @@ class MemberEditDialog extends HookConsumerWidget {
 
         final selectedLeistung = leistungen.where((l) => l.name == ctrlLeistung.text).firstOrNull;
         
+        // ── Handle Preis ─────────────────────────────────────────────────
+        final preiseRepo = ref.read(preiseRepositoryProvider);
+        int? finalPreisId = memberSnapshot.data?.preisId;
+        final inputBeitragStr = ctrlBeitrag.text.replaceAll(',', '.');
+        final inputBeitrag = double.tryParse(inputBeitragStr);
+
+        if (inputBeitrag != null) {
+          if (finalPreisId != null) {
+            final existingPreis = await preiseRepo.getPreisById(finalPreisId);
+            if (existingPreis != null && existingPreis.bruttopreis != inputBeitrag) {
+              await preiseRepo.updatePreis(existingPreis.copyWith(bruttopreis: inputBeitrag));
+            }
+          } else {
+            finalPreisId = await preiseRepo.addPreis(PreisCompanion.insert(bruttopreis: inputBeitrag));
+          }
+        } else if (ctrlBeitrag.text.trim().isEmpty && finalPreisId != null) {
+           finalPreisId = null; 
+        }
+
         int savedMemberId;
         if (memberId == null) {
           savedMemberId = await repo.addMember(companion.copyWith(
             leistungId: drift.Value(selectedLeistung?.id),
+            preisId: drift.Value(finalPreisId),
           ));
         } else {
           await repo.updateMember(Mitglied(
@@ -235,6 +284,7 @@ class MemberEditDialog extends HookConsumerWidget {
             vertragLaufzeitVon: companion.vertragLaufzeitVon.value,
             vertragLaufzeitBis: companion.vertragLaufzeitBis.value,
             leistungId: selectedLeistung?.id,
+            preisId: finalPreisId,
             bemerkungId: memberSnapshot.data?.bemerkungId,
           ));
           savedMemberId = memberId!;
@@ -434,12 +484,27 @@ class MemberEditDialog extends HookConsumerWidget {
                   // ── Vertrag ────────────────────────────────────────────
                   const AppSectionHeader('Vertrag'),
                   const Gap(8),
-                  AppDropdownField<LeistungRowData>(
-                    controller: ctrlLeistung,
-                    label: 'Vertragsart',
-                    focusNode: fnLeistung,
-                    options: leistungen,
-                    getLabel: (l) => l.name,
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: AppDropdownField<LeistungRowData>(
+                          controller: ctrlLeistung,
+                          label: 'Vertragsart',
+                          focusNode: fnLeistung,
+                          options: leistungen,
+                          getLabel: (l) => l.name,
+                        ),
+                      ),
+                      const Gap(8),
+                      Expanded(
+                        child: AppTextField(
+                          controller: ctrlBeitrag,
+                          label: 'Beitrag (€)',
+                          focusNode: fnBeitrag,
+                        ),
+                      ),
+                    ],
                   ),
                   const Gap(8),
                   AppDatePickerField(

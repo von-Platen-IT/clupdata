@@ -30,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,8 +52,16 @@ class AppDatabase extends _$AppDatabase {
         if (to > 6) {
            await migrator.addColumn(mitglieds, mitglieds.geschlecht);
         }
+        if (to > 7) {
+           await migrator.addColumn(mitglieds, mitglieds.preisId);
+        }
       } else if (from == 6) {
         await migrator.addColumn(mitglieds, mitglieds.geschlecht);
+        if (to > 7) {
+           await migrator.addColumn(mitglieds, mitglieds.preisId);
+        }
+      } else if (from == 7) {
+        await migrator.addColumn(mitglieds, mitglieds.preisId);
       }
     },
     beforeOpen: (details) async {
