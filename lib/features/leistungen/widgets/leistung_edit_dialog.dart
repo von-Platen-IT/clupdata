@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
 
+import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/leistungen_repository.dart';
@@ -61,8 +62,7 @@ class LeistungEditDialog extends HookConsumerWidget {
        text: initialNetto > 0 ? initialNetto.toStringAsFixed(2) : ''
     );
     
-    // Flags to prevent infinite listener loops
-    final isUpdatingPrice = useState(false);
+    final isUpdatingPrice = useRef(false);
 
     useEffect(() {
       void updateNetto() {
@@ -166,38 +166,24 @@ class LeistungEditDialog extends HookConsumerWidget {
       }
     }
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.enter): () {
-          if (!isSaving.value) {
-            save();
-          }
-        },
+    return AppEditDialogScaffold(
+      title: details == null ? 'Neue Leistung' : 'Leistung bearbeiten',
+      isSaving: isSaving.value,
+      onSave: save,
+      contentWidth: 600,
+      deleteEntityLabel: 'Leistung',
+      onDelete: details?.leistung.id == null ? null : () async {
+        await ref.read(leistungenRepositoryProvider).deleteLeistung(details!.leistung.id);
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Leistung erfolgreich gelöscht')),
+          );
+        }
       },
-      child: Focus(
-        autofocus: true,
-        child: AlertDialog(
-          title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(details == null ? 'Neue Leistung' : 'Leistung bearbeiten'),
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 600,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
                Text('Leistung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                const Gap(8),
                AppTextField(controller: ctrlName, label: 'Name', focusNode: fnName),
@@ -227,68 +213,7 @@ class LeistungEditDialog extends HookConsumerWidget {
                AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
                const Gap(8),
                AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
-            ],
-          ),
-        ),
-      ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        if (details?.leistung.id != null)
-           TextButton.icon(
-             icon: const Icon(Icons.delete, color: Colors.red),
-             label: const Text('Löschen', style: TextStyle(color: Colors.red)),
-             onPressed: () async {
-               final confirm = await showDialog<bool>(
-                 context: context,
-                 builder: (ctx) => AlertDialog(
-                   title: const Text('Wirklich löschen?'),
-                   content: const Text('Möchten Sie diese Leistung unwiderruflich löschen?'),
-                   actions: [
-                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
-                     FilledButton(
-                       style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                       onPressed: () => Navigator.of(ctx).pop(true), 
-                       child: const Text('Löschen'),
-                     ),
-                   ]
-                 )
-               );
-               if (confirm == true && context.mounted) {
-                 try {
-                   await ref.read(leistungenRepositoryProvider).deleteLeistung(details!.leistung.id);
-                   if (context.mounted) {
-                     Navigator.of(context).pop();
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leistung erfolgreich gelöscht')));
-                   }
-                 } catch (e) {
-                   if (context.mounted) {
-                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
-                   }
-                 }
-               }
-             },
-           )
-        else
-           const SizedBox.shrink(),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Abbrechen'),
-            ),
-            const Gap(8),
-            FilledButton.icon(
-              onPressed: isSaving.value ? null : save,
-              icon: isSaving.value 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save),
-              label: const Text('Speichern'),
-            ),
-          ],
-        ),
-      ],
-        ),
+        ],
       ),
     );
   }

@@ -13,20 +13,7 @@ import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
 import '../data/members_repository.dart';
 
-/// Returns `true` when the currently focused widget should consume the
-/// [LogicalKeyboardKey.enter] key itself (multi-line text fields, dropdown
-/// menu entries). Suppresses the global "save on Enter" shortcut in those cases.
-bool _shouldSuppressEnter() {
-  final primaryFocus = FocusManager.instance.primaryFocus;
-  if (primaryFocus == null) return false;
-  final context = primaryFocus.context;
-  if (context == null) return false;
-  final editableText = context.findAncestorWidgetOfExactType<EditableText>();
-  if (editableText != null && editableText.maxLines != 1) return true;
-  final dropdownMenu = context.findAncestorWidgetOfExactType<DropdownMenu>();
-  if (dropdownMenu != null) return true;
-  return false;
-}
+import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 
 /// Modal dialog for creating and editing a [Mitglied] record.
 /// Triggered by double-clicking a row in [MemberDataGrid] or via the "Neu" button.
@@ -273,37 +260,24 @@ class MemberEditDialog extends HookConsumerWidget {
       );
     }
 
-    // ── Dialog ─────────────────────────────────────────────────────────────
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (context.mounted) Navigator.of(context).pop();
-        },
-        // Enter triggers save only when no multi-line or dropdown has focus
-        const SingleActivator(LogicalKeyboardKey.enter): () {
-          if (!isSaving.value && !_shouldSuppressEnter()) saveMember();
-        },
+    return AppEditDialogScaffold(
+      title: memberId == null ? 'Neues Mitglied' : 'Mitglied bearbeiten',
+      isSaving: isSaving.value,
+      onSave: saveMember,
+      contentWidth: 800,
+      deleteEntityLabel: 'Mitglied',
+      onDelete: memberId == null ? null : () async {
+        await ref.read(membersRepositoryProvider).deleteMember(memberId!);
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mitglied erfolgreich gelöscht')),
+          );
+        }
       },
-      child: Focus(
-        autofocus: true,
-        child: AlertDialog(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(memberId == null ? 'Neues Mitglied' : 'Mitglied bearbeiten'),
-              IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: 'Schließen',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 800,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                   // ── Person ─────────────────────────────────────────────
                   const AppSectionHeader('Person'),
                   const Gap(8),
@@ -476,52 +450,7 @@ class MemberEditDialog extends HookConsumerWidget {
                   AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
                   const Gap(8),
                   AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
-                ],
-              ),
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            // Delete button — only shown when editing an existing record
-            if (memberId != null)
-              AppDialogDeleteAction(
-                entityLabel: 'Mitglied',
-                onConfirmed: () async {
-                  await ref.read(membersRepositoryProvider).deleteMember(memberId!);
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mitglied erfolgreich gelöscht')),
-                    );
-                  }
-                },
-              )
-            else
-              const SizedBox.shrink(),
-
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Abbrechen'),
-                ),
-                const Gap(8),
-                FilledButton.icon(
-                  onPressed: isSaving.value ? null : saveMember,
-                  icon: isSaving.value
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.save),
-                  label: const Text('Speichern'),
-                ),
-              ],
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

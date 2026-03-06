@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
 
+import '../../utils/app_debouncer.dart';
 import 'app_data_grid_locale.dart';
 import 'filter_settings_dialog.dart';
 import 'sort_column_config.dart';
@@ -60,9 +61,13 @@ class AppDataGrid extends HookWidget {
 
     // Search & filter state
     final searchController = useTextEditingController();
-    final searchText = useState<String>('');
+    final debouncedSearchText = useState<String>('');
     final activeFilters = useState<Map<String, String>>({});
     final activeSortConfigs = useState<List<SortColumnConfig>>(sortableColumns);
+
+    // Prepare debouncer for the search input
+    final debouncer = useMemoized(() => AppDebouncer(delay: const Duration(milliseconds: 300)));
+    useEffect(() => debouncer.cancel, [debouncer]); // cleanup on dispose
 
     // Apply all filters, search, and sort chain to the grid whenever any
     // of the dependencies change, including the initial data load.
@@ -87,8 +92,8 @@ class AppDataGrid extends HookWidget {
       }
 
       // 3. Apply full-text search
-      if (searchText.value.isNotEmpty) {
-        final query = searchText.value.toLowerCase();
+      if (debouncedSearchText.value.isNotEmpty) {
+        final query = debouncedSearchText.value.toLowerCase();
         filteredRows = filteredRows.where((row) {
           return toSearchString(row).toLowerCase().contains(query);
         }).toList();
@@ -124,7 +129,7 @@ class AppDataGrid extends HookWidget {
       sm.notifyListeners();
 
       return null;
-    }, [rows, searchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
+    }, [rows, debouncedSearchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
 
     // Track active row selection because PlutoGridMode.normal doesn't trigger onSelected reliably
     useEffect(() {
@@ -175,17 +180,24 @@ class AppDataGrid extends HookWidget {
                     hintText: 'Suche...',
                     isDense: true,
                     border: const OutlineInputBorder(),
-                    suffixIcon: searchText.value.isNotEmpty
+                    suffixIcon: searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 20),
                             onPressed: () {
                               searchController.clear();
-                              searchText.value = '';
+                              debouncedSearchText.value = '';
+                              debouncer.cancel();
                             },
                           )
                         : null,
                   ),
-                  onChanged: (val) => searchText.value = val,
+                  onChanged: (val) {
+                    debouncer.run(() {
+                      if (context.mounted) {
+                        debouncedSearchText.value = val;
+                      }
+                    });
+                  },
                 ),
               ),
               const Gap(8),
