@@ -25,6 +25,10 @@ class StammdatenRepository {
   Future<bool> updateSetting(StammdatenItem setting) async {
     return _db.update(_db.stammdaten).replace(setting);
   }
+
+  Future<int> deleteSetting(String schluessel) async {
+    return (_db.delete(_db.stammdaten)..where((s) => s.schluessel.equals(schluessel))).go();
+  }
 }
 
 @riverpod

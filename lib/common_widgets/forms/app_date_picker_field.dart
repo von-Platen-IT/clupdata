@@ -19,34 +19,36 @@ class AppDatePickerField extends HookWidget {
     this.focusNode,
   });
 
-  Future<void> _pickDate(BuildContext context) async {
-    final firstDate = DateTime(1900);
-    final lastDate = DateTime(2100);
 
-    // Clamp the current value into the picker's valid range to avoid assertion
-    // errors when the stored date predates firstDate (e.g. historical DB entries).
-    DateTime initialDate = value ?? DateTime.now();
-    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
-    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      initialEntryMode: DatePickerEntryMode.calendar,
-      helpText: label,
-    );
-    if (picked != null) {
-      onChanged(picked);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final formatter = DateFormat('dd.MM.yyyy');
     final controller = useTextEditingController(text: value != null ? formatter.format(value!) : '');
     final focus = focusNode ?? useFocusNode();
+
+    Future<void> pickDate() async {
+      final firstDate = DateTime(1900);
+      final lastDate = DateTime(2100);
+
+      DateTime initialDate = value ?? DateTime.now();
+      if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+      if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: firstDate,
+        lastDate: lastDate,
+        initialEntryMode: DatePickerEntryMode.calendar,
+        helpText: label,
+      );
+      if (picked != null) {
+        controller.text = formatter.format(picked);
+        onChanged(picked);
+      }
+    }
+
 
     // Re-sync text if external value changes while we are not focused
     useEffect(() {
@@ -103,7 +105,7 @@ class AppDatePickerField extends HookWidget {
         border: const OutlineInputBorder(),
         suffixIcon: IconButton(
           icon: const Icon(Icons.calendar_today),
-          onPressed: () => _pickDate(context),
+          onPressed: () => pickDate(),
           tooltip: 'Datum wählen',
           focusNode: FocusNode(skipTraversal: true), // Skip the icon in Tab sequence
         ),

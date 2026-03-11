@@ -23,7 +23,7 @@ class MemberDataGrid extends HookConsumerWidget {
     final rowsAsync = ref.watch(membersGridRowsProvider);
 
     // Columns based on structur.md:
-    // name, vorname, ort, telefon1, email, leistung_name, beitrag, vertrag_laufzeit_von, vertrag_laufzeit_bis, alter
+    // name, vorname, ort, telefon1, email, leistung_name, beitrag
     final columns = useMemoized<List<PlutoColumn>>(() {
       final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 
@@ -87,35 +87,8 @@ class MemberDataGrid extends HookConsumerWidget {
           titleTextAlign: PlutoColumnTextAlign.right,
           formatter: (value) => (value as num?) != null && value != 0 ? currencyFormatter.format(value) : '',
         ),
-        PlutoColumn(
-          title: 'Laufzeit von',
-          field: 'vertrag_laufzeit_von',
-          type: PlutoColumnType.date(format: 'dd.MM.yyyy'),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-        ),
-        PlutoColumn(
-          title: 'Laufzeit bis',
-          field: 'vertrag_laufzeit_bis',
-          type: PlutoColumnType.date(format: 'dd.MM.yyyy'),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-        ),
-        PlutoColumn(
-          title: 'Alter',
-          field: 'alter',
-          type: PlutoColumnType.number(),
-          enableEditingMode: false, // computed
-          enableFilterMenuItem: false,
-          enableSorting: true,
-          textAlign: PlutoColumnTextAlign.right,
-          titleTextAlign: PlutoColumnTextAlign.right,
-        ),
       ];
     }, []);
-
     final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
       return columns
           .where((c) => c.enableSorting)
@@ -139,9 +112,9 @@ class MemberDataGrid extends HookConsumerWidget {
             'email': PlutoCell(value: m.email ?? ''),
             'leistung_name': PlutoCell(value: m.leistungName ?? ''),
             'beitrag': PlutoCell(value: m.beitrag ?? 0.0),
-            'vertrag_laufzeit_von': PlutoCell(value: m.vertragLaufzeitVon != null ? dateFormat.format(m.vertragLaufzeitVon!) : ''),
-            'vertrag_laufzeit_bis': PlutoCell(value: m.vertragLaufzeitBis != null ? dateFormat.format(m.vertragLaufzeitBis!) : ''),
-            'alter': PlutoCell(value: m.alter ?? 0),
+            // 'vertrag_laufzeit_von': PlutoCell(value: m.vertragLaufzeitVon != null ? dateFormat.format(m.vertragLaufzeitVon!) : ''),
+            // 'vertrag_laufzeit_bis': PlutoCell(value: m.vertragLaufzeitBis != null ? dateFormat.format(m.vertragLaufzeitBis!) : ''),
+            // 'alter': PlutoCell(value: m.alter ?? 0),
           },
         );
       }).toList();

@@ -9,7 +9,7 @@ import '../../features/leistungen/leistungen_screen.dart';
 import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
-import '../../features/master_data/presentation/master_data_screen.dart';
+import '../../features/stammdaten/presentation/screens/stammdaten_screen.dart';
 import '../../common_widgets/app_shell.dart';
 
 /// The global routing configuration for the ClupData application.
@@ -83,7 +83,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: '/master-data',
-                builder: (context, state) => const MasterDataScreen(),
+                builder: (context, state) => const StammdatenScreen(),
               ),
             ],
           ),

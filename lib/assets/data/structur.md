@@ -33,26 +33,27 @@ _Key/value configuration store. Contains global settings like MwSt rate, file pa
 | `id` | INTEGER | PK, AutoIncrement |  |
 | `schluessel` | TEXT | NotNull, Unique, MaxLen:100 | Unique config key, e.g. 'mwst_standard', 'firma_name' |
 | `wert` | TEXT |  | Stored as text, parsed according to 'typ' |
-| `typ` | TEXT | NotNull, Enum:[string, number, boolean, date] | Data type for correct parsing of 'wert' |
+| `typ` | TEXT | NotNull, Enum:[string, integer, float, boolean, date] | Data type for correct parsing of 'wert' |
 | `kategorie` | TEXT | NotNull, Enum:[finanzen, programm, firma, druck, sonstiges] | Groups settings in the UI |
 | `bezeichnung` | TEXT | NotNull, MaxLen:200 | Human-readable label shown in settings UI |
 | `beschreibung` | TEXT | MaxLen:500 | Tooltip / help text shown in settings UI |
 | `aenderbar` | INTEGER | NotNull, Default:1 | 1 = user may edit, 0 = read-only system value |
+| `system_pflicht` | BOOLEAN | NotNull, Default:0 | 1 = mandatory record (cannot be deleted), 0 = optional |
 
 **Initiale Daten (Seed Data):**
 
-| schluessel | wert | typ | kategorie | bezeichnung | aenderbar |
-|---|---|---|---|---|---|
-| mwst_standard | 19 | number | finanzen | MwSt. Standardsatz (%) | 1 |
-| mwst_ermaessigt | 7 | number | finanzen | MwSt. ermäßigter Satz (%) | 1 |
-| mwst_aktiv_schluessel | mwst_standard | string | finanzen | Verwendeter MwSt.-Schlüssel | 1 |
-| firma_name |  | string | firma | Firmenname | 1 |
-| firma_strasse |  | string | firma | Straße / Hausnummer | 1 |
-| firma_plz |  | string | firma | PLZ | 1 |
-| firma_ort |  | string | firma | Ort | 1 |
-| pfad_export |  | string | programm | Export-Verzeichnis | 1 |
-| pfad_backup |  | string | programm | Backup-Verzeichnis | 1 |
-| db_version | 1 | number | programm | Datenbankversion | 0 |
+| schluessel | wert | typ | kategorie | bezeichnung | aenderbar | system_pflicht |
+|---|---|---|---|---|---|---|
+| mwst_standard | 19 | float | finanzen | MwSt. Standardsatz (%) | 1 | 1 |
+| mwst_ermaessigt | 7 | float | finanzen | MwSt. ermäßigter Satz (%) | 1 | 1 |
+| mwst_aktiv_schluessel | mwst_standard | string | finanzen | Verwendeter MwSt.-Schlüssel | 1 | 1 |
+| firma_name |  | string | firma | Firmenname | 1 | 1 |
+| firma_strasse |  | string | firma | Straße / Hausnummer | 1 | 1 |
+| firma_plz |  | string | firma | PLZ | 1 | 1 |
+| firma_ort |  | string | firma | Ort | 1 | 1 |
+| pfad_export |  | string | programm | Export-Verzeichnis | 1 | 0 |
+| pfad_backup |  | string | programm | Backup-Verzeichnis | 1 | 0 |
+| db_version | 1 | integer | programm | Datenbankversion | 0 | 1 |
 
 ### 1.3 `preis`
 _Price entity. Nettopreis is always computed at runtime from bruttopreis and mwst from stammdaten._
@@ -204,9 +205,6 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
   - Spalte `email` (E-Mail) - text - Sort:False Filter:True
   - Spalte `leistung_name` (Vertragsart) - text - Sort:True Filter:True
   - Spalte `beitrag` (Beitrag) - text - Sort:True Filter:True
-  - Spalte `vertrag_laufzeit_von` (Laufzeit von) - date - Sort:True Filter:True
-  - Spalte `vertrag_laufzeit_bis` (Laufzeit bis) - date - Sort:True Filter:True
-  - Spalte `alter` (Alter) - number - Sort:True Filter:False
 
 #### Screen: Mitglied bearbeiten (`screen_mitglied_edit`)
 - **Route**: /mitglieder/edit

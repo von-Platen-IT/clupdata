@@ -11,6 +11,7 @@ class AppTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final bool readOnly;
   final FocusNode? focusNode;
+  final String? errorText;
 
   const AppTextField({
     super.key,
@@ -23,6 +24,7 @@ class AppTextField extends StatelessWidget {
     this.suffixIcon,
     this.readOnly = false,
     this.focusNode,
+    this.errorText,
   });
 
   @override
@@ -35,6 +37,7 @@ class AppTextField extends StatelessWidget {
         isDense: true,
         border: const OutlineInputBorder(),
         suffixIcon: suffixIcon,
+        errorText: errorText,
       ),
       keyboardType: keyboardType,
       textInputAction: textInputAction,

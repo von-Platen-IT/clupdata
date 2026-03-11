@@ -27,58 +27,54 @@ class AppDropdownField<T> extends HookWidget {
     final internalFocusNode = useFocusNode();
     final effectiveFocusNode = focusNode ?? internalFocusNode;
 
-    // Workaround for Flutter DropdownMenu not closing its overlay on Tab focus loss
-    final dropdownKey = useState(UniqueKey());
-
     // Determine the initially selected value based on the controller's current text
     final initialSelection = useMemoized(
       () => options.where((o) => getLabel(o) == controller.text).firstOrNull,
       [options, controller.text, getLabel]
     );
 
-    return Focus(
-      // The outer Focus catches tab traversal out of the internal DropdownMenu structure
-      onFocusChange: (hasFocus) {
-        if (!hasFocus) {
+    // Validate text on focus loss
+    useEffect(() {
+      void listener() {
+        if (!effectiveFocusNode.hasFocus) {
           final currentText = controller.text;
           final match = options.where((o) => getLabel(o) == currentText).firstOrNull;
           if (match == null && currentText.isNotEmpty) {
             controller.text = '';
           }
-          // Workaround: Flutter DropdownMenu doesn't always close its overlay on Tab focus loss.
-          // Forcing a rebuild with a new key guarantees destruction of the open MenuAnchor.
-          dropdownKey.value = UniqueKey();
+        }
+      }
+      effectiveFocusNode.addListener(listener);
+      return () => effectiveFocusNode.removeListener(listener);
+    }, [effectiveFocusNode, options, controller]);
+
+    return DropdownMenu<T>(
+      controller: controller,
+      focusNode: effectiveFocusNode,
+      initialSelection: initialSelection,
+      label: Text(required ? '$label *' : label),
+      enableFilter: true,
+      requestFocusOnTap: true,
+      // Disable the trailing icon from participating in keyboard focus traversal
+      trailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_down)),
+      selectedTrailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_up)),
+      expandedInsets: EdgeInsets.zero, // Fills parent width like a normal input field
+      dropdownMenuEntries: options.map((option) {
+        return DropdownMenuEntry<T>(
+          value: option,
+          label: getLabel(option),
+        );
+      }).toList(),
+      onSelected: (T? newValue) {
+        if (newValue != null) {
+          controller.text = getLabel(newValue);
+          effectiveFocusNode.nextFocus();
         }
       },
-      child: DropdownMenu<T>(
-        key: dropdownKey.value,
-        controller: controller,
-        focusNode: effectiveFocusNode,
-        initialSelection: initialSelection,
-        label: Text(required ? '$label *' : label),
-        enableFilter: true,
-        requestFocusOnTap: true,
-        // Disable the trailing icon from participating in keyboard focus traversal
-        trailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_down)),
-        selectedTrailingIcon: const ExcludeFocus(child: Icon(Icons.arrow_drop_up)),
-        expandedInsets: EdgeInsets.zero, // Fills parent width like a normal input field
-        dropdownMenuEntries: options.map((option) {
-          return DropdownMenuEntry<T>(
-            value: option,
-            label: getLabel(option),
-          );
-        }).toList(),
-        onSelected: (T? newValue) {
-          if (newValue != null) {
-            controller.text = getLabel(newValue);
-            effectiveFocusNode.nextFocus();
-          }
-        },
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }

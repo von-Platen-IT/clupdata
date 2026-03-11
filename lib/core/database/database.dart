@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
@@ -30,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -62,6 +63,18 @@ class AppDatabase extends _$AppDatabase {
         }
       } else if (from == 7) {
         await migrator.addColumn(mitglieds, mitglieds.preisId);
+        if (to > 8) {
+           await migrator.issueCustomQuery("UPDATE stammdaten SET typ = 'float' WHERE typ = 'number' AND schluessel != 'db_version'");
+           await migrator.issueCustomQuery("UPDATE stammdaten SET typ = 'integer' WHERE typ = 'number' AND schluessel == 'db_version'");
+        }
+      } else if (from == 8) {
+        await migrator.issueCustomQuery("UPDATE stammdaten SET typ = 'float' WHERE typ = 'number' AND schluessel != 'db_version'");
+        await migrator.issueCustomQuery("UPDATE stammdaten SET typ = 'integer' WHERE typ = 'number' AND schluessel == 'db_version'");
+        if (to > 9) {
+           await migrator.addColumn(stammdaten, stammdaten.systemPflicht);
+        }
+      } else if (from == 9) {
+        await migrator.addColumn(stammdaten, stammdaten.systemPflicht);
       }
     },
     beforeOpen: (details) async {
@@ -70,14 +83,20 @@ class AppDatabase extends _$AppDatabase {
   );
 }
 
-/// Opens the SQLite database connection lazily on a background thread.
-///
-/// It determines the correct `ApplicationDocumentsDirectory` for the current
-/// platform (Windows/macOS/Linux) and creates `clup_data.sqlite` there.
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'clup_data.sqlite'));
+    File file;
+    if (kDebugMode) {
+      // In der Entwicklung (flutter run) wird der build-Ordner oft gelöscht.
+      // Wir speichern die DB für die Entwicklung stattdessen direkt im Projektordner.
+      file = File('clup_data_dev.sqlite');
+    } else {
+      // Im produktiven Einsatz (Release-Build) soll die App portabel (z.B. USB-Stick) sein,
+      // daher speichern wir die DB direkt neben der ausführenden Datei (.exe / ELF-Binary).
+      final executableDir = File(Platform.resolvedExecutable).parent;
+      file = File(p.join(executableDir.path, 'clup_data.sqlite'));
+    }
+    
     return NativeDatabase.createInBackground(file);
   });
 }
