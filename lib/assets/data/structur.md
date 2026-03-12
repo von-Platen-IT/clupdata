@@ -154,10 +154,32 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
 | `leistung_id` | INTEGER | NotNull, FK->leistung.id(RESTRICT) | Billed service/contract |
 | `preis_id` | INTEGER | FK->preis.id(SET NULL) | Snapshot of the price at billing |
 | `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "RE-2026-0001" |
-| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Current payment status |
+| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Current payment status. **VERSIONIERT** in `beitrag_status_verlauf` — Änderungen erfordern einen Eintrag mit Erklärung |
 | `kontiert_am` | DATE | NotNull | Date when the contribution/invoice was created and is due |
-| `status_datum` | DATE | NotNull | Datum des letzten Statuswechsels |
+| `status_datum` | DATE | NotNull | Datum des letzten Statuswechsels (Snapshot, redundant zu Verlauf) |
 | `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
+
+**Status-Versionierung (verbindlich):**
+- Jeder Status-Wechsel MUSS in [`beitrag_status_verlauf`](lib/core/database/tables/beitrag_status_verlauf_table.dart:1) protokolliert werden
+- Der aktuelle Status wird redundant in `beitrag.status` gespeichert für schnelle Abfragen
+- Die Historie ist im Edit-Dialog unter dem Bereich "Status-Historie" einsehbar
+
+### 1.8 `beitrag_status_verlauf`
+_Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeugt einen neuen Eintrag._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `beitrag_id` | INTEGER | NotNull, FK->beitrag.id(CASCADE) | Zugehöriger Beitrag — bei Löschung des Beitrags werden alle Verlaufseinträge mitgelöscht |
+| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Der neue Status zum Zeitpunkt dieser Änderung |
+| `geaendert_am` | DATETIME | NotNull | Exakter Zeitstempel der Statusänderung |
+| `bemerkung` | TEXT | NotNull, MaxLen:500 | **PFLICHTFELD**: Erklärung/Grund für die Statusänderung. Darf nicht leer sein. |
+
+**Regeln:**
+- Einträge in `beitrag_status_verlauf` sind **READ-ONLY** nach dem Einfügen — sie dürfen niemals geändert oder gelöscht werden (außer durch CASCADE bei Beitrag-Löschung).
+- Beim Erstellen eines neuen Beitrags wird automatisch der initiale Status (`kontiert`) als erster Verlaufseintrag mit Bemerkung "Beitrag angelegt" gespeichert.
+- Bei jeder manuellen Statusänderung im Dialog MUSS der Benutzer eine Erklärung eingeben, die als `bemerkung` gespeichert wird.
+- Die `bemerkung` ist Pflichtfeld (NOT NULL) — dies stellt sicher, dass jede Statusänderung nachvollziehbar ist.
 
 ## 2. Datenbank Indizes
 
@@ -196,6 +218,7 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
 | `beitrag.leistung_id` | `leistung.id` | many-to-one | Beitrag basiert auf einer Leistung |
 | `beitrag.preis_id` | `preis.id` | many-to-one | Preis-Snapshot des Beitrags |
 | `beitrag.bemerkung_id` | `bemerkung.id` | many-to-one | Beitrag hat eine optionale Bemerkung |
+| `beitrag_status_verlauf.beitrag_id` | `beitrag.id` | many-to-one (CASCADE) | Status-History gehört zu einem Beitrag |
 
 
 ## 4. UI Konfiguration
@@ -339,8 +362,28 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
   - Spalte `mitglied_name` (Mitglied) - text - Sort:True Filter:True
   - Spalte `leistung_name` (Leistung) - text - Sort:True Filter:True
   - Spalte `kontiert_am` (Kontiert am) - date - Sort:True Filter:True
-  - Spalte `status` (Status) - text - Sort:True Filter:True
+  - Spalte `status` (Status) - text - Sort:True Filter:True — **Zeilenfarbe gemäß Statusfarben-Tabelle**
   - Spalte `status_datum` (Statusdatum) - date - Sort:True Filter:True
+
+**Statusfarben (VERBINDLICH für UI und Datenbank-Views):**
+
+| Status | Farbe | Hex | Verwendung |
+|---|---|---|---|
+| `kontiert` | Hellgelb | `#FFF9C4` | Neu angelegte Beiträge |
+| `offen` | Hellorange | `#FFE0B2` | Fällige, ausstehende Zahlungen |
+| `bezahlt` | Hellgrün | `#C8E6C9` | Vollständig bezahlte Beiträge |
+| `angemahnt` | Hellrot | `#FFCDD2` | Zahlungserinnerung versandt |
+| `storniert` | Hellgrau | `#EEEEEE` | Stornierte Rechnungen |
+| `inkasso` | Pink | `#F8BBD0` | An Inkasso übergeben |
+
+**Farb-Verwendungsregeln (zwingend):**
+1. **DataGrid-Zeilen**: Jede Zeile MUSS die Hintergrundfarbe gemäß ihres Status erhalten
+2. **Status-Badge**: Der Status-Text in der Status-Spalte MUSS als farbiges Badge dargestellt werden
+3. **Edit-Dialog**: Das Status-Dropdown MUSS die jeweilige Farbe als Hintergrund des ausgewählten Werts anzeigen
+4. **Zentrale Quelle**: ALLE Farben MÜSSEN aus [`lib/features/beitraege/utils/beitrag_status_colors.dart`](lib/features/beitraege/utils/beitrag_status_colors.dart:1) bezogen werden
+5. **Konsistenz**: Die Hex-Werte dürfen NICHT an anderen Stellen hartkodiert werden
+
+> **WICHTIG**: Diese Farben sind Teil der UX-Spezifikation. Änderungen erfordern ein Update dieser Dokumentation UND aller referenzierenden Dateien.
 
 #### Screen: Beitrag bearbeiten (`screen_beitrag_edit`)
 - **Route**: /beitraege/edit

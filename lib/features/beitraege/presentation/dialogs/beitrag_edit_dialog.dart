@@ -12,6 +12,7 @@ import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
 import '../../providers/beitraege_repository.dart';
+import '../../utils/beitrag_status_colors.dart';
 
 /// Valid status values for a [Beitrag].
 const kBeitragStatusValues = [
@@ -56,8 +57,9 @@ class BeitragEditDialog extends HookConsumerWidget {
 
     // Find the existing record
     final rowData = beitraegeAsync.value ?? [];
-    final existing =
-        beitragId != null ? rowData.where((r) => r.beitrag.id == beitragId).firstOrNull : null;
+    final existing = beitragId != null
+        ? rowData.where((r) => r.beitrag.id == beitragId).firstOrNull
+        : null;
 
     final isLoadingData = beitragId != null && beitraegeAsync.isLoading;
 
@@ -66,8 +68,18 @@ class BeitragEditDialog extends HookConsumerWidget {
     final ctrlStatus = useTextEditingController();
     final ctrlKontiertAm = useState<DateTime>(DateTime.now());
     final ctrlStatusDatum = useState<DateTime>(DateTime.now());
+    final ctrlStatusBemerkung = useTextEditingController();
     final ctrlBemerkungTitel = useTextEditingController();
     final ctrlBemerkungText = useTextEditingController();
+
+    // ── Status History Stream ──────────────────────────────────────────────
+    final statusHistoryStream = useMemoized(
+      () => beitragId != null
+          ? ref.read(beitraegeRepositoryProvider).watchStatusVerlauf(beitragId!)
+          : Stream<List<BeitragStatusVerlaufData>>.value([]),
+      [beitragId],
+    );
+    final statusHistoryAsync = useStream(statusHistoryStream);
 
     // ── Focus nodes ────────────────────────────────────────────────────────
     final fnRechnungsnummer = useFocusNode();
@@ -124,22 +136,45 @@ class BeitragEditDialog extends HookConsumerWidget {
         final statusChanged = ctrlStatus.text != originalStatus.value;
         final statusDatum = statusChanged ? now : ctrlStatusDatum.value;
 
+        // Validate status bemerkung if status changed
+        if (statusChanged && ctrlStatusBemerkung.text.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bei Statusänderung ist eine Bemerkung erforderlich.',
+              ),
+            ),
+          );
+          isSaving.value = false;
+          return;
+        }
+
         // Save bemerkung if provided
         int? bemerkungId = existing?.beitrag.bemerkungId;
-        if (ctrlBemerkungTitel.text.isNotEmpty || ctrlBemerkungText.text.isNotEmpty) {
-          bemerkungId = await repo.saveBemerkung(bemerkungId, ctrlBemerkungTitel.text, ctrlBemerkungText.text);
+        if (ctrlBemerkungTitel.text.isNotEmpty ||
+            ctrlBemerkungText.text.isNotEmpty) {
+          bemerkungId = await repo.saveBemerkung(
+            bemerkungId,
+            ctrlBemerkungTitel.text,
+            ctrlBemerkungText.text,
+          );
         }
 
         if (beitragId != null && existing != null) {
           // Update
-          await repo.updateBeitrag(BeitraegeCompanion(
-            id: drift.Value(beitragId!),
-            rechnungsnummer: drift.Value(ctrlRechnungsnummer.text.trim()),
-            status: drift.Value(ctrlStatus.text),
-            kontiertAm: drift.Value(ctrlKontiertAm.value),
-            statusDatum: drift.Value(statusDatum),
-            bemerkungId: drift.Value(bemerkungId),
-          ));
+          await repo.updateBeitrag(
+            BeitraegeCompanion(
+              id: drift.Value(beitragId!),
+              rechnungsnummer: drift.Value(ctrlRechnungsnummer.text.trim()),
+              status: drift.Value(ctrlStatus.text),
+              kontiertAm: drift.Value(ctrlKontiertAm.value),
+              statusDatum: drift.Value(statusDatum),
+              bemerkungId: drift.Value(bemerkungId),
+            ),
+            statusBemerkung: statusChanged
+                ? ctrlStatusBemerkung.text.trim()
+                : null,
+          );
         }
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -149,9 +184,9 @@ class BeitragEditDialog extends HookConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fehler beim Speichern: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
         }
       } finally {
         isSaving.value = false;
@@ -160,7 +195,11 @@ class BeitragEditDialog extends HookConsumerWidget {
 
     if (isLoadingData) {
       return const AlertDialog(
-        content: SizedBox(width: 100, height: 100, child: Center(child: CircularProgressIndicator())),
+        content: SizedBox(
+          width: 100,
+          height: 100,
+          child: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -172,7 +211,9 @@ class BeitragEditDialog extends HookConsumerWidget {
       onDelete: beitragId == null
           ? null
           : () async {
-              await ref.read(beitraegeRepositoryProvider).deleteBeitrag(beitragId!);
+              await ref
+                  .read(beitraegeRepositoryProvider)
+                  .deleteBeitrag(beitragId!);
               if (context.mounted) {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +243,8 @@ class BeitragEditDialog extends HookConsumerWidget {
               Expanded(
                 child: AppTextField(
                   controller: TextEditingController(
-                      text: existing?.mitgliedName ?? '—'),
+                    text: existing?.mitgliedName ?? '—',
+                  ),
                   label: 'Mitglied',
                   readOnly: true,
                 ),
@@ -211,7 +253,8 @@ class BeitragEditDialog extends HookConsumerWidget {
               Expanded(
                 child: AppTextField(
                   controller: TextEditingController(
-                      text: existing?.leistungName ?? '—'),
+                    text: existing?.leistungName ?? '—',
+                  ),
                   label: 'Leistung',
                   readOnly: true,
                 ),
@@ -226,12 +269,10 @@ class BeitragEditDialog extends HookConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: AppDropdownField<String>(
-                  controller: ctrlStatus,
-                  label: 'Status',
-                  focusNode: fnStatus,
-                  options: kBeitragStatusValues,
-                  getLabel: (v) => v,
+                child: _buildStatusDropdown(
+                  ctrlStatus,
+                  fnStatus,
+                  originalStatus.value,
                 ),
               ),
               const Gap(8),
@@ -239,7 +280,8 @@ class BeitragEditDialog extends HookConsumerWidget {
                 child: AppDatePickerField(
                   label: 'Kontiert am',
                   value: ctrlKontiertAm.value,
-                  onChanged: (d) => ctrlKontiertAm.value = d ?? ctrlKontiertAm.value,
+                  onChanged: (d) =>
+                      ctrlKontiertAm.value = d ?? ctrlKontiertAm.value,
                 ),
               ),
               const Gap(8),
@@ -254,7 +296,25 @@ class BeitragEditDialog extends HookConsumerWidget {
               ),
             ],
           ),
+          // Status change reason field (only shown when status changes)
+          if (ctrlStatus.text != originalStatus.value) ...[
+            const Gap(8),
+            AppTextField(
+              controller: ctrlStatusBemerkung,
+              label: 'Grund der Statusänderung',
+              maxLines: 2,
+              required: true,
+            ),
+          ],
           const Gap(24),
+
+          // ── Status-Historie ────────────────────────────────────────────
+          if (beitragId != null) ...[
+            const AppSectionHeader('Status-Historie'),
+            const Gap(8),
+            _buildStatusHistoryList(statusHistoryAsync, dateFormatter),
+            const Gap(24),
+          ],
 
           // ── Bemerkung ──────────────────────────────────────────────────
           const AppSectionHeader('Bemerkung'),
@@ -262,8 +322,134 @@ class BeitragEditDialog extends HookConsumerWidget {
           AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
           const Gap(8),
           AppTextField(
-              controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
+            controller: ctrlBemerkungText,
+            label: 'Text',
+            maxLines: 3,
+          ),
         ],
+      ),
+    );
+  }
+
+  /// Builds the status dropdown with colored background for the selected value.
+  Widget _buildStatusDropdown(
+    TextEditingController controller,
+    FocusNode focusNode,
+    String? originalStatus,
+  ) {
+    return HookBuilder(
+      builder: (context) {
+        final bgColor = beitragStatusColor(controller.text);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor.withAlpha((255 * 0.3).round()),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: AppDropdownField<String>(
+            controller: controller,
+            label: 'Status',
+            focusNode: focusNode,
+            options: kBeitragStatusValues,
+            getLabel: (v) => v,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Builds the status history list widget.
+  Widget _buildStatusHistoryList(
+    AsyncSnapshot<List<BeitragStatusVerlaufData>> snapshot,
+    DateFormat dateFormatter,
+  ) {
+    if (snapshot.hasError) {
+      return Text('Fehler beim Laden der Historie: ${snapshot.error}');
+    }
+    if (!snapshot.hasData) {
+      return const Center(
+        child: SizedBox(
+          height: 40,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    final history = snapshot.data!;
+    if (history.isEmpty) {
+      return const Text('Keine Status-Historie vorhanden.');
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: history.length,
+        itemBuilder: (context, index) {
+          final entry = history[index];
+          final bgColor = beitragStatusColor(entry.status);
+          final textColor = beitragStatusTextColor(entry.status);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: bgColor.withAlpha((255 * 0.3).round()),
+              border: Border(
+                bottom: index < history.length - 1
+                    ? BorderSide(color: Colors.grey.shade200)
+                    : BorderSide.none,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    entry.status,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                const Gap(12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.bemerkung,
+                        style: const TextStyle(fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Gap(2),
+                      Text(
+                        dateFormatter.format(entry.geaendertAm),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

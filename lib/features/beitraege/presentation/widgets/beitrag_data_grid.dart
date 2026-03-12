@@ -7,27 +7,8 @@ import 'package:pluto_grid/pluto_grid.dart';
 import '../../../../widgets/data_grid/app_data_grid.dart';
 import '../../../../widgets/data_grid/sort_column_config.dart';
 import '../../providers/beitraege_repository.dart';
+import '../../utils/beitrag_status_colors.dart';
 import '../dialogs/beitrag_edit_dialog.dart';
-
-/// Colors used for row background based on Beitrag status.
-Color _rowColorForStatus(String status) {
-  switch (status) {
-    case 'kontiert':
-      return const Color(0xFFFFF9C4); // light yellow
-    case 'offen':
-      return const Color(0xFFFFF3E0); // light orange
-    case 'bezahlt':
-      return const Color(0xFFE8F5E9); // light green
-    case 'angemahnt':
-      return const Color(0xFFFFEBEE); // light red
-    case 'storniert':
-      return const Color(0xFFF5F5F5); // light grey
-    case 'inkasso':
-      return const Color(0xFFFCE4EC); // deep pink-ish
-    default:
-      return Colors.white;
-  }
-}
 
 /// DataGrid for Beiträge (invoices). One row per Beitrag, colour-coded by status.
 class BeitragDataGrid extends HookConsumerWidget {
@@ -89,18 +70,21 @@ class BeitragDataGrid extends HookConsumerWidget {
           width: 120,
           renderer: (rendererContext) {
             final status = rendererContext.cell.value as String? ?? '';
-            final color = _rowColorForStatus(status).withAlpha(255);
+            final color = beitragStatusColor(status);
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: color,
-                border: Border.all(color: color.withOpacity(0.5)),
+                border: Border.all(color: color.withAlpha((255 * 0.5).round())),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 status,
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: beitragStatusTextColor(status),
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             );
@@ -135,10 +119,12 @@ class BeitragDataGrid extends HookConsumerWidget {
             'mitglied_name': PlutoCell(value: rd.mitgliedName),
             'leistung_name': PlutoCell(value: rd.leistungName),
             'kontiert_am': PlutoCell(
-                value: dateFormatter.format(rd.beitrag.kontiertAm)),
+              value: dateFormatter.format(rd.beitrag.kontiertAm),
+            ),
             'status': PlutoCell(value: rd.beitrag.status),
             'status_datum': PlutoCell(
-                value: dateFormatter.format(rd.beitrag.statusDatum)),
+              value: dateFormatter.format(rd.beitrag.statusDatum),
+            ),
           },
         );
       }).toList();
@@ -151,12 +137,12 @@ class BeitragDataGrid extends HookConsumerWidget {
         sortableColumns: sortConfigs,
         toSearchString: (row) {
           return [
-            row.cells['rechnungsnummer']?.value,
-            row.cells['mitglied_name']?.value,
-            row.cells['leistung_name']?.value,
-            row.cells['status']?.value,
-            row.cells['kontiert_am']?.value,
-          ]
+                row.cells['rechnungsnummer']?.value,
+                row.cells['mitglied_name']?.value,
+                row.cells['leistung_name']?.value,
+                row.cells['status']?.value,
+                row.cells['kontiert_am']?.value,
+              ]
               .where((e) => e != null && e.toString().isNotEmpty)
               .join(' ')
               .toLowerCase();

@@ -23,19 +23,34 @@ class BeitraegeRepository {
   final AppDatabase _db;
   BeitraegeRepository(this._db);
 
+  // ── Bemerkung ─────────────────────────────────────────────────────────────
+
   /// Streams the [BemerkungData] linked to a [Beitrag] by [beitragId].
   Stream<BemerkungData?> watchBemerkungForBeitrag(int beitragId) {
     final query = _db.select(_db.beitraege).join([
-      leftOuterJoin(_db.bemerkung, _db.bemerkung.id.equalsExp(_db.beitraege.bemerkungId)),
+      leftOuterJoin(
+        _db.bemerkung,
+        _db.bemerkung.id.equalsExp(_db.beitraege.bemerkungId),
+      ),
     ])..where(_db.beitraege.id.equals(beitragId));
-    return query.watchSingleOrNull().map((row) => row?.readTableOrNull(_db.bemerkung));
+    return query.watchSingleOrNull().map(
+      (row) => row?.readTableOrNull(_db.bemerkung),
+    );
   }
+
+  // ── Beiträge list ─────────────────────────────────────────────────────────
 
   /// Streams the full list of [BeitragRowData], joined with Mitglied and Leistung.
   Stream<List<BeitragRowData>> watchBeitraege() {
     final query = _db.select(_db.beitraege).join([
-      innerJoin(_db.mitglieds, _db.mitglieds.id.equalsExp(_db.beitraege.mitgliedId)),
-      innerJoin(_db.leistung, _db.leistung.id.equalsExp(_db.beitraege.leistungId)),
+      innerJoin(
+        _db.mitglieds,
+        _db.mitglieds.id.equalsExp(_db.beitraege.mitgliedId),
+      ),
+      innerJoin(
+        _db.leistung,
+        _db.leistung.id.equalsExp(_db.beitraege.leistungId),
+      ),
     ]);
 
     return query.watch().map((rows) {
@@ -54,37 +69,106 @@ class BeitraegeRepository {
 
   /// Fetches a single [Beitrag] by its [id].
   Future<Beitrag?> getBeitragById(int id) {
-    return (_db.select(_db.beitraege)..where((b) => b.id.equals(id))).getSingleOrNull();
+    return (_db.select(
+      _db.beitraege,
+    )..where((b) => b.id.equals(id))).getSingleOrNull();
   }
 
-  /// Inserts a new Beitrag. Returns the generated [id].
-  Future<int> addBeitrag(BeitraegeCompanion beitrag) {
-    return _db.into(_db.beitraege).insert(beitrag);
+  // ── CRUD ──────────────────────────────────────────────────────────────────
+
+  /// Inserts a new Beitrag and immediately records the initial status
+  /// in [BeitragStatusVerlauf].
+  Future<int> addBeitrag(BeitraegeCompanion beitrag) async {
+    final id = await _db.into(_db.beitraege).insert(beitrag);
+    await _addStatusEintrag(
+      beitragId: id,
+      status: beitrag.status.value,
+      bemerkung: 'Beitrag angelegt',
+    );
+    return id;
   }
 
-  /// Updates an existing [Beitrag]. Also updates [statusDatum] if status changed.
-  Future<void> updateBeitrag(BeitraegeCompanion beitrag) async {
-    await (_db.update(_db.beitraege)
-          ..where((b) => b.id.equals(beitrag.id.value)))
-        .write(beitrag);
+  /// Updates an existing [Beitrag].
+  /// If the [status] changed compared to the current DB value, a new
+  /// [BeitragStatusVerlauf] entry is automatically inserted.
+  /// [statusBemerkung] is REQUIRED when status changes (defaults to 'Status geändert').
+  Future<void> updateBeitrag(
+    BeitraegeCompanion beitrag, {
+    String? statusBemerkung,
+  }) async {
+    // Determine whether status actually changed
+    final current = await getBeitragById(beitrag.id.value);
+    final statusChanged =
+        current != null &&
+        beitrag.status.present &&
+        beitrag.status.value != current.status;
+
+    await (_db.update(
+      _db.beitraege,
+    )..where((b) => b.id.equals(beitrag.id.value))).write(beitrag);
+
+    if (statusChanged) {
+      await _addStatusEintrag(
+        beitragId: beitrag.id.value,
+        status: beitrag.status.value,
+        bemerkung: statusBemerkung ?? 'Status geändert',
+      );
+    }
   }
 
-  /// Deletes a [Beitrag] by [id].
+  /// Deletes a [Beitrag] and all its [BeitragStatusVerlauf] entries (via CASCADE).
   Future<int> deleteBeitrag(int id) {
     return (_db.delete(_db.beitraege)..where((b) => b.id.equals(id))).go();
   }
 
+  // ── Status-Verlauf ────────────────────────────────────────────────────────
+
+  /// Inserts an immutable status history entry. Should only be called by
+  /// [addBeitrag] and [updateBeitrag] — never directly from UI code.
+  /// [bemerkung] is REQUIRED and must not be empty.
+  Future<void> _addStatusEintrag({
+    required int beitragId,
+    required String status,
+    required String bemerkung,
+  }) {
+    return _db
+        .into(_db.beitragStatusVerlauf)
+        .insert(
+          BeitragStatusVerlaufCompanion.insert(
+            beitragId: beitragId,
+            status: status,
+            geaendertAm: DateTime.now(),
+            bemerkung: bemerkung,
+          ),
+        );
+  }
+
+  /// Streams all [BeitragStatusVerlaufData] entries for a given [beitragId],
+  /// ordered by [geaendertAm] descending (newest first).
+  Stream<List<BeitragStatusVerlaufData>> watchStatusVerlauf(int beitragId) {
+    return (_db.select(_db.beitragStatusVerlauf)
+          ..where((v) => v.beitragId.equals(beitragId))
+          ..orderBy([(v) => OrderingTerm.desc(v.geaendertAm)]))
+        .watch();
+  }
+
+  // ── Bemerkung generic ─────────────────────────────────────────────────────
+
   /// Saves a [BemerkungData] note (insert or update) and returns the [id].
   Future<int> saveBemerkung(int? existingId, String titel, String text) async {
     if (existingId != null) {
-      await (_db.update(_db.bemerkung)..where((b) => b.id.equals(existingId))).write(
+      await (_db.update(
+        _db.bemerkung,
+      )..where((b) => b.id.equals(existingId))).write(
         BemerkungCompanion(titel: Value(titel), textValue: Value(text)),
       );
       return existingId;
     } else {
-      return _db.into(_db.bemerkung).insert(
-        BemerkungCompanion.insert(titel: titel, textValue: Value(text)),
-      );
+      return _db
+          .into(_db.bemerkung)
+          .insert(
+            BemerkungCompanion.insert(titel: titel, textValue: Value(text)),
+          );
     }
   }
 }
