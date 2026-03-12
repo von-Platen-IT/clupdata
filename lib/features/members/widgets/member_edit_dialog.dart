@@ -169,16 +169,18 @@ class MemberEditDialog extends HookConsumerWidget {
       return null;
     }, [memberSnapshot.data, bemerkungSnapshot.data, preisSnapshot.data, leistungen]);
 
-    // ── Auto-fill Beitrag ──────────────────────────────────────────────────
+    // ── Auto-fill Beitrag when Vertragsart changes ─────────────────────────
+    // Whenever the Leistung field text changes AND a matching Leistung exists,
+    // the Beitrag field is ALWAYS overwritten with that Leistung's DB price.
     useEffect(() {
       void onLeistungChanged() {
-        if (ctrlBeitrag.text.trim().isEmpty && ctrlLeistung.text.isNotEmpty) {
-          final selected = leistungen.where((l) => l.name == ctrlLeistung.text).firstOrNull;
-          if (selected != null) {
-            ctrlBeitrag.text = selected.bruttopreis.toStringAsFixed(2);
-          }
+        final selected =
+            leistungen.where((l) => l.name == ctrlLeistung.text).firstOrNull;
+        if (selected != null) {
+          ctrlBeitrag.text = selected.bruttopreis.toStringAsFixed(2);
         }
       }
+
       ctrlLeistung.addListener(onLeistungChanged);
       return () => ctrlLeistung.removeListener(onLeistungChanged);
     }, [leistungen, ctrlBeitrag, ctrlLeistung]);

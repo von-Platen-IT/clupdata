@@ -47,3 +47,7 @@ trigger: always_on
 
 ## 8. DataGrid im UI
 - **[MUST] Tabellen im UI:** Beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei `.agent/rules/datagrid.md` und `.agent/rules/app_data_grid.md`.
+
+## 9. Dropdowns & Select-Felder
+- **[MUST] Dropdown/Select:** Verwende AUSSCHLIESSLICH `AppDropdownField` (feste Liste) oder `AppSelectField` (autocomplete). [NEVER] Flutters `DropdownMenu`, `DropdownButton` oder `Autocomplete` nutzen.
+- **[MUST] Dokumentation:** Alle Details zu Modi, Tastatur- und Mausbedienung, Performance und API sind in `.agent/rules/app_select_field.md` definiert.
