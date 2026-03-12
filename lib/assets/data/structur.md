@@ -144,6 +144,21 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
 |---|---|---|
 | `nettopreis` | `bruttopreis / (1 + stammdaten['mwst_aktiv_schluessel'] / 100)` | NOT stored. Computed at runtime: bruttopreis / (1 + mwst/100). |
 
+### 1.7 `beitrag`
+_Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `mitglied_id` | INTEGER | NotNull, FK->mitglied.id(RESTRICT) | Member who is billed |
+| `leistung_id` | INTEGER | NotNull, FK->leistung.id(RESTRICT) | Billed service/contract |
+| `preis_id` | INTEGER | FK->preis.id(SET NULL) | Snapshot of the price at billing |
+| `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "RE-2026-0001" |
+| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Current payment status |
+| `kontiert_am` | DATE | NotNull | Date when the contribution/invoice was created and is due |
+| `status_datum` | DATE | NotNull | Datum des letzten Statuswechsels |
+| `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
+
 ## 2. Datenbank Indizes
 
 | Tabelle | Index Name | Felder | Unique | Kommentar |
@@ -162,6 +177,9 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
 | `waren` | `idx_waren_bezeichnung` | `bezeichnung` | Nein |  |
 | `waren` | `idx_waren_kategorie` | `kategorie` | Nein |  |
 | `waren` | `idx_waren_aktiv` | `aktiv` | Nein |  |
+| `beitrag` | `idx_beitrag_rechnungsnummer` | `rechnungsnummer` | Ja |  |
+| `beitrag` | `idx_beitrag_mitglied` | `mitglied_id` | Nein |  |
+| `beitrag` | `idx_beitrag_status` | `status` | Nein |  |
 
 
 ## 3. Relationen
@@ -174,6 +192,10 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
 | `leistung.bemerkung_id` | `bemerkung.id` | many-to-one | Leistung hat eine Bemerkung |
 | `preis.bemerkung_id` | `bemerkung.id` | many-to-one | Preis hat eine Bemerkung |
 | `waren.bemerkung_id` | `bemerkung.id` | many-to-one | Ware hat eine optionale Bemerkung gem. Standard |
+| `beitrag.mitglied_id` | `mitglied.id` | many-to-one | Beitrag gehört zu einem Mitglied |
+| `beitrag.leistung_id` | `leistung.id` | many-to-one | Beitrag basiert auf einer Leistung |
+| `beitrag.preis_id` | `preis.id` | many-to-one | Preis-Snapshot des Beitrags |
+| `beitrag.bemerkung_id` | `bemerkung.id` | many-to-one | Beitrag hat eine optionale Bemerkung |
 
 
 ## 4. UI Konfiguration
@@ -304,6 +326,36 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
     - `lieferant` (Lieferant) - Widget: TextField
     - `hersteller` (Hersteller) - Widget: TextField
     - `hersteller_artikelnr` (Artikelnr. HF) - Widget: TextField
+  - **Bemerkung**
+    - `bemerkung_titel` (Titel) - Widget: TextField
+    - `bemerkung_text` (Text) - Widget: TextAreaField
+
+#### Screen: Beiträge (`screen_beitrag_list`)
+- **Route**: /beitraege
+- **Typ**: dataGridScreen
+- **Datenquelle**: `beitrag`
+- **Data Grid Konfiguration:**
+  - Spalte `rechnungsnummer` (Rechnungs-Nr.) - text - Sort:True Filter:True
+  - Spalte `mitglied_name` (Mitglied) - text - Sort:True Filter:True
+  - Spalte `leistung_name` (Leistung) - text - Sort:True Filter:True
+  - Spalte `kontiert_am` (Kontiert am) - date - Sort:True Filter:True
+  - Spalte `status` (Status) - text - Sort:True Filter:True
+  - Spalte `status_datum` (Statusdatum) - date - Sort:True Filter:True
+
+#### Screen: Beitrag bearbeiten (`screen_beitrag_edit`)
+- **Route**: /beitraege/edit
+- **Typ**: formScreen
+- **Datenquelle**: `beitrag`
+- **Formular Bereiche:**
+  - **Beitrag / Rechnung**
+    - `rechnungsnummer` (Rechnungs-Nr.) - Widget: ReadOnlyField
+    - `mitglied_id` (Mitglied) - Widget: DropdownField (or SearchableSelect)
+    - `leistung_id` (Leistung) - Widget: ReadOnlyDisplayField
+    - `preis_id` (Preis) - Widget: ReadOnlyDisplayField
+  - **Status & Daten**
+    - `status` (Status) - Widget: DropdownField
+    - `kontiert_am` (Kontiert am) - Widget: DateField
+    - `status_datum` (Statusdatum) - Widget: ReadOnlyField
   - **Bemerkung**
     - `bemerkung_titel` (Titel) - Widget: TextField
     - `bemerkung_text` (Text) - Widget: TextAreaField
