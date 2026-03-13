@@ -6,17 +6,13 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../../widgets/data_grid/app_data_grid.dart';
 import '../../../../widgets/data_grid/sort_column_config.dart';
-import '../models/waren_row_data.dart';
 import '../widgets/waren_edit_dialog.dart';
 import '../presentation/providers/waren_list_provider.dart';
 
 class WarenDataGrid extends HookConsumerWidget {
   final void Function(PlutoRow? row)? onRowSelected;
 
-  const WarenDataGrid({
-    super.key,
-    this.onRowSelected,
-  });
+  const WarenDataGrid({super.key, this.onRowSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +21,10 @@ class WarenDataGrid extends HookConsumerWidget {
 
     // 2. Define Columns per structur.md (Waren)
     final columns = useMemoized<List<PlutoColumn>>(() {
-      final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
+      final currencyFormatter = NumberFormat.currency(
+        locale: 'de_DE',
+        symbol: '€',
+      );
 
       return [
         PlutoColumn(
@@ -80,7 +79,7 @@ class WarenDataGrid extends HookConsumerWidget {
           title: 'Aktiv',
           field: 'aktiv',
           type: PlutoColumnType.text(),
-// Unused in PlutoGrid 8.x, boolean columns are handled differently
+          // Unused in PlutoGrid 8.x, boolean columns are handled differently
           enableEditingMode: false,
           enableFilterMenuItem: true,
           enableSorting: true,
@@ -103,36 +102,40 @@ class WarenDataGrid extends HookConsumerWidget {
       return rowData.map((w) {
         return PlutoRow(
           cells: {
-             'id': PlutoCell(value: w.id), // Hidden data
-             'bezeichnung': PlutoCell(value: w.bezeichnung),
-             'kategorie': PlutoCell(value: w.kategorie ?? ''),
-             'bestand': PlutoCell(value: w.bestand),
-             'bruttopreis': PlutoCell(value: w.bruttopreis),
-             'nettopreis': PlutoCell(value: w.nettopreis), 
-             'aktiv': PlutoCell(value: w.aktiv), 
-          }
+            'id': PlutoCell(value: w.id), // Hidden data
+            'bezeichnung': PlutoCell(value: w.bezeichnung),
+            'kategorie': PlutoCell(value: w.kategorie ?? ''),
+            'bestand': PlutoCell(value: w.bestand),
+            'bruttopreis': PlutoCell(value: w.bruttopreis),
+            'nettopreis': PlutoCell(value: w.nettopreis),
+            'aktiv': PlutoCell(value: w.aktiv),
+          },
         );
       }).toList();
     }, [rowData]);
 
     return rowsAsync.when(
       data: (_) {
-         return AppDataGrid(
-           rows: plutoRows, 
-           columns: columns, 
-           sortableColumns: sortConfigs, 
-           toSearchString: (row) {
-              return [
-                row.cells['bezeichnung']?.value,
-                row.cells['kategorie']?.value,
-              ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
-           }, 
-           onRowSelected: onRowSelected,
-           onRowActivated: (row, fieldName) {
-              final wareId = row.cells['id']?.value as int;
-              WarenEditDialog.show(context, wareId: wareId, initialFocusField: fieldName);
-           }
-         );
+        return AppDataGrid(
+          rows: plutoRows,
+          columns: columns,
+          sortableColumns: sortConfigs,
+          toSearchString: (row) {
+            return [
+              row.cells['bezeichnung']?.value,
+              row.cells['kategorie']?.value,
+            ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+          },
+          onRowSelected: onRowSelected,
+          onRowActivated: (row, fieldName) {
+            final wareId = row.cells['id']?.value as int;
+            WarenEditDialog.show(
+              context,
+              wareId: wareId,
+              initialFocusField: fieldName,
+            );
+          },
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Fehler beim Laden: $err')),

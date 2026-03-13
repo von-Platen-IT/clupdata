@@ -5,13 +5,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../common_widgets/bemerkung_detail_view.dart';
 import '../../common_widgets/feature_screen_scaffold.dart';
 import '../../core/database/database.dart';
-import 'providers/beitraege_repository.dart';
-import 'presentation/widgets/beitrag_data_grid.dart';
-import 'presentation/dialogs/neuer_beitrag_dialog.dart';
+import 'data/rechnungen_repository.dart';
+import 'widgets/neue_rechnung_dialog.dart';
+import 'widgets/rechnung_data_grid.dart';
 
-/// Main screen for the Beiträge (invoices) module.
-class BeitraegeScreen extends HookConsumerWidget {
-  const BeitraegeScreen({super.key});
+/// Main screen for the Rechnungen (invoices) module.
+class RechnungenScreen extends HookConsumerWidget {
+  const RechnungenScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,17 +21,17 @@ class BeitraegeScreen extends HookConsumerWidget {
     final bemerkungStream = useMemoized(
       () => selectedRowId.value != null
           ? ref
-                .read(beitraegeRepositoryProvider)
-                .watchBemerkungForBeitrag(selectedRowId.value!)
+                .read(rechnungenRepositoryProvider)
+                .watchBemerkungForRechnung(selectedRowId.value!)
           : const Stream<BemerkungData?>.empty(),
       [selectedRowId.value],
     );
     final bemerkungAsync = useStream(bemerkungStream);
 
     return FeatureScreenScaffold(
-      title: 'Beiträge',
+      title: 'Rechnungen',
       hasSelection: selectedRowId.value != null,
-      onCreateNew: () => NeuerBeitragDialog.show(context),
+      onCreateNew: () => NeueRechnungDialog.show(context),
       onDeleteSelection: () async {
         if (selectedRowId.value == null) return;
         final confirm = await showDialog<bool>(
@@ -39,7 +39,7 @@ class BeitraegeScreen extends HookConsumerWidget {
           builder: (ctx) => AlertDialog(
             title: const Text('Wirklich löschen?'),
             content: const Text(
-              'Möchten Sie den ausgewählten Beitrag unwiderruflich löschen?',
+              'Möchten Sie die ausgewählte Rechnung unwiderruflich löschen?',
             ),
             actions: [
               TextButton(
@@ -59,8 +59,8 @@ class BeitraegeScreen extends HookConsumerWidget {
         if (confirm == true && context.mounted) {
           try {
             await ref
-                .read(beitraegeRepositoryProvider)
-                .deleteBeitrag(selectedRowId.value!);
+                .read(rechnungenRepositoryProvider)
+                .deleteRechnung(selectedRowId.value!);
             selectedRowId.value = null;
           } catch (e) {
             if (context.mounted) {
@@ -74,13 +74,13 @@ class BeitraegeScreen extends HookConsumerWidget {
       bottomPanel: selectedRowId.value != null
           ? BemerkungDetailView(
               bemerkung: bemerkungAsync.data,
-              entityName: 'Beitrag',
+              entityName: 'Rechnung',
               onSave: (titel, text) => ref
-                  .read(beitraegeRepositoryProvider)
+                  .read(rechnungenRepositoryProvider)
                   .saveBemerkung(bemerkungAsync.data?.id, titel, text),
             )
           : null,
-      body: BeitragDataGrid(
+      body: RechnungDataGrid(
         onRowSelected: (row) {
           selectedRowId.value = row?.cells['id']?.value as int?;
         },

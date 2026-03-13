@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import 'tables/bemerkung_table.dart';
@@ -13,6 +12,8 @@ import 'tables/mitglied_table.dart';
 import 'tables/waren_table.dart';
 import 'tables/beitraege_table.dart';
 import 'tables/beitrag_status_verlauf_table.dart';
+import 'tables/rechnung_table.dart';
+import 'tables/rechnung_position_table.dart';
 
 part 'database.g.dart';
 
@@ -29,6 +30,8 @@ part 'database.g.dart';
     Waren,
     Beitraege,
     BeitragStatusVerlauf,
+    Rechnungen,
+    RechnungPositionen,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -37,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +105,10 @@ class AppDatabase extends _$AppDatabase {
         // Recreate table with new schema
         await migrator.deleteTable(beitragStatusVerlauf.actualTableName);
         await migrator.createTable(beitragStatusVerlauf);
+      } else if (from == 13) {
+        // v14: Neue Rechnungen-Tabellen
+        await migrator.createTable(rechnungen);
+        await migrator.createTable(rechnungPositionen);
       }
     },
     beforeOpen: (details) async {

@@ -18,9 +18,12 @@ class WarenRepository {
 
   Stream<List<WarenDetail>> watchWarenDetails() {
     final query = _db.select(_db.waren).join([
-      drift.leftOuterJoin(_db.bemerkung, _db.bemerkung.id.equalsExp(_db.waren.bemerkungId)),
+      drift.leftOuterJoin(
+        _db.bemerkung,
+        _db.bemerkung.id.equalsExp(_db.waren.bemerkungId),
+      ),
     ]);
-    
+
     return query.watch().map((rows) {
       return rows.map((row) {
         return WarenDetail(
@@ -33,15 +36,26 @@ class WarenRepository {
 
   Stream<BemerkungData?> watchBemerkungForWare(int wareId) {
     final query = _db.select(_db.waren).join([
-      drift.leftOuterJoin(_db.bemerkung, _db.bemerkung.id.equalsExp(_db.waren.bemerkungId))
+      drift.leftOuterJoin(
+        _db.bemerkung,
+        _db.bemerkung.id.equalsExp(_db.waren.bemerkungId),
+      ),
     ])..where(_db.waren.id.equals(wareId));
-    
-    return query.watchSingleOrNull().map((row) => row?.readTableOrNull(_db.bemerkung));
+
+    return query.watchSingleOrNull().map(
+      (row) => row?.readTableOrNull(_db.bemerkung),
+    );
   }
 
-  Future<int> _saveBemerkungBaseLogic(int? existingId, String titel, String text) async {
+  Future<int> _saveBemerkungBaseLogic(
+    int? existingId,
+    String titel,
+    String text,
+  ) async {
     if (existingId != null) {
-      await (_db.update(_db.bemerkung)..where((b) => b.id.equals(existingId))).write(
+      await (_db.update(
+        _db.bemerkung,
+      )..where((b) => b.id.equals(existingId))).write(
         BemerkungCompanion(
           titel: drift.Value(titel),
           textValue: drift.Value(text),
@@ -49,12 +63,14 @@ class WarenRepository {
       );
       return existingId;
     } else {
-      return _db.into(_db.bemerkung).insert(
-        BemerkungCompanion.insert(
-          titel: titel,
-          textValue: drift.Value(text),
-        ),
-      );
+      return _db
+          .into(_db.bemerkung)
+          .insert(
+            BemerkungCompanion.insert(
+              titel: titel,
+              textValue: drift.Value(text),
+            ),
+          );
     }
   }
 
@@ -84,9 +100,13 @@ class WarenRepository {
     // 1. Save Bemerkung
     int? bemerkungId = existingBemerkungId;
     if (bemerkungTitel.isNotEmpty || bemerkungText.isNotEmpty) {
-       bemerkungId = await _saveBemerkungBaseLogic(existingBemerkungId, bemerkungTitel, bemerkungText);
+      bemerkungId = await _saveBemerkungBaseLogic(
+        existingBemerkungId,
+        bemerkungTitel,
+        bemerkungText,
+      );
     }
-    
+
     // 2. Save Ware
     final companion = WarenCompanion(
       bezeichnung: drift.Value(bezeichnung),
@@ -111,24 +131,54 @@ class WarenRepository {
     );
 
     if (wareId != null) {
-      await (_db.update(_db.waren)..where((w) => w.id.equals(wareId))).write(companion);
+      await (_db.update(
+        _db.waren,
+      )..where((w) => w.id.equals(wareId))).write(companion);
     } else {
       await _db.into(_db.waren).insert(companion);
     }
   }
 
-  Future<void> saveWareRemark(int wareId, int? existingBemerkungId, String titel, String text) async {
-    final bemerkungId = await _saveBemerkungBaseLogic(existingBemerkungId, titel, text);
-    
+  Future<void> saveWareRemark(
+    int wareId,
+    int? existingBemerkungId,
+    String titel,
+    String text,
+  ) async {
+    final bemerkungId = await _saveBemerkungBaseLogic(
+      existingBemerkungId,
+      titel,
+      text,
+    );
+
     if (existingBemerkungId == null) {
       await (_db.update(_db.waren)..where((w) => w.id.equals(wareId))).write(
-        WarenCompanion(bemerkungId: drift.Value(bemerkungId))
+        WarenCompanion(bemerkungId: drift.Value(bemerkungId)),
       );
     }
   }
 
   Future<int> deleteWare(int id) async {
     return (_db.delete(_db.waren)..where((w) => w.id.equals(id))).go();
+  }
+
+  /// Gets all active Waren ordered by bezeichnung.
+  Future<List<WarenItem>> getAllWaren() async {
+    return (_db.select(_db.waren)
+          ..where((w) => w.aktiv.equals(true))
+          ..orderBy([(w) => drift.OrderingTerm(expression: w.bezeichnung)]))
+        .get();
+  }
+
+  /// Searches Waren by bezeichnung (case-insensitive).
+  /// Returns a list of matching items limited to [limit] results.
+  Future<List<WarenItem>> searchWaren(String query, {int limit = 20}) async {
+    final lowerQuery = query.toLowerCase();
+    return (_db.select(_db.waren)
+          ..where((w) => w.bezeichnung.lower().like('%$lowerQuery%'))
+          ..where((w) => w.aktiv.equals(true))
+          ..limit(limit))
+        .get();
   }
 }
 

@@ -181,6 +181,52 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
 - Bei jeder manuellen Statusänderung im Dialog MUSS der Benutzer eine Erklärung eingeben, die als `bemerkung` gespeichert wird.
 - Die `bemerkung` ist Pflichtfeld (NOT NULL) — dies stellt sicher, dass jede Statusänderung nachvollziehbar ist.
 
+### 1.9 `rechnung`
+_Rechnung für Warenverkäufe (POS). Jede Rechnung kann mehrere Positionen haben._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "R-2026-0001" |
+| `mitglied_id` | INTEGER | FK->mitglied.id(SET NULL) | Optional - für Walk-ins kann NULL sein |
+| `kunde_name` | TEXT | MaxLen:200 | Name des Kunden (für nicht-Mitglieder) |
+| `status` | TEXT | NotNull, Enum:[offen, bezahlt, storniert] | Zahlungsstatus |
+| `datum` | DATE | NotNull | Rechnungsdatum |
+| `faellig_am` | DATE | NotNull | Fälligkeitsdatum |
+| `bezahlt_am` | DATE | | Zahlungsdatum (NULL bis bezahlt) |
+| `betrag_netto` | REAL | NotNull | Summe Netto |
+| `betrag_brutto` | REAL | NotNull | Summe Brutto |
+| `betrag_mwst` | REAL | NotNull | Summe MwSt |
+| `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
+| `erstellt_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Zeitpunkt der Anlage |
+| `aktualisiert_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Letzte Änderung |
+
+**Status-Workflow:**
+- `offen` → `bezahlt` (Zahlung eingegangen)
+- `offen` → `storniert` (Rechnung storniert)
+- `bezahlt` → `storniert` (Stornierung nach Zahlung)
+
+### 1.10 `rechnung_position`
+_Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `rechnung_id` | INTEGER | NotNull, FK->rechnung.id(CASCADE) | Zugehörige Rechnung |
+| `position_nr` | INTEGER | NotNull | Laufende Nummer 1, 2, 3... |
+| `waren_id` | INTEGER | FK->waren.id(SET NULL) | Verkaufter Artikel (NULL wenn gelöscht) |
+| `bezeichnung` | TEXT | NotNull, MaxLen:200 | Artikelbezeichnung (Snapshot) |
+| `menge` | REAL | NotNull, Default:1 | Anzahl |
+| `einzelpreis_netto` | REAL | NotNull | Preis pro Stück Netto |
+| `einzelpreis_brutto` | REAL | NotNull | Preis pro Stück Brutto |
+| `mwst_satz` | REAL | NotNull | MwSt-Satz in % (z.B. 19.0) |
+| `gesamt_netto` | REAL | NotNull | menge * einzelpreis_netto |
+| `gesamt_brutto` | REAL | NotNull | menge * einzelpreis_brutto |
+
+**Regeln:**
+- Positionen werden bei Löschung der Rechnung automatisch mitgelöscht (CASCADE)
+- Preise werden als Snapshot gespeichert (Änderungen an Waren ändern nicht bestehende Rechnungen)
+
 ## 2. Datenbank Indizes
 
 | Tabelle | Index Name | Felder | Unique | Kommentar |
@@ -202,6 +248,12 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
 | `beitrag` | `idx_beitrag_rechnungsnummer` | `rechnungsnummer` | Ja |  |
 | `beitrag` | `idx_beitrag_mitglied` | `mitglied_id` | Nein |  |
 | `beitrag` | `idx_beitrag_status` | `status` | Nein |  |
+| `rechnung` | `idx_rechnung_nummer` | `rechnungsnummer` | Ja |  |
+| `rechnung` | `idx_rechnung_mitglied` | `mitglied_id` | Nein |  |
+| `rechnung` | `idx_rechnung_status` | `status` | Nein |  |
+| `rechnung` | `idx_rechnung_datum` | `datum` | Nein |  |
+| `rechnung_position` | `idx_rechnung_pos_rechnung` | `rechnung_id` | Nein |  |
+| `rechnung_position` | `idx_rechnung_pos_waren` | `waren_id` | Nein |  |
 
 
 ## 3. Relationen
@@ -219,6 +271,10 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
 | `beitrag.preis_id` | `preis.id` | many-to-one | Preis-Snapshot des Beitrags |
 | `beitrag.bemerkung_id` | `bemerkung.id` | many-to-one | Beitrag hat eine optionale Bemerkung |
 | `beitrag_status_verlauf.beitrag_id` | `beitrag.id` | many-to-one (CASCADE) | Status-History gehört zu einem Beitrag |
+| `rechnung.mitglied_id` | `mitglied.id` | many-to-one (SET NULL) | Rechnung kann zu Mitglied gehören |
+| `rechnung.bemerkung_id` | `bemerkung.id` | many-to-one (SET NULL) | Rechnung hat optionale Bemerkung |
+| `rechnung_position.rechnung_id` | `rechnung.id` | many-to-one (CASCADE) | Position gehört zu Rechnung |
+| `rechnung_position.waren_id` | `waren.id` | many-to-one (SET NULL) | Position referenziert Ware |
 
 
 ## 4. UI Konfiguration
@@ -404,6 +460,97 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
     - `bemerkung_text` (Text) - Widget: TextAreaField
 
 ### 4.3 Dialoge
+
+#### Dialog: Neuer Beitrag (`dialog_beitrag_new`)
+- **Typ**: modalDialog
+- **Kommentar**: Dialog zum Erstellen eines neuen Beitrags/Rechnung. Die Rechnungsnummer wird automatisch generiert und ist nicht prominent platziert.
+- **Felder:**
+  - `rechnungsnummer` (Rechnungs-Nr.) - Widget: ReadOnlyField - kleine, dezente Darstellung oben rechts
+  - `mitglied_search` (Mitglied suchen) - Widget: AutocompleteField - Suche über Vor- und Nachname
+  - `mitglied_selected` (Ausgewähltes Mitglied) - Widget: InfoCard - zeigt Name, PLZ, Ort
+  - `leistung_search` (Leistung suchen) - Widget: AutocompleteField - Suche über Leistungsnamen
+  - `leistung_selected` (Ausgewählte Leistung) - Widget: InfoCard - zeigt Name, Laufzeit, Standardpreis
+  - `beitrag` (Beitrag €) - Widget: CurrencyField - übernimmt Preis aus Mitglied, aber überschreibbar
+  - `kontiert_am` (Kontiert am) - Widget: DateField - Standard: heute
+  - `status` (Status) - Widget: StatusBadge - immer "kontiert" mit gelber Farbe
+- **Validierung:**
+  - Mitglied ist Pflichtfeld
+  - Leistung ist Pflichtfeld
+  - Beitrag muss > 0 sein
+- **Logik:**
+  - Rechnungsnummer-Format: `RE-YYYY-XXXXX` (Jahr + 5-stellige laufende Nummer)
+  - Beitrag wird automatisch aus `mitglied.preis_id` geladen
+  - Status wird automatisch auf "kontiert" gesetzt
+  - Initialer Verlaufseintrag wird automatisch erstellt
+
+#### Screen: Rechnungen (`screen_rechnung_list`)
+- **Route**: /rechnungen
+- **Typ**: dataGridScreen
+- **Datenquelle**: `rechnung`
+- **Data Grid Konfiguration:**
+  - Spalte `rechnungsnummer` (Rechnungs-Nr.) - text - Sort:True Filter:True
+  - Spalte `kunde_name` (Kunde) - text - Sort:True Filter:True
+  - Spalte `datum` (Datum) - date - Sort:True Filter:True
+  - Spalte `betrag_brutto` (Betrag €) - number - Sort:True Filter:False
+  - Spalte `status` (Status) - text - Sort:True Filter:True — **Zeilenfarbe gemäß Status**
+
+**Statusfarben für Rechnungen:**
+
+| Status | Farbe | Hex | Verwendung |
+|---|---|---|---|
+| `offen` | Hellorange | `#FFE0B2` | Ausstehende Zahlung |
+| `bezahlt` | Hellgrün | `#C8E6C9` | Bezahlte Rechnungen |
+| `storniert` | Hellgrau | `#EEEEEE` | Stornierte Rechnungen |
+
+#### Screen: Rechnung bearbeiten (`screen_rechnung_edit`)
+- **Route**: /rechnungen/edit
+- **Typ**: formScreen
+- **Datenquelle**: `rechnung`
+- **Formular Bereiche:**
+  - **Rechnung**
+    - `rechnungsnummer` (Rechnungs-Nr.) - Widget: ReadOnlyField
+    - `status` (Status) - Widget: DropdownField
+    - `datum` (Rechnungsdatum) - Widget: DateField
+    - `faellig_am` (Fällig am) - Widget: DateField
+    - `bezahlt_am` (Bezahlt am) - Widget: DateField (nur bei Status=bezahlt)
+  - **Kunde**
+    - `mitglied_id` (Mitglied) - Widget: SearchableSelect (optional)
+    - `kunde_name` (Kundenname) - Widget: TextField (für Walk-ins)
+  - **Positionen**
+    - `positionen_list` (Artikel) - Widget: DataTable/EditableList
+    - `position_add` (Artikel hinzufügen) - Widget: Button + SearchDialog
+  - **Summen**
+    - `betrag_netto` (Netto €) - Widget: ReadOnlyField
+    - `betrag_mwst` (MwSt €) - Widget: ReadOnlyField
+    - `betrag_brutto` (Brutto €) - Widget: ReadOnlyField (fett/hervorgehoben)
+  - **Bemerkung**
+    - `bemerkung_titel` (Titel) - Widget: TextField
+    - `bemerkung_text` (Text) - Widget: TextAreaField
+
+#### Dialog: Neue Rechnung (`dialog_rechnung_new`)
+- **Typ**: modalDialog
+- **Kommentar**: Dialog zum Erstellen einer neuen Rechnung für Warenverkäufe. Ähnelt dem POS-Workflow.
+- **Felder:**
+  - `rechnungsnummer` (Rechnungs-Nr.) - Widget: ReadOnlyField - kleine Darstellung oben rechts
+  - `mitglied_search` (Mitglied suchen) - Widget: AutocompleteField - optional
+  - `kunde_name` (Kundenname) - Widget: TextField - für Walk-ins
+  - `datum` (Rechnungsdatum) - Widget: DateField - Standard: heute
+  - **Positionen**
+    - `ware_search` (Artikel suchen) - Widget: AutocompleteField + Lupe für Warenliste
+    - `waren_liste` (Positionen) - Widget: EditableList mit Menge/Preis/Delete
+  - **Summen**
+    - `betrag_netto` (Netto €) - Widget: ReadOnlyField
+    - `betrag_mwst` (MwSt €) - Widget: ReadOnlyField
+    - `betrag_brutto` (Brutto €) - Widget: ReadOnlyField
+- **Validierung:**
+  - Mindestens eine Position muss vorhanden sein
+  - Menge muss > 0 sein
+  - Entweder Mitglied ODER Kundenname muss angegeben sein
+- **Logik:**
+  - Rechnungsnummer-Format: `R-YYYY-XXXXX` (Jahr + 5-stellige laufende Nummer)
+  - Status wird automatisch auf "offen" gesetzt
+  - MwSt wird aus Stammdaten (mwst_aktiv_schluessel) ermittelt
+  - Preise werden als Snapshot gespeichert
 
 #### Dialog: Vertrag starten (`dialog_mitglied_vertrag_start`)
 - **Typ**: modalDialog

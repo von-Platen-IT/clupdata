@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
@@ -14,7 +13,9 @@ class PreiseRepository {
   }
 
   Future<PreisItem?> getPreisById(int id) {
-    return (_db.select(_db.preis)..where((p) => p.id.equals(id))).getSingleOrNull();
+    return (_db.select(
+      _db.preis,
+    )..where((p) => p.id.equals(id))).getSingleOrNull();
   }
 
   Future<int> addPreis(PreisCompanion price) async {

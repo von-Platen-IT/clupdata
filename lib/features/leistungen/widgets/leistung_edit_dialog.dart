@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -14,11 +13,7 @@ class LeistungEditDialog extends HookConsumerWidget {
   final LeistungsDetail? details;
   final String? initialFocusField;
 
-  const LeistungEditDialog({
-    super.key,
-    this.details,
-    this.initialFocusField,
-  });
+  const LeistungEditDialog({super.key, this.details, this.initialFocusField});
 
   static Future<void> show(
     BuildContext context, {
@@ -48,20 +43,24 @@ class LeistungEditDialog extends HookConsumerWidget {
     final mwstMultiplier = 1 + (mwstRate / 100);
 
     // Controller Setup
-    final ctrlName = useTextEditingController(text: details?.leistung.name ?? '');
-    final ctrlLaufzeit = useTextEditingController(text: details?.leistung.laufzeit ?? 'monatlich');
-    
+    final ctrlName = useTextEditingController(
+      text: details?.leistung.name ?? '',
+    );
+    final ctrlLaufzeit = useTextEditingController(
+      text: details?.leistung.laufzeit ?? 'monatlich',
+    );
+
     // We treat brutto as string for text input
     final initialBrutto = details?.preis.bruttopreis ?? 0.0;
     final initialNetto = initialBrutto / mwstMultiplier;
 
     final ctrlBrutto = useTextEditingController(
-       text: initialBrutto > 0 ? initialBrutto.toStringAsFixed(2) : ''
+      text: initialBrutto > 0 ? initialBrutto.toStringAsFixed(2) : '',
     );
     final ctrlNetto = useTextEditingController(
-       text: initialNetto > 0 ? initialNetto.toStringAsFixed(2) : ''
+      text: initialNetto > 0 ? initialNetto.toStringAsFixed(2) : '',
     );
-    
+
     final isUpdatingPrice = useRef(false);
 
     useEffect(() {
@@ -101,9 +100,13 @@ class LeistungEditDialog extends HookConsumerWidget {
         ctrlNetto.removeListener(updateBrutto);
       };
     }, [mwstMultiplier]);
-    
-    final ctrlBemerkungTitel = useTextEditingController(text: details?.bemerkung?.titel ?? '');
-    final ctrlBemerkungText = useTextEditingController(text: details?.bemerkung?.textValue ?? '');
+
+    final ctrlBemerkungTitel = useTextEditingController(
+      text: details?.bemerkung?.titel ?? '',
+    );
+    final ctrlBemerkungText = useTextEditingController(
+      text: details?.bemerkung?.textValue ?? '',
+    );
 
     // Focus Node Setup
     final fnName = useFocusNode();
@@ -113,13 +116,19 @@ class LeistungEditDialog extends HookConsumerWidget {
     // Auto Focus logic
     useEffect(() {
       if (initialFocusField != null) {
-         WidgetsBinding.instance.addPostFrameCallback((_) {
-            switch (initialFocusField) {
-              case 'name': fnName.requestFocus(); break;
-              case 'laufzeit': fnLaufzeit.requestFocus(); break;
-              case 'bruttopreis': fnBrutto.requestFocus(); break;
-            }
-         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          switch (initialFocusField) {
+            case 'name':
+              fnName.requestFocus();
+              break;
+            case 'laufzeit':
+              fnLaufzeit.requestFocus();
+              break;
+            case 'bruttopreis':
+              fnBrutto.requestFocus();
+              break;
+          }
+        });
       }
       return null;
     }, [initialFocusField]);
@@ -128,20 +137,24 @@ class LeistungEditDialog extends HookConsumerWidget {
 
     Future<void> save() async {
       if (ctrlName.text.isEmpty) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name ist ein Pflichtfeld.')));
-         return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Name ist ein Pflichtfeld.')),
+        );
+        return;
       }
 
       final bruttoVal = double.tryParse(ctrlBrutto.text.replaceAll(',', '.'));
       if (bruttoVal == null) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ungültiger Bruttopreis.')));
-         return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ungültiger Bruttopreis.')),
+        );
+        return;
       }
 
       isSaving.value = true;
       try {
         final repo = ref.read(leistungenRepositoryProvider);
-        
+
         await repo.saveLeistungFull(
           leistungId: details?.leistung.id,
           name: ctrlName.text,
@@ -155,11 +168,15 @@ class LeistungEditDialog extends HookConsumerWidget {
 
         if (context.mounted) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erfolgreich gespeichert')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erfolgreich gespeichert')),
+          );
         }
       } catch (e) {
         if (context.mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
         }
       } finally {
         isSaving.value = false;
@@ -172,47 +189,88 @@ class LeistungEditDialog extends HookConsumerWidget {
       onSave: save,
       contentWidth: 600,
       deleteEntityLabel: 'Leistung',
-      onDelete: details?.leistung.id == null ? null : () async {
-        await ref.read(leistungenRepositoryProvider).deleteLeistung(details!.leistung.id);
-        if (context.mounted) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Leistung erfolgreich gelöscht')),
-          );
-        }
-      },
+      onDelete: details?.leistung.id == null
+          ? null
+          : () async {
+              await ref
+                  .read(leistungenRepositoryProvider)
+                  .deleteLeistung(details!.leistung.id);
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Leistung erfolgreich gelöscht'),
+                  ),
+                );
+              }
+            },
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-               Text('Leistung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-               const Gap(8),
-               AppTextField(controller: ctrlName, label: 'Name', focusNode: fnName),
-               const Gap(8),
-               AppDropdownField<String>(
-                  controller: ctrlLaufzeit,
-                  label: 'Laufzeit',
-                  focusNode: fnLaufzeit,
-                  options: const ['einmalig', 'monatlich', 'quartalsweise', 'jaehrlich'],
-                  getLabel: (v) => v,
-               ),
-               const Gap(24),
+          Text(
+            'Leistung',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const Gap(8),
+          AppTextField(controller: ctrlName, label: 'Name', focusNode: fnName),
+          const Gap(8),
+          AppDropdownField<String>(
+            controller: ctrlLaufzeit,
+            label: 'Laufzeit',
+            focusNode: fnLaufzeit,
+            options: const [
+              'einmalig',
+              'monatlich',
+              'quartalsweise',
+              'jaehrlich',
+            ],
+            getLabel: (v) => v,
+          ),
+          const Gap(24),
 
-               Text('Preis', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-               const Gap(8),
-               Row(
-                 children: [
-                    Expanded(child: AppTextField(controller: ctrlBrutto, label: 'Bruttopreis (€)', focusNode: fnBrutto)),
-                    const Gap(8),
-                    Expanded(child: AppTextField(controller: ctrlNetto, label: 'Nettopreis (€)')),
-                 ],
-               ),
-               const Gap(24),
-               
-               Text('Bemerkung', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-               const Gap(8),
-               AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
-               const Gap(8),
-               AppTextField(controller: ctrlBemerkungText, label: 'Text', maxLines: 3),
+          Text(
+            'Preis',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const Gap(8),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: ctrlBrutto,
+                  label: 'Bruttopreis (€)',
+                  focusNode: fnBrutto,
+                ),
+              ),
+              const Gap(8),
+              Expanded(
+                child: AppTextField(
+                  controller: ctrlNetto,
+                  label: 'Nettopreis (€)',
+                ),
+              ),
+            ],
+          ),
+          const Gap(24),
+
+          Text(
+            'Bemerkung',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const Gap(8),
+          AppTextField(controller: ctrlBemerkungTitel, label: 'Titel'),
+          const Gap(8),
+          AppTextField(
+            controller: ctrlBemerkungText,
+            label: 'Text',
+            maxLines: 3,
+          ),
         ],
       ),
     );

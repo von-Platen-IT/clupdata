@@ -171,6 +171,45 @@ class BeitraegeRepository {
           );
     }
   }
+
+  // ── Invoice Number Generation ─────────────────────────────────────────────
+
+  /// Generates a unique invoice number with encoded date.
+  /// Format: RE-YYYY-XXXXX where XXXXX is a sequential number.
+  /// Ensures the generated number is unique by checking against existing entries.
+  Future<String> generateRechnungsnummer() async {
+    final now = DateTime.now();
+    final year = now.year;
+
+    // Get the highest existing number for this year
+    final result = await _db
+        .customSelect(
+          "SELECT MAX(CAST(substr(rechnungsnummer, 9) AS INTEGER)) as max_num "
+          "FROM beitraege WHERE substr(rechnungsnummer, 4, 4) = ?",
+          variables: [Variable<String>(year.toString())],
+        )
+        .getSingle();
+
+    final maxNumber = (result.data['max_num'] as int?) ?? 0;
+    int nextNumber = maxNumber + 1;
+
+    // Ensure uniqueness (in case of gaps or manual insertions)
+    String candidate = 'RE-$year-${nextNumber.toString().padLeft(5, '0')}';
+    while (await rechnungsnummerExists(candidate)) {
+      nextNumber++;
+      candidate = 'RE-$year-${nextNumber.toString().padLeft(5, '0')}';
+    }
+
+    return candidate;
+  }
+
+  /// Checks if a rechnungsnummer already exists.
+  Future<bool> rechnungsnummerExists(String rechnungsnummer) async {
+    final result = await (_db.select(
+      _db.beitraege,
+    )..where((b) => b.rechnungsnummer.equals(rechnungsnummer))).get();
+    return result.isNotEmpty;
+  }
 }
 
 /// Riverpod provider for [BeitraegeRepository].

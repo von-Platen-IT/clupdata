@@ -129,94 +129,101 @@ class AppSelectField<T> extends HookWidget {
       final offset = rb.localToGlobal(Offset.zero);
       final size = rb.size;
 
-      overlayEntry.value = OverlayEntry(builder: (_) {
-        return Positioned(
-          left: offset.dx,
-          top: offset.dy + size.height + 2,
-          width: size.width,
-          child: TapRegion(
-            onTapOutside: (_) {
-              if (mode == AppSelectMode.select) {
-                final text = controller.text;
-                if (optionsRef.value.every((o) => getLabel(o) != text)) {
-                  controller.text = committedValue.value;
+      overlayEntry.value = OverlayEntry(
+        builder: (_) {
+          return Positioned(
+            left: offset.dx,
+            top: offset.dy + size.height + 2,
+            width: size.width,
+            child: TapRegion(
+              onTapOutside: (_) {
+                if (mode == AppSelectMode.select) {
+                  final text = controller.text;
+                  if (optionsRef.value.every((o) => getLabel(o) != text)) {
+                    controller.text = committedValue.value;
+                  }
                 }
-              }
-              filterText.value = '';
-              closeOverlay();
-            },
-            child: ValueListenableBuilder<int>(
-              valueListenable: overlayVersion,
-              builder: (ctx, __, ___) {
-                final items = filteredRef.value;
-                final hi = highlightedIndex.value;
+                filterText.value = '';
+                closeOverlay();
+              },
+              child: ValueListenableBuilder<int>(
+                valueListenable: overlayVersion,
+                builder: (ctx, _, _) {
+                  final items = filteredRef.value;
+                  final hi = highlightedIndex.value;
 
-                if (items.isEmpty) {
-                  return Material(
-                    elevation: 6,
-                    borderRadius: BorderRadius.circular(4),
-                    child: SizedBox(
-                      height: _kItemHeight,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'Keine Treffer',
-                            style:
-                                TextStyle(color: Theme.of(context).disabledColor),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                return Material(
-                  elevation: 6,
-                  borderRadius: BorderRadius.circular(4),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                        maxHeight: _kItemHeight * _kMaxVisibleItems),
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      itemExtent: _kItemHeight,
-                      itemBuilder: (_, i) {
-                        final isHi = i == hi;
-                        return InkWell(
-                          // onTapDown fires on mouse-press, BEFORE the TextField
-                          // loses focus (which would close the overlay too early).
-                          onTapDown: (_) => confirmOption(items[i]),
-                          child: Container(
-                            height: _kItemHeight,
-                            color: isHi
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : null,
-                            alignment: Alignment.centerLeft,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                  if (items.isEmpty) {
+                    return Material(
+                      elevation: 6,
+                      borderRadius: BorderRadius.circular(4),
+                      child: SizedBox(
+                        height: _kItemHeight,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              getLabel(items[i]),
-                              overflow: TextOverflow.ellipsis,
+                              'Keine Treffer',
                               style: TextStyle(
-                                fontWeight: isHi
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                                color: Theme.of(context).disabledColor,
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Material(
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(4),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: _kItemHeight * _kMaxVisibleItems,
+                      ),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        itemExtent: _kItemHeight,
+                        itemBuilder: (_, i) {
+                          final isHi = i == hi;
+                          return InkWell(
+                            // onTapDown fires on mouse-press, BEFORE the TextField
+                            // loses focus (which would close the overlay too early).
+                            onTapDown: (_) => confirmOption(items[i]),
+                            child: Container(
+                              height: _kItemHeight,
+                              color: isHi
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.primaryContainer
+                                  : null,
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                getLabel(items[i]),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: isHi
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        );
-      });
+          );
+        },
+      );
 
       Overlay.of(context).insert(overlayEntry.value!);
     }
@@ -260,8 +267,10 @@ class AppSelectField<T> extends HookWidget {
       if (key == LogicalKeyboardKey.arrowDown) {
         if (!isOpen.value) openOverlay();
         if (items.isNotEmpty) {
-          highlightedIndex.value =
-              (highlightedIndex.value + 1).clamp(0, items.length - 1);
+          highlightedIndex.value = (highlightedIndex.value + 1).clamp(
+            0,
+            items.length - 1,
+          );
           overlayVersion.value++;
         }
         // Consume so it doesn't move the text cursor
@@ -271,8 +280,10 @@ class AppSelectField<T> extends HookWidget {
       if (key == LogicalKeyboardKey.arrowUp) {
         if (!isOpen.value) openOverlay();
         if (items.isNotEmpty) {
-          highlightedIndex.value =
-              (highlightedIndex.value - 1).clamp(0, items.length - 1);
+          highlightedIndex.value = (highlightedIndex.value - 1).clamp(
+            0,
+            items.length - 1,
+          );
           overlayVersion.value++;
         }
         return KeyEventResult.handled;
@@ -344,7 +355,7 @@ class AppSelectField<T> extends HookWidget {
           suffixIcon: ExcludeFocus(
             child: ValueListenableBuilder<int>(
               valueListenable: overlayVersion,
-              builder: (_, __, ___) => Icon(
+              builder: (_, _, _) => Icon(
                 isOpen.value ? Icons.arrow_drop_up : Icons.arrow_drop_down,
                 size: 20,
               ),

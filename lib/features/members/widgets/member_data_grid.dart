@@ -6,17 +6,13 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../../widgets/data_grid/app_data_grid.dart';
 import '../../../../widgets/data_grid/sort_column_config.dart';
-import '../models/member_row_data.dart';
 import '../widgets/member_edit_dialog.dart';
 import '../presentation/providers/members_list_provider.dart';
 
 class MemberDataGrid extends HookConsumerWidget {
   final void Function(PlutoRow? row)? onRowSelected;
 
-  const MemberDataGrid({
-    super.key,
-    this.onRowSelected,
-  });
+  const MemberDataGrid({super.key, this.onRowSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +21,10 @@ class MemberDataGrid extends HookConsumerWidget {
     // Columns based on structur.md:
     // name, vorname, ort, telefon1, email, leistung_name, beitrag
     final columns = useMemoized<List<PlutoColumn>>(() {
-      final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
+      final currencyFormatter = NumberFormat.currency(
+        locale: 'de_DE',
+        symbol: '€',
+      );
 
       return [
         PlutoColumn(
@@ -85,7 +84,9 @@ class MemberDataGrid extends HookConsumerWidget {
           enableSorting: true,
           textAlign: PlutoColumnTextAlign.right,
           titleTextAlign: PlutoColumnTextAlign.right,
-          formatter: (value) => (value as num?) != null && value != 0 ? currencyFormatter.format(value) : '',
+          formatter: (value) => (value as num?) != null && value != 0
+              ? currencyFormatter.format(value)
+              : '',
         ),
       ];
     }, []);
@@ -99,12 +100,14 @@ class MemberDataGrid extends HookConsumerWidget {
     // Fast mapping inside useMemoized so we don't rebuild PlutoRows on every frame
     final rowData = rowsAsync.value ?? [];
     final plutoRows = useMemoized<List<PlutoRow>>(() {
-      final dateFormat = DateFormat('yyyy-MM-dd'); // For sorting internally, displayed parsed
+      final dateFormat = DateFormat(
+        'yyyy-MM-dd',
+      ); // For sorting internally, displayed parsed
       return rowData.map((m) {
         return PlutoRow(
           cells: {
             // Include ID for reference, but it's not a column
-            'id': PlutoCell(value: m.id), 
+            'id': PlutoCell(value: m.id),
             'name': PlutoCell(value: m.name),
             'vorname': PlutoCell(value: m.vorname),
             'ort': PlutoCell(value: m.ort ?? ''),
@@ -127,19 +130,23 @@ class MemberDataGrid extends HookConsumerWidget {
           columns: columns,
           sortableColumns: sortConfigs,
           toSearchString: (row) {
-             return [
-               row.cells['name']?.value,
-               row.cells['vorname']?.value,
-               row.cells['ort']?.value,
-               row.cells['telefon1']?.value,
-               row.cells['email']?.value,
-               row.cells['leistung_name']?.value,
-             ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+            return [
+              row.cells['name']?.value,
+              row.cells['vorname']?.value,
+              row.cells['ort']?.value,
+              row.cells['telefon1']?.value,
+              row.cells['email']?.value,
+              row.cells['leistung_name']?.value,
+            ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
           },
           onRowSelected: onRowSelected,
           onRowActivated: (row, fieldName) {
-             final memberId = row.cells['id']?.value as int;
-             MemberEditDialog.show(context, memberId: memberId, initialFocusField: fieldName);
+            final memberId = row.cells['id']?.value as int;
+            MemberEditDialog.show(
+              context,
+              memberId: memberId,
+              initialFocusField: fieldName,
+            );
           },
         );
       },

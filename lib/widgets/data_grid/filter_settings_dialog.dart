@@ -55,20 +55,19 @@ class FilterSettingsDialog extends HookWidget {
     final optionsByField = useMemoized<Map<String, List<String>>>(() {
       return {
         for (final col in filterableColumns)
-          col.field: allRows
-              .map((r) => r.cells[col.field]?.value?.toString() ?? '')
-              .where((s) => s.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort(),
+          col.field:
+              allRows
+                  .map((r) => r.cells[col.field]?.value?.toString() ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort(),
       };
     }, [filterableColumns, allRows]);
 
     // Local mutable copy of filters — changes are only committed on "Anwenden"
     final filterState = useState<Map<String, String>>(
-      Map.fromEntries(
-        initialFilters.entries.where((e) => e.value.isNotEmpty),
-      ),
+      Map.fromEntries(initialFilters.entries.where((e) => e.value.isNotEmpty)),
     );
 
     return AlertDialog(
@@ -90,7 +89,7 @@ class FilterSettingsDialog extends HookWidget {
             : ListView.separated(
                 shrinkWrap: true,
                 itemCount: filterableColumns.length,
-                separatorBuilder: (_, __) => const Gap(16),
+                separatorBuilder: (_, _) => const Gap(16),
                 itemBuilder: (context, index) {
                   final col = filterableColumns[index];
                   final options = optionsByField[col.field] ?? [];
@@ -176,9 +175,9 @@ class _FilterColumnFieldState extends State<_FilterColumnField> {
       children: [
         Text(
           widget.column.title,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const Gap(4),
         Autocomplete<String>(
@@ -186,31 +185,32 @@ class _FilterColumnFieldState extends State<_FilterColumnField> {
           optionsBuilder: (TextEditingValue textEditingValue) {
             if (textEditingValue.text.isEmpty) return widget.options;
             return widget.options.where((option) {
-              return option
-                  .toLowerCase()
-                  .contains(textEditingValue.text.toLowerCase());
+              return option.toLowerCase().contains(
+                textEditingValue.text.toLowerCase(),
+              );
             });
           },
           onSelected: (String selection) {
             _controller.text = selection;
             widget.onChanged(selection);
           },
-          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-            // Sync the Autocomplete's internal controller with our managed controller
-            // by replacing its text on selection — we do NOT attach our listener here.
-            return TextField(
-              controller: textEditingController,
-              focusNode: focusNode,
-              decoration: InputDecoration(
-                isDense: true,
-                border: const OutlineInputBorder(),
-                hintText: 'Nach ${widget.column.title} filtern...',
-                suffixIcon: const Icon(Icons.arrow_drop_down),
-              ),
-              onChanged: (value) => widget.onChanged(value),
-              onSubmitted: (_) => onFieldSubmitted(),
-            );
-          },
+          fieldViewBuilder:
+              (context, textEditingController, focusNode, onFieldSubmitted) {
+                // Sync the Autocomplete's internal controller with our managed controller
+                // by replacing its text on selection — we do NOT attach our listener here.
+                return TextField(
+                  controller: textEditingController,
+                  focusNode: focusNode,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    hintText: 'Nach ${widget.column.title} filtern...',
+                    suffixIcon: const Icon(Icons.arrow_drop_down),
+                  ),
+                  onChanged: (value) => widget.onChanged(value),
+                  onSubmitted: (_) => onFieldSubmitted(),
+                );
+              },
         ),
       ],
     );

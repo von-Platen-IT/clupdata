@@ -6,17 +6,13 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../../widgets/data_grid/app_data_grid.dart';
 import '../../../../widgets/data_grid/sort_column_config.dart';
-import '../models/leistung_row_data.dart';
 import '../widgets/leistung_edit_dialog.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
 
 class LeistungDataGrid extends HookConsumerWidget {
   final void Function(PlutoRow? row)? onRowSelected;
 
-  const LeistungDataGrid({
-    super.key,
-    this.onRowSelected,
-  });
+  const LeistungDataGrid({super.key, this.onRowSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +21,10 @@ class LeistungDataGrid extends HookConsumerWidget {
 
     // 2. Define Columns per structur.md
     final columns = useMemoized<List<PlutoColumn>>(() {
-      final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
+      final currencyFormatter = NumberFormat.currency(
+        locale: 'de_DE',
+        symbol: '€',
+      );
 
       return [
         PlutoColumn(
@@ -83,41 +82,49 @@ class LeistungDataGrid extends HookConsumerWidget {
       return rowData.map((l) {
         return PlutoRow(
           cells: {
-             'id': PlutoCell(value: l.id), // Hidden data
-             'name': PlutoCell(value: l.name),
-             'laufzeit': PlutoCell(value: l.laufzeit),
-             'bruttopreis': PlutoCell(value: l.bruttopreis),
-             'nettopreis': PlutoCell(value: l.nettopreis), 
-          }
+            'id': PlutoCell(value: l.id), // Hidden data
+            'name': PlutoCell(value: l.name),
+            'laufzeit': PlutoCell(value: l.laufzeit),
+            'bruttopreis': PlutoCell(value: l.bruttopreis),
+            'nettopreis': PlutoCell(value: l.nettopreis),
+          },
         );
       }).toList();
     }, [rowData]);
 
     return rowsAsync.when(
       data: (_) {
-         return AppDataGrid(
-           rows: plutoRows, 
-           columns: columns, 
-           sortableColumns: sortConfigs, 
-           toSearchString: (row) {
-              return [
-                row.cells['name']?.value,
-                row.cells['laufzeit']?.value,
-              ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
-           }, 
-           onRowSelected: onRowSelected,
-           onRowActivated: (row, fieldName) async {
-              final leistungId = row.cells['id']?.value as int;
+        return AppDataGrid(
+          rows: plutoRows,
+          columns: columns,
+          sortableColumns: sortConfigs,
+          toSearchString: (row) {
+            return [
+              row.cells['name']?.value,
+              row.cells['laufzeit']?.value,
+            ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+          },
+          onRowSelected: onRowSelected,
+          onRowActivated: (row, fieldName) async {
+            final leistungId = row.cells['id']?.value as int;
 
-              // Fetch full details (incl. preis/bemerkung) before opening dialog
-              final detailsList = await ref.read(watchLeistungenDetailsProvider.future);
-              final details = detailsList.where((d) => d.leistung.id == leistungId).firstOrNull;
+            // Fetch full details (incl. preis/bemerkung) before opening dialog
+            final detailsList = await ref.read(
+              watchLeistungenDetailsProvider.future,
+            );
+            final details = detailsList
+                .where((d) => d.leistung.id == leistungId)
+                .firstOrNull;
 
-              if (context.mounted && details != null) {
-                 LeistungEditDialog.show(context, details: details, initialFocusField: fieldName);
-              }
-           }
-         );
+            if (context.mounted && details != null) {
+              LeistungEditDialog.show(
+                context,
+                details: details,
+                initialFocusField: fieldName,
+              );
+            }
+          },
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Fehler beim Laden: $err')),
