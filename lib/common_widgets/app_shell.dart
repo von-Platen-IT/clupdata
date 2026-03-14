@@ -3,12 +3,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mdi/mdi.dart';
 import 'package:gap/gap.dart';
+import '../core/utils/app_version.dart';
 import 'main_menu_bar.dart';
 
 /// The main structural wrapper (shell) for the application UI.
 ///
 /// This widget provides the persistent navigation layout including the
-/// top [MainMenuBar] and the side [NavigationRail]. It acts as the 
+/// top [MainMenuBar] and the side [NavigationRail]. It acts as the
 /// container for different feature screens which are provided via the
 /// [navigationShell] property and updated by the declarative router logic (`go_router`).
 class AppShell extends HookWidget {
@@ -33,9 +34,12 @@ class AppShell extends HookWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 900;
-    
+
     // State hook to toggle the expanded state of the sidebar locally
     final isExtended = useState(isDesktop);
+
+    // Dynamische Versionsnummer aus pubspec.yaml laden
+    final versionAsync = useFuture(AppVersion.getVersionWithPrefix());
 
     // Keep the state in sync with screen size changes mostly, but allow overrides
     useEffect(() {
@@ -54,33 +58,64 @@ class AppShell extends HookWidget {
                 NavigationRail(
                   selectedIndex: navigationShell.currentIndex,
                   onDestinationSelected: _onItemTapped,
-                  labelType: isExtended.value ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-                  extended: isExtended.value, 
+                  labelType: isExtended.value
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  extended: isExtended.value,
                   leading: Padding(
                     padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         if (isExtended.value)
-                          Row(
-                            children: [
-                              const Gap(16),
-                              const Text(
-                                'ClupData',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.deepOrange,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const Gap(24),
-                              IconButton(
-                                icon: const Icon(Icons.menu_open),
-                                tooltip: 'Menü reduzieren',
-                                onPressed: () => isExtended.value = false,
-                              ),
-                              const Gap(8),
-                            ],
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              // PPO Text nur anzeigen, wenn mindestens 200px verfügbar sind
+                              final showText = constraints.maxWidth >= 200;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (showText) ...[
+                                    const Gap(16),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'PPO',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                              ),
+                                        ),
+                                        Text(
+                                          versionAsync.data ?? 'v...',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  IconButton(
+                                    icon: const Icon(Icons.menu_open),
+                                    tooltip: 'Menü reduzieren',
+                                    onPressed: () => isExtended.value = false,
+                                  ),
+                                ],
+                              );
+                            },
                           )
                         else
                           IconButton(
@@ -88,7 +123,6 @@ class AppShell extends HookWidget {
                             tooltip: 'Menü erweitern',
                             onPressed: () => isExtended.value = true,
                           ),
-                        const Gap(16),
                       ],
                     ),
                   ),
@@ -151,9 +185,7 @@ class AppShell extends HookWidget {
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(
-                  child: navigationShell,
-                ),
+                Expanded(child: navigationShell),
               ],
             ),
           ),

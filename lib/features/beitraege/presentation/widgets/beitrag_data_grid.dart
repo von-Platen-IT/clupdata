@@ -6,9 +6,10 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../../widgets/data_grid/app_data_grid.dart';
 import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
-import '../../utils/beitrag_status_colors.dart';
 import '../dialogs/beitrag_edit_dialog.dart';
+import 'status_badge.dart';
 
 /// DataGrid for Beiträge (invoices). One row per Beitrag, colour-coded by status.
 class BeitragDataGrid extends HookConsumerWidget {
@@ -69,24 +70,10 @@ class BeitragDataGrid extends HookConsumerWidget {
           enableSorting: true,
           width: 120,
           renderer: (rendererContext) {
-            final status = rendererContext.cell.value as String? ?? '';
-            final color = beitragStatusColor(status);
+            final statusValue = rendererContext.cell.value as String? ?? '';
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: color,
-                border: Border.all(color: color.withAlpha((255 * 0.5).round())),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: beitragStatusTextColor(status),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: StatusBadge.fromString(statusValue),
             );
           },
         ),

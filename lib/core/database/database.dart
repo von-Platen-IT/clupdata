@@ -40,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -109,6 +109,9 @@ class AppDatabase extends _$AppDatabase {
         // v14: Neue Rechnungen-Tabellen
         await migrator.createTable(rechnungen);
         await migrator.createTable(rechnungPositionen);
+      } else if (from == 14) {
+        // v15: Neue Spalte abrechnungsZeitraum in beitraege
+        await migrator.addColumn(beitraege, beitraege.abrechnungsZeitraum);
       }
     },
     beforeOpen: (details) async {

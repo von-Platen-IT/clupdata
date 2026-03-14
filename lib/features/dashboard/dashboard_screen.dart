@@ -20,15 +20,15 @@ class DashboardScreen extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: Image.asset(
-                'lib/assets/phrapikanetorganizer.png',
+                'lib/assets/logo_phra_phikanet.png',
                 fit: BoxFit.contain,
                 alignment: Alignment.center,
                 errorBuilder: (context, error, stackTrace) {
                   return Center(
                     child: Icon(
-                      Icons.image_not_supported, 
-                      size: 80, 
-                      color: Theme.of(context).colorScheme.primary
+                      Icons.image_not_supported,
+                      size: 80,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 },
@@ -40,9 +40,12 @@ class DashboardScreen extends StatelessWidget {
             flex: 1,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Text(
-                  'Willkommen im Boxclub!',
+                  'PhraPhikanet Organizer',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: Colors.black87,
                     fontWeight: FontWeight.bold,

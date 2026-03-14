@@ -4,21 +4,25 @@ import 'package:flutter/material.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
 import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
+import '../features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart';
 
 class MainMenuBar extends StatelessWidget {
   const MainMenuBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Hier verwenden wir eine einfache AppBar als MenuBar-Ersatz, 
+    // Hier verwenden wir eine einfache AppBar als MenuBar-Ersatz,
     // um die Kompatibilität auf allen OS zu garantieren und es einheitlich zu stylen.
     return Container(
       height: 36, // Klassische Desktop-Menühöhe
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: Border(
-           bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 1),
-        )
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -26,10 +30,7 @@ class MainMenuBar extends StatelessWidget {
           _MenuButton(
             title: 'Datei',
             items: [
-              PopupMenuItem(
-                child: const Text('Einstellungen'),
-                onTap: () {},
-              ),
+              PopupMenuItem(child: const Text('Einstellungen'), onTap: () {}),
               const PopupMenuDivider(),
               PopupMenuItem(
                 child: const Text('Beenden'),
@@ -61,6 +62,14 @@ class MainMenuBar extends StatelessWidget {
                 onTap: () {
                   // Dialog zum Hinzufügen einer Ware öffnen
                   WarenEditDialog.show(context);
+                },
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                child: const Text('Rechnungslegung'),
+                onTap: () {
+                  // Dialog zur Massenerstellung von Beiträgen öffnen
+                  RechnungslegungDialog.show(context);
                 },
               ),
             ],
@@ -107,9 +116,9 @@ class _MenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
         ),
       ),

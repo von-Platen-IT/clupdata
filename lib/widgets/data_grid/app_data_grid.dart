@@ -43,7 +43,6 @@ class AppDataGrid extends HookWidget {
   /// cell that was focused, used to set initial focus in the modal dialog.
   final void Function(PlutoRow row, String fieldName) onRowActivated;
 
-
   const AppDataGrid({
     super.key,
     required this.rows,
@@ -66,70 +65,81 @@ class AppDataGrid extends HookWidget {
     final activeSortConfigs = useState<List<SortColumnConfig>>(sortableColumns);
 
     // Prepare debouncer for the search input
-    final debouncer = useMemoized(() => AppDebouncer(delay: const Duration(milliseconds: 300)));
+    final debouncer = useMemoized(
+      () => AppDebouncer(delay: const Duration(milliseconds: 300)),
+    );
     useEffect(() => debouncer.cancel, [debouncer]); // cleanup on dispose
 
     // Apply all filters, search, and sort chain to the grid whenever any
     // of the dependencies change, including the initial data load.
-    useEffect(() {
-      final sm = stateManager.value;
-      if (sm == null) return null;
+    useEffect(
+      () {
+        final sm = stateManager.value;
+        if (sm == null) return null;
 
-      // 1. Start from the full unfiltered dataset
-      var filteredRows = List<PlutoRow>.from(rows);
+        // 1. Start from the full unfiltered dataset
+        var filteredRows = List<PlutoRow>.from(rows);
 
-      // 2. Apply column filters (AND-combined)
-      if (activeFilters.value.isNotEmpty) {
-        filteredRows = filteredRows.where((row) {
-          for (final entry in activeFilters.value.entries) {
-            final filterValue = entry.value.toLowerCase();
-            final cellValue =
-                row.cells[entry.key]?.value?.toString().toLowerCase() ?? '';
-            if (!cellValue.contains(filterValue)) return false;
-          }
-          return true;
-        }).toList();
-      }
-
-      // 3. Apply full-text search
-      if (debouncedSearchText.value.isNotEmpty) {
-        final query = debouncedSearchText.value.toLowerCase();
-        filteredRows = filteredRows.where((row) {
-          return toSearchString(row).toLowerCase().contains(query);
-        }).toList();
-      }
-
-      // 4. Apply multi-column sort chain (sorted by priority ascending)
-      final sortChain = activeSortConfigs.value
-          .where((c) => c.enabled)
-          .toList()
-        ..sort((a, b) => a.priority.compareTo(b.priority));
-
-      if (sortChain.isNotEmpty) {
-        filteredRows.sort((a, b) {
-          for (final col in sortChain) {
-            final fieldA = a.cells[col.field]?.value;
-            final fieldB = b.cells[col.field]?.value;
-            int cmp;
-            if (fieldA is Comparable && fieldB is Comparable) {
-              cmp = fieldA.compareTo(fieldB);
-            } else {
-              cmp = fieldA?.toString().compareTo(fieldB?.toString() ?? '') ?? 0;
+        // 2. Apply column filters (AND-combined)
+        if (activeFilters.value.isNotEmpty) {
+          filteredRows = filteredRows.where((row) {
+            for (final entry in activeFilters.value.entries) {
+              final filterValue = entry.value.toLowerCase();
+              final cellValue =
+                  row.cells[entry.key]?.value?.toString().toLowerCase() ?? '';
+              if (!cellValue.contains(filterValue)) return false;
             }
-            if (cmp != 0) return col.ascending ? cmp : -cmp;
-          }
-          return 0;
-        });
-      }
+            return true;
+          }).toList();
+        }
 
-      // 5. Replace grid rows atomically
-      final currentRows = sm.rows;
-      if (currentRows.isNotEmpty) sm.removeRows(currentRows);
-      if (filteredRows.isNotEmpty) sm.appendRows(filteredRows);
-      sm.notifyListeners();
+        // 3. Apply full-text search
+        if (debouncedSearchText.value.isNotEmpty) {
+          final query = debouncedSearchText.value.toLowerCase();
+          filteredRows = filteredRows.where((row) {
+            return toSearchString(row).toLowerCase().contains(query);
+          }).toList();
+        }
 
-      return null;
-    }, [rows, debouncedSearchText.value, activeFilters.value, activeSortConfigs.value, stateManager.value]);
+        // 4. Apply multi-column sort chain (sorted by priority ascending)
+        final sortChain =
+            activeSortConfigs.value.where((c) => c.enabled).toList()
+              ..sort((a, b) => a.priority.compareTo(b.priority));
+
+        if (sortChain.isNotEmpty) {
+          filteredRows.sort((a, b) {
+            for (final col in sortChain) {
+              final fieldA = a.cells[col.field]?.value;
+              final fieldB = b.cells[col.field]?.value;
+              int cmp;
+              if (fieldA is Comparable && fieldB is Comparable) {
+                cmp = fieldA.compareTo(fieldB);
+              } else {
+                cmp =
+                    fieldA?.toString().compareTo(fieldB?.toString() ?? '') ?? 0;
+              }
+              if (cmp != 0) return col.ascending ? cmp : -cmp;
+            }
+            return 0;
+          });
+        }
+
+        // 5. Replace grid rows atomically
+        final currentRows = sm.rows;
+        if (currentRows.isNotEmpty) sm.removeRows(currentRows);
+        if (filteredRows.isNotEmpty) sm.appendRows(filteredRows);
+        sm.notifyListeners();
+
+        return null;
+      },
+      [
+        rows,
+        debouncedSearchText.value,
+        activeFilters.value,
+        activeSortConfigs.value,
+        stateManager.value,
+      ],
+    );
 
     // Track active row selection because PlutoGridMode.normal doesn't trigger onSelected reliably
     useEffect(() {
@@ -228,7 +238,10 @@ class AppDataGrid extends HookWidget {
               Badge(
                 isLabelVisible: activeSortConfigs.value.any((c) => c.enabled),
                 label: Text(
-                  activeSortConfigs.value.where((c) => c.enabled).length.toString(),
+                  activeSortConfigs.value
+                      .where((c) => c.enabled)
+                      .length
+                      .toString(),
                 ),
                 child: IconButton.outlined(
                   tooltip: 'Sortierung konfigurieren',
@@ -242,8 +255,6 @@ class AppDataGrid extends HookWidget {
                   },
                 ),
               ),
-
-
             ],
           ),
         ),
@@ -285,6 +296,11 @@ class AppDataGrid extends HookWidget {
                   filters: const [...FilterHelper.defaultFilters],
                 ),
                 localeText: appGermanLocaleText,
+                scrollbar: const PlutoGridScrollbarConfig(
+                  isAlwaysShown: true,
+                  scrollbarThickness: 12.0,
+                  scrollbarThicknessWhileDragging: 16.0,
+                ),
               ),
             ),
           ),

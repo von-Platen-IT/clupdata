@@ -8,13 +8,15 @@ import 'package:drift/drift.dart' as drift;
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
+import '../../../../common_widgets/forms/app_entity_autocomplete.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/providers/database_provider.dart';
 import '../../../leistungen/data/leistungen_repository.dart';
 import '../../../members/data/members_repository.dart';
+import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
-import '../../utils/beitrag_status_colors.dart';
+import '../widgets/status_badge.dart';
 
 /// Dialog for creating a new Beitrag (invoice/contribution).
 /// Features:
@@ -299,9 +301,8 @@ class NeuerBeitragDialog extends HookConsumerWidget {
                     horizontal: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: beitragStatusColor(
-                      'kontiert',
-                    ).withAlpha((255 * 0.3).round()),
+                    color: BeitragStatus.kontiert.backgroundColor
+                        .withOpacityPercent(0.3),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -310,14 +311,14 @@ class NeuerBeitragDialog extends HookConsumerWidget {
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: beitragStatusColor('kontiert'),
+                          color: BeitragStatus.kontiert.backgroundColor,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const Gap(8),
-                      const Text(
-                        'kontiert',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                      Text(
+                        BeitragStatus.kontiert.label,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),

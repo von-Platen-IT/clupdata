@@ -11,18 +11,10 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
+import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
-import '../../utils/beitrag_status_colors.dart';
-
-/// Valid status values for a [Beitrag].
-const kBeitragStatusValues = [
-  'kontiert',
-  'offen',
-  'bezahlt',
-  'angemahnt',
-  'storniert',
-  'inkasso',
-];
+import '../widgets/status_badge.dart';
+import '../widgets/status_history_list.dart';
 
 /// Modal dialog for creating and editing a [Beitrag] record.
 class BeitragEditDialog extends HookConsumerWidget {
@@ -339,26 +331,26 @@ class BeitragEditDialog extends HookConsumerWidget {
   ) {
     return HookBuilder(
       builder: (context) {
-        final bgColor = beitragStatusColor(controller.text);
+        final status = BeitragStatus.fromString(controller.text);
 
         return Container(
           decoration: BoxDecoration(
-            color: bgColor.withAlpha((255 * 0.3).round()),
+            color: status.backgroundColor.withOpacityPercent(0.3),
             borderRadius: BorderRadius.circular(4),
           ),
           child: AppDropdownField<String>(
             controller: controller,
             label: 'Status',
             focusNode: focusNode,
-            options: kBeitragStatusValues,
-            getLabel: (v) => v,
+            options: BeitragStatus.allStringValues,
+            getLabel: (v) => BeitragStatus.fromString(v).label,
           ),
         );
       },
     );
   }
 
-  /// Builds the status history list widget.
+  /// Builds the status history list widget using the reusable StatusHistoryList.
   Widget _buildStatusHistoryList(
     AsyncSnapshot<List<BeitragStatusVerlaufData>> snapshot,
     DateFormat dateFormatter,
@@ -375,82 +367,9 @@ class BeitragEditDialog extends HookConsumerWidget {
       );
     }
 
-    final history = snapshot.data!;
-    if (history.isEmpty) {
-      return const Text('Keine Status-Historie vorhanden.');
-    }
-
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 200),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: history.length,
-        itemBuilder: (context, index) {
-          final entry = history[index];
-          final bgColor = beitragStatusColor(entry.status);
-          final textColor = beitragStatusTextColor(entry.status);
-
-          return Container(
-            decoration: BoxDecoration(
-              color: bgColor.withAlpha((255 * 0.3).round()),
-              border: Border(
-                bottom: index < history.length - 1
-                    ? BorderSide(color: Colors.grey.shade200)
-                    : BorderSide.none,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    entry.status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: textColor,
-                    ),
-                  ),
-                ),
-                const Gap(12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.bemerkung,
-                        style: const TextStyle(fontSize: 13),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Gap(2),
-                      Text(
-                        dateFormatter.format(entry.geaendertAm),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+    return StatusHistoryList(
+      history: snapshot.data!,
+      dateFormatter: dateFormatter,
     );
   }
 }

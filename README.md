@@ -4,9 +4,11 @@ Ein Desktop-Verwaltungssystem (Windows/macOS/Linux) für einen Boxclub. Dieses P
 
 ## 🚀 Features
 
-- ** Mitgliederverwaltung (Members):** Erfassen, Bearbeiten und Verwalten von Club-Mitgliedern.
-- ** Vertragsverwaltung (Contracts):** Übersicht und Organisation von Mitgliedsverträgen.
-- ** Point-of-Sale (POS):** Integriertes Kassensystem für den Verkauf von Artikeln oder Dienstleistungen.
+- **Mitgliederverwaltung (Members):** Erfassen, Bearbeiten und Verwalten von Club-Mitgliedern.
+- **Vertragsverwaltung (Contracts):** Übersicht und Organisation von Mitgliedsverträgen.
+- **Beitragsverwaltung (Beiträge):** Verwaltung von Mitgliedsbeiträgen mit Status-Verfolgung.
+- **Rechnungslegung:** Massenerstellung von Beiträgen für alle Mitglieder mit gültigem Vertrag.
+- **Point-of-Sale (POS):** Integriertes Kassensystem für den Verkauf von Artikeln oder Dienstleistungen.
 
 ## 🛠 Tech Stack & Architektur
 
@@ -49,6 +51,39 @@ flutter run -d macOS   # bzw. windows / linux
 - **Desktop-Look:** Kompaktere Darstellung als bei Mobile Apps (reduziertes Padding, kleinere Schriften). Einsatz von Sidebars (`NavigationRail` / Split-Views) und DataTables.
 - Keine klassischen Abstände (`SizedBox`), stattdessen wird das [gap](https://pub.dev/packages/gap) Package verwendet.
 - Wiederverwendbare Komponenten sind unter `lib/common_widgets/` zu finden.
+
+## 📝 Rechnungslegung
+
+Die **Rechnungslegung** ermöglicht die Massenerstellung von Beiträgen für alle Mitglieder mit gültigem Vertrag.
+
+### Bedienung
+1. Menü **"Erstellen"** → **"Rechnungslegung"** auswählen
+2. **Jahr** und **Monat** für die Abrechnung wählen
+3. Auf **"Speichern"** klicken
+
+### Funktionsweise
+
+**Voraussetzungen für die Erstellung:**
+- Mitglied muss eine `leistungId` (Vertragsart) zugeordnet haben
+- Für den gewählten Zeitraum darf noch kein Beitrag existieren (Vermeidung von Duplikaten)
+
+**Ablauf der Erstellung:**
+- Es werden Beitragseinträge für alle qualifizierten Mitglieder erstellt
+- Jeder Beitrag erhält eine eindeutige Rechnungsnummer im Format `RE-YYYY-XXXX`
+- Der **Kontierungsdatum** ist immer das aktuelle Datum (wann die Rechnungslegung durchgeführt wurde)
+- Der **Abrechnungszeitraum** wird auf den 1. des gewählten Monats gesetzt (zur Duplikat-Prüfung)
+- Der Status wird automatisch auf **"kontiert"** gesetzt
+- Ein History-Eintrag wird automatisch angelegt
+
+**Preisfindung:**
+- Wenn das Mitglied einen individuellen Preis (`preisId`) hat → dieser wird verwendet
+- Sonst wird der Preis der zugeordneten Leistung (Vertragsart) verwendet
+- Es wird immer ein Preis-Snapshot gespeichert (Preisänderungen haben keine Auswirkung auf bestehende Beiträge)
+
+**Ergebnis:**
+- Anzahl der erstellten Beiträge
+- Anzahl der übersprungenen Mitglieder (bereits kontiert oder kein Vertrag)
+- Liste eventueller Fehler (mitgliedsspezifisch)
 
 ---
 *Generated & maintained with modern Flutter Best Practices.*

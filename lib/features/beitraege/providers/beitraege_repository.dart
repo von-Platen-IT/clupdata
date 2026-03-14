@@ -74,6 +74,33 @@ class BeitraegeRepository {
     )..where((b) => b.id.equals(id))).getSingleOrNull();
   }
 
+  /// Streams a single [BeitragRowData] by ID with joined Mitglied and Leistung.
+  /// More efficient than watching the entire list when only one item is needed.
+  Stream<BeitragRowData?> watchSingleBeitrag(int beitragId) {
+    final query = _db.select(_db.beitraege).join([
+      innerJoin(
+        _db.mitglieds,
+        _db.mitglieds.id.equalsExp(_db.beitraege.mitgliedId),
+      ),
+      innerJoin(
+        _db.leistung,
+        _db.leistung.id.equalsExp(_db.beitraege.leistungId),
+      ),
+    ])..where(_db.beitraege.id.equals(beitragId));
+
+    return query.watchSingleOrNull().map((row) {
+      if (row == null) return null;
+      final beitrag = row.readTable(_db.beitraege);
+      final mitglied = row.readTable(_db.mitglieds);
+      final leistung = row.readTable(_db.leistung);
+      return BeitragRowData(
+        beitrag: beitrag,
+        mitgliedName: '${mitglied.name}, ${mitglied.vorname}',
+        leistungName: leistung.name,
+      );
+    });
+  }
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   /// Inserts a new Beitrag and immediately records the initial status
@@ -222,4 +249,11 @@ BeitraegeRepository beitraegeRepository(Ref ref) {
 @riverpod
 Stream<List<BeitragRowData>> beitraegeList(Ref ref) {
   return ref.watch(beitraegeRepositoryProvider).watchBeitraege();
+}
+
+/// Stream provider for a single Beitrag by ID.
+/// More efficient than watching the entire list when only one item is needed.
+@riverpod
+Stream<BeitragRowData?> singleBeitrag(Ref ref, int beitragId) {
+  return ref.watch(beitraegeRepositoryProvider).watchSingleBeitrag(beitragId);
 }
