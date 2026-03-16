@@ -58,3 +58,25 @@ app.*.map.json
 *.dylib
 *.exe
 *.app
+
+# added for the github workflow
+**/generated_plugin_registrant.*
+
+# Generated Windows/macOS/Linux binaries (vollständiger)
+windows/flutter/generated_plugins.cmake
+macos/Flutter/GeneratedPluginRegistrant.swift
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugins.cmake
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+*.code-workspace
+
+# Environment
+.env
+.env.local
