@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pdf/pdf.dart';
+import 'package:pdf/pdf.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
