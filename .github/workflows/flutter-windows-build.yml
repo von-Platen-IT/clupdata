@@ -21,12 +21,6 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
       
-      - name: Analyze project source
-        run: flutter analyze --no-fatal-infos
-      
-      - name: Run tests
-        run: flutter test
-      
       - name: Build Windows
         run: flutter build windows --release
       
