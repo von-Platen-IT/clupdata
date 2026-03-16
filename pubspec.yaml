@@ -49,6 +49,8 @@ dependencies:
   json_annotation: ^4.11.0
   pluto_grid: ^8.0.0
   intl: ^0.20.2
+  pdf: ^3.10.0
+  printing: ^5.11.0
   flutter_localizations:
     sdk: flutter
 
