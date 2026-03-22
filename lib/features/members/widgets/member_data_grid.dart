@@ -4,13 +4,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
+import '../models/member_row_data.dart';
 import '../widgets/member_edit_dialog.dart';
 import '../presentation/providers/members_list_provider.dart';
 
 class MemberDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  final void Function(MemberRowData? row)? onRowSelected;
 
   const MemberDataGrid({super.key, this.onRowSelected});
 
@@ -20,128 +21,83 @@ class MemberDataGrid extends HookConsumerWidget {
 
     // Columns based on structur.md:
     // name, vorname, ort, telefon1, email, leistung_name, beitrag
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    final columns = useMemoized<List<DataGridColumnConfig<MemberRowData>>>(() {
       final currencyFormatter = NumberFormat.currency(
         locale: 'de_DE',
         symbol: '€',
       );
 
       return [
-        PlutoColumn(
-          title: 'Name',
+        DataGridColumnConfig<MemberRowData>(
           field: 'name',
+          title: 'Name',
+          valueExtractor: (row) => row.name,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Vorname',
+        DataGridColumnConfig<MemberRowData>(
           field: 'vorname',
+          title: 'Vorname',
+          valueExtractor: (row) => row.vorname,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Ort',
+        DataGridColumnConfig<MemberRowData>(
           field: 'ort',
+          title: 'Ort',
+          valueExtractor: (row) => row.ort,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Telefon',
+        DataGridColumnConfig<MemberRowData>(
           field: 'telefon1',
+          title: 'Telefon',
+          valueExtractor: (row) => row.telefon1,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: false,
+          sortable: false,
         ),
-        PlutoColumn(
-          title: 'E-Mail',
+        DataGridColumnConfig<MemberRowData>(
           field: 'email',
+          title: 'E-Mail',
+          valueExtractor: (row) => row.email,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: false,
+          sortable: false,
         ),
-        PlutoColumn(
-          title: 'Vertragsart',
+        DataGridColumnConfig<MemberRowData>(
           field: 'leistung_name',
+          title: 'Vertragsart',
+          valueExtractor: (row) => row.leistungName,
           type: PlutoColumnType.text(),
-          enableEditingMode: false, // from lookup
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Beitrag',
+        DataGridColumnConfig<MemberRowData>(
           field: 'beitrag',
+          title: 'Beitrag',
+          valueExtractor: (row) => row.beitrag,
           type: PlutoColumnType.number(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          textAlign: PlutoColumnTextAlign.right,
-          titleTextAlign: PlutoColumnTextAlign.right,
           formatter: (value) => (value as num?) != null && value != 0
               ? currencyFormatter.format(value)
               : '',
         ),
       ];
     }, []);
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    // Fast mapping inside useMemoized so we don't rebuild PlutoRows on every frame
-    final rowData = rowsAsync.value ?? [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      final dateFormat = DateFormat(
-        'yyyy-MM-dd',
-      ); // For sorting internally, displayed parsed
-      return rowData.map((m) {
-        return PlutoRow(
-          cells: {
-            // Include ID for reference, but it's not a column
-            'id': PlutoCell(value: m.id),
-            'name': PlutoCell(value: m.name),
-            'vorname': PlutoCell(value: m.vorname),
-            'ort': PlutoCell(value: m.ort ?? ''),
-            'telefon1': PlutoCell(value: m.telefon1 ?? ''),
-            'email': PlutoCell(value: m.email ?? ''),
-            'leistung_name': PlutoCell(value: m.leistungName ?? ''),
-            'beitrag': PlutoCell(value: m.beitrag ?? 0.0),
-            // 'vertrag_laufzeit_von': PlutoCell(value: m.vertragLaufzeitVon != null ? dateFormat.format(m.vertragLaufzeitVon!) : ''),
-            // 'vertrag_laufzeit_bis': PlutoCell(value: m.vertragLaufzeitBis != null ? dateFormat.format(m.vertragLaufzeitBis!) : ''),
-            // 'alter': PlutoCell(value: m.alter ?? 0),
-          },
-        );
-      }).toList();
-    }, [rowData]);
 
     return rowsAsync.when(
-      data: (_) {
-        return AppDataGrid(
-          rows: plutoRows,
-          columns: columns,
-          sortableColumns: sortConfigs,
+      data: (rowData) {
+        return AppDataGridV2<MemberRowData>(
+          items: rowData,
+          columnConfigs: columns,
           toSearchString: (row) {
             return [
-              row.cells['name']?.value,
-              row.cells['vorname']?.value,
-              row.cells['ort']?.value,
-              row.cells['telefon1']?.value,
-              row.cells['email']?.value,
-              row.cells['leistung_name']?.value,
-            ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+              row.name,
+              row.vorname,
+              row.ort,
+              row.telefon1,
+              row.email,
+              row.leistungName,
+            ].where((e) => e != null && e.toString().isNotEmpty).join(' ').toLowerCase();
           },
+          toJson: (row) => row.toJson(),
+          fromJson: MemberRowData.fromJson,
           onRowSelected: onRowSelected,
-          onRowActivated: (row, fieldName) {
-            final memberId = row.cells['id']?.value as int;
+          detailModalBuilder: (row, fieldName) {
+            final memberId = row.id;
             MemberEditDialog.show(
               context,
               memberId: memberId,
@@ -155,3 +111,4 @@ class MemberDataGrid extends HookConsumerWidget {
     );
   }
 }
+

@@ -1,387 +1,176 @@
----
-trigger: always_on
----
+## **description: AI Agent Ruleset for Flutter DataGrid implementations trigger: "*data\_grid*.dart, pluto\_grid, table, grid, list view"**
 
-# AI Coding Agent — Configuration: Feature-Rich DataGrid System (Flutter)
+# **SYSTEM DIRECTIVE: FLUTTER DATAGRID IMPLEMENTATION**
 
-> **Scope:** This document defines binding rules and implementation guidelines for all tabular
-> data views in this Flutter project. The AI coding agent MUST follow these rules without
-> deviation unless explicitly overridden by the developer.
+\[CONTEXT\]  
+You are an expert Flutter AI coding assistant. Whenever the user requests a tabular data view, a data grid, or a table with filtering/sorting capabilities, you MUST adhere strictly to the following architectural, OOP, and implementation rules.  
+Do not deviate from these rules unless explicitly instructed by the user. Prioritize Clean Code, strict typing (Dart), and optimal performance.
 
----
+## **1\. TECHNOLOGY STACK & MANDATORY PACKAGES**
 
-## 1. Mandatory Package
+* **\[MUST\]** All tabular UI MUST use **PlutoGrid** exclusively.  
+* **\[FORBIDDEN\]** Do NOT use DataTable, DataTable2, Table, or any other built-in grid widget.  
+* **\[MUST\]** Use the intl package for all date formatting and localization.
 
-| Rule | Detail |
-|------|--------|
-| **[MUST]** | All tabular UI uses **PlutoGrid** exclusively. |
-| Package | `pluto_grid` — https://pub.dev/packages/pluto_grid |
-| No alternatives | Do NOT use `DataTable`, `DataTable2`, `Table`, or any other grid widget. |
-
-```yaml
-# pubspec.yaml
-dependencies:
-  pluto_grid: ^8.0.0   # use latest stable
+dependencies:  
+  pluto\_grid: ^8.0.0  
   intl: ^0.19.0
-```
 
----
+## **2\. CORE ARCHITECTURE & STATE MANAGEMENT**
 
-## 2. Architecture: Shared Base Class
+### **2.1 Generic Base Class (AppDataGrid\<T\>)**
 
-### 2.1 Principle
+* **\[MUST\]** Implement a generic base class AppDataGrid\<T\> that encapsulates the PlutoGrid instance.  
+* **\[MUST\]** Apply Separation of Concerns: The base class MUST NOT contain domain-specific logic. Concrete tables (e.g., MemberDataGrid) configure the base class via parameters.
 
-All DataGrid screens share a **single reusable base class** `AppDataGrid`.  
-Concrete tables (e.g. `MemberDataGrid`) configure the base class via parameters.  
-No grid-specific logic is duplicated across screens.
+### **2.2 Controller Pattern (Inbound / Headless API)**
 
-### 2.2 Class Structure
+* **\[MUST\]** Expose a DataGridController\<T\> to manage state (\_searchText, \_activeFilters, \_sortPriority).  
+* **\[MUST\]** The controller MUST allow external classes to completely control the UI programmatically without user interaction (Headless Capability).
 
-```
-AppDataGrid                          ← abstract base widget
-│
-├── Required parameters
-│   ├── columns       : List<PlutoColumn>
-│   ├── rows          : List<PlutoRow>
-│   ├── toSearchString: (PlutoRow) → String
-│   └── sortableColumns: List<SortColumnConfig>
-│
-├── Internal state
-│   ├── _searchText   : String
-│   ├── _activeFilters: Map<String, String>
-│   ├── _sortPriority : List<SortColumnConfig>
-│   └── _stateManager : PlutoGridStateManager
-│
-└── Concrete implementations
-    ├── MemberDataGrid
-    ├── ContractDataGrid
-    └── ... (one per data entity)
-```
+### **2.3 Persistence Delegation (Outbound / CRUD)**
 
-### 2.3 `SortColumnConfig` Model
+* **\[MUST\]** The AppDataGrid\<T\> MUST NOT hardcode database queries (e.g., Drift or Firebase logic).  
+* **\[MUST\]** All database persistence MUST be delegated to the parent widget via explicitly defined callbacks: onItemCreated, onItemUpdated, onItemDeleted.
 
-```dart
-class SortColumnConfig {
-  final String field;        // PlutoColumn field name
-  final String label;        // Human-readable column label
-  bool enabled;              // checkbox: include in sort
-  bool ascending;            // sort direction
-  int priority;              // order in sort chain (0 = highest)
+## **3\. BIDIRECTIONAL JSON API & DATA I/O**
+
+The widget MUST provide robust inbound (pull/control) and outbound (push/extract) interfaces for both list data and detail data using strictly structured JSON.
+
+### **3.1 JSON Payload Contract**
+
+Every JSON payload processed or emitted by the widget MUST follow this exact structure:  
+{  
+  "action": "OPTIONAL\_STRING (e.g., SET\_STATE, CREATE, UPDATE, DELETE)",  
+  "metadata": {  
+    "columns": \[...\],  
+    "active\_sort": \[...\],  
+    "active\_filters": \[...\]  
+  },  
+  "data": "PAYLOAD (Array of T for lists, Object T for details)"  
 }
-```
 
-### 2.4 Adaptation to Table Structure
+### **3.2 Outbound Data Extraction (Pull & Push)**
 
-The base class adapts **dynamically** to the column structure provided.  
-Filter dialogs, sort dialogs, and search logic all derive from the passed
-`columns` list — no hardcoded field names in the base class.
+* **\[MUST\] Sync Pull:** The Controller MUST expose String getExportJson() and String getDetailJson(T item) allowing external code to fetch the CURRENTLY sorted/filtered data.  
+* **\[MUST\] Event Push:** The widget MUST provide callbacks onListExportRequested(String json) and onDetailExportRequested(String json).  
+* **\[MUST\] UI Integration:** Child widgets SHOULD implement "Print" or "Export" buttons (in toolbar or modal) that trigger these callbacks.
 
----
+### **3.3 Inbound Programmatic Control**
 
-## 3. UI Layout
+* **\[MUST\] State Injection:** The Controller MUST provide void applyStateFromJson(String json) to programmatically overwrite the UI filters and sorting.  
+* **\[MUST\] CRUD Injection:** The Controller MUST provide void executeCrudFromJson(String json). When called, it MUST execute the requested operation and trigger the corresponding onItem... persistence callback (see 2.3).
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  [ 🔍  Suche...                          ]   [ ⇅ ]   [ ▼ ]     │
-├──────────────────────────────────────────────────────────────────┤
-│  Spaltenheader  │  Spaltenheader  │  Spaltenheader  │  ...      │
-├──────────────────────────────────────────────────────────────────┤
-│  Zelle          │  Zelle          │  Zelle          │  ...      │
-│  ...            │  ...            │  ...            │  ...      │
-└──────────────────────────────────────────────────────────────────┘
-```
+### **3.4 Text-File Import / Export**
 
-The toolbar (search field + buttons) sits in a `Row` directly above the
-`PlutoGrid` widget inside a `Column`.
+* **\[MUST\]** The Controller MUST implement Future\<void\> exportToFile(String filePath) to dump the JSON payload to a local text file.  
+* **\[MUST\]** The Controller MUST implement Future\<void\> importFromFile(String filePath) to load state/data from a code-level text file.
 
----
+## **4\. UI LAYOUT & INTERACTION DESIGN**
 
-## 4. Feature: Full-Text Search
+### **4.1 Layout Structure**
 
-### 4.1 UI Element
+The toolbar sits in a Row directly above the PlutoGrid widget inside a Column.  
+\+------------------------------------------------------------------+  
+|  \[ Search...                       \]   \[ Sort \]   \[ Filter \]     |  
+\+------------------------------------------------------------------+  
+|  Column Header  |  Column Header   |  Column Header   |  ...     |  
+\+------------------------------------------------------------------+  
+|  Cell           |  Cell            |  Cell            |  ...     |  
+\+------------------------------------------------------------------+
 
-- A `TextField` spanning the full available width minus the two icon buttons.
-- Placeholder text: `"Suche..."` (or localized equivalent).
-- Search icon (`Icons.search`) as prefix icon.
-- Clear button (`Icons.clear`) appears as suffix icon when text is non-empty.
+### **4.2 Full-Text Search**
 
-### 4.2 Behavior
+* **UI:** A TextField spanning width minus buttons. Prefix: Icons.search, Suffix: Icons.clear.  
+* **Behavior:** Filtering triggers on every keystroke (onChanged). Case-insensitive substring match.  
+* **Contract:** Concrete tables MUST implement String toSearchString(PlutoRow row) containing all visible cell values formatted exactly as displayed.
 
-- Filtering triggers on every keystroke (`onChanged`) — no confirm button needed.
-- Case-insensitive substring match.
-- The filtered row list is reapplied to PlutoGrid via `stateManager`.
+### **4.3 Click Interactions (Single vs. Double) & Focus Management**
 
-### 4.3 `toSearchString` Contract
+* **Single Click:** Enters inline editing mode (ONLY IF enableEditingMode: true is set for that column).  
+* **Double Click:** Opens the full modal Edit/Create dialog (detailModalBuilder) for that record.  
+* **\[MUST\] State Conflict Resolution:** Inline editing MUST be automatically terminated/committed BEFORE the modal dialog opens.  
+* **\[MUST\] Focus Delegation:** The grid MUST detect the clicked column and pass its columnId to the detailModalBuilder. The modal MUST use this to set the initial FocusNode to the corresponding input field.
 
-Each concrete table **must** implement `toSearchString(PlutoRow row) → String`.  
-The returned string must contain all visible cell values, joined by a space,
-already formatted as displayed (e.g. date as `"dd.MM.yyyy"`, enums as
-human-readable labels).
+### **4.4 Advanced Sorting Logic**
 
-```dart
-// Example: MemberDataGrid
-@override
-String toSearchString(PlutoRow row) {
-  return [
-    row.cells['name']?.value,
-    row.cells['email']?.value,
-    row.cells['join_date']?.value,      // formatted: "15.03.2024"
-    row.cells['contract_type']?.value,  // formatted: "Jahresvertrag"
-  ].whereNotNull().join(' ').toLowerCase();
-}
-```
+* **Header Sort:** Clicking a column header toggles standard single-column sort.  
+* **Multi-Sort Dialog:** Triggered via Icons.filter\_list. Opens a modal containing a ReorderableListView (Drag handle, Checkbox for enabled/disabled, Direction toggle).  
+* **\[MUST\] Priority:** When multi-sort is applied, it takes absolute precedence and resets the single header sort state.
 
----
+### **4.5 Dynamic Column Filter Dialog**
 
-## 5. Feature: Inline Editing vs ReadOnly
+* **Trigger:** Toolbar button (Icons.tune or Icons.filter\_alt).  
+* **Behavior:** Modals listing all columns configured with enableFilterMenuItem: true.  
+* **Input:** Must use Autocomplete\<String\>. Options MUST be derived dynamically at runtime from distinct values present in the UNFILTERED row data.  
+* **Logic:** Multiple column filters combine with AND logic, and stack with the Full-Text Search.
 
-Each column in every DataGrid can be configured as editable or read-only per the project requirements.
+## **5\. SCHEMA, CONFIGURATION & LOCALIZATION**
 
-- **[MUST]** The property `enableEditingMode: true/false` on `PlutoColumn` must be explicitly set.
-- **[MUST]** If a column is read-only in the grid, the corresponding input field in the modal Edit/Create dialog must also be read-only (`readOnly: true` or `enabled: false`).
+### **5.1 Column Visibility, Ordering & Styling (structur.md)**
 
----
+* **\[MUST\]** The initial column order MUST match the Data Grid Konfiguration in the project's structur.md exactly.  
+* **\[MUST\] Computed Columns:** Fields like nettopreis or alter MUST have enableEditingMode: false and enableSorting set according to structur.md.  
+* **\[MUST\] Hidden Columns:** Internal IDs (e.g., Foreign Keys) MUST NOT appear in the columns list. Pass them securely inside PlutoRow.cells without a UI column.  
+* **\[MUST\] Read-Only Sync:** If a grid column has enableEditingMode: false, its corresponding input field inside the modal dialog MUST be read-only/disabled.  
+* **\[MUST\] Row Styling:** Support rowBgColorResolver: Color? Function(T item) for dynamic, data-driven row background colors.
 
-## 6. Interaction Rules: Single-Click vs Double-Click
+### **5.2 Localization (Strict German)**
 
-- **Single Click**: A single click on a cell in the DataGrid enters inline editing mode for that specific cell (if `enableEditingMode` is true for that column).
-- **Double Click**: A double-click on any row/cell opens the full modal Edit/Create dialog for that entire record.
-- **[MUST]** If inline editing is active, it must be terminated/committed before the modal dialog opens on a double-click.
+* **\[MUST\]** Call await initializeDateFormatting('de\_DE', null) in main().  
+* **\[MUST\]** All date columns MUST use format: 'dd.MM.yyyy'. Date picker headers use MMMM yyyy.  
+* **\[MUST\]** Provide a fully localized German PlutoGridLocaleText to the grid configuration.
 
----
+### **5.3 Base Grid Configuration**
 
-## 7. Feature: Column Header Sort (Single Column)
-
-- Clicking a **column header** toggles ascending / descending sort on that column.
-- This is the standard PlutoGrid `onSort` behaviour — enable it via
-  `PlutoColumn(enableSorting: true, ...)`.
-- Single-column header sort coexists with the multi-column sort dialog (Section 8).
-  When the multi-sort dialog is applied it takes precedence and resets header sort state.
-
----
-
-## 8. Feature: Multi-Column Sort Dialog
-
-### 8.1 Trigger
-
-A button in the toolbar with a **stylised funnel / filter icon**
-(`Icons.filter_list` or a custom coffee-filter SVG icon).  
-Tooltip: `"Sortierung konfigurieren"`.
-
-### 8.2 Dialog: Sort Settings
-
-Opens as a **modal bottom sheet or `AlertDialog`** with the following content:
-
-```
-┌─────────────────────────────────────────┐
-│  Sortierung                         [X] │
-├─────────────────────────────────────────┤
-│  Ziehen Sie Spalten in die gewünschte   │
-│  Reihenfolge. Aktivieren Sie per        │
-│  Checkbox.                              │
-│                                         │
-│  ☑  ≡  Name                  [ ↑ | ↓ ] │
-│  ☑  ≡  Beitrittsdatum        [ ↑ | ↓ ] │
-│  ☐  ≡  Vertragsart           [ ↑ | ↓ ] │
-│  ☐  ≡  Ort                   [ ↑ | ↓ ] │
-│                                         │
-│            [Abbrechen]  [Übernehmen]    │
-└─────────────────────────────────────────┘
-```
-
-### 8.3 Interaction Rules
-
-| Element | Behaviour |
-|---------|-----------|
-| **Drag handle** (`≡`) | User drags rows via mouse or touch to reorder sort priority. Implemented with Flutter `ReorderableListView`. |
-| **Checkbox** | Toggles whether this column participates in the sort. Unchecked columns are ignored but retain their position. |
-| **Direction toggle** `[ ↑ \| ↓ ]` | Switches between ascending and descending for that column. |
-| **Übernehmen** | Applies the sort chain to the grid. PlutoGrid rows are sorted client-side in priority order. |
-| **Abbrechen** | Closes dialog without changes. |
-
-### 8.4 Sort Application Logic
-
-```
-Sort chain = sortableColumns
-  .where((c) => c.enabled)
-  .sortedBy((c) => c.priority);
-
-rows.sort((a, b) {
-  for (final col in sortChain) {
-    final cmp = compare(a.cells[col.field], b.cells[col.field]);
-    if (cmp != 0) return col.ascending ? cmp : -cmp;
-  }
-  return 0;
-});
-```
-
----
-
-## 9. Feature: Column Filter Dialog
-
-### 9.1 Trigger
-
-A second button in the toolbar — icon: `Icons.tune` or `Icons.filter_alt`.  
-Tooltip: `"Spaltenfilter"`.
-
-### 9.2 Dialog: Filter Settings
-
-Opens as a **modal dialog or side sheet** listing every column that has
-`enableFilterMenuItem: true` set in its `PlutoColumn` definition.
-
-```
-┌──────────────────────────────────────────┐
-│  Filter                              [X] │
-├──────────────────────────────────────────┤
-│  Name                                    │
-│  [ Müller                            ▼ ] │
-│                                          │
-│  Vertragsart                             │
-│  [ Jahresvertrag                     ▼ ] │
-│                                          │
-│  Ort                                     │
-│  [                                   ▼ ] │
-│                                          │
-│         [Filter zurücksetzen]            │
-│              [Anwenden]                  │
-└──────────────────────────────────────────┘
-```
-
-### 9.3 Autocomplete Behaviour
-
-Each column field is represented by an **`Autocomplete<String>` widget**:
-
-- The options list is derived at runtime from **distinct values** already present
-  in that column across all (unfiltered) rows.
-- As the user types, the dropdown shows matching existing values.
-- The user may also type a free value not in the list.
-- Matching is case-insensitive substring.
-
-### 9.4 Filter Application Logic
-
-- Multiple column filters are combined with **AND** logic.
-- Active filters are indicated on the filter button (e.g. badge with count).
-- "Filter zurücksetzen" clears all column filter fields.
-- Filters combine with the full-text search (Section 4) — both are applied
-  simultaneously.
-
----
-
-## 10. Localisation
-
-| Concern | Implementation |
-|---------|---------------|
-| Date display format | `'dd.MM.yyyy'` in every `PlutoColumnType.date(format: 'dd.MM.yyyy')` |
-| Date picker header | `headerFormat: 'MMMM yyyy'` |
-| Intl initialisation | `await initializeDateFormatting('de_DE', null)` in `main()` before `runApp` |
-| PlutoGrid UI strings | Passed via `PlutoGridConfiguration(localeText: PlutoGridLocaleText(...))` — all labels in German |
-
-### Minimum German `PlutoGridLocaleText` keys to set:
-
-```dart
-const PlutoGridLocaleText(
-  filterTitle: 'Filter',
-  filterAllColumns: 'Alle Spalten',
-  filterContains: 'Enthält',
-  filterEquals: 'Ist gleich',
-  filterStartsWith: 'Beginnt mit',
-  filterEndsWith: 'Endet mit',
-  filterGreaterThan: 'Größer als',
-  filterGreaterThanOrEqualTo: 'Größer oder gleich',
-  filterLessThan: 'Kleiner als',
-  filterLessThanOrEqualTo: 'Kleiner oder gleich',
-  columnMenuItem: 'Spaltenoptionen',
-  setColumnsTitle: 'Spalten ein-/ausblenden',
-  filterSelectAll: 'Alle auswählen',
-  filterClearFilter: 'Filter löschen',
-  // add further keys as required by the installed pluto_grid version
+Every instance MUST apply this default styling:  
+PlutoGridConfiguration(  
+  style: PlutoGridStyleConfig(  
+    enableColumnBorderVertical: true,  
+    enableColumnBorderHorizontal: true,  
+    oddRowColor: Color(0xFFF9F9F9),  
+  ),  
+  columnFilter: PlutoGridColumnFilterConfig(  
+    filters: const \[...FilterHelper.defaultFilters\],  
+  ),  
+  localeText: appGermanLocaleText, // Defined centrally  
 )
-```
 
----
+## **6\. PERFORMANCE & CLEAN CODE RULES**
 
-## 11. PlutoGrid Base Configuration
+* **\[MUST\] Row Mapping (useMemoized):** The conversion of List\<T\> to List\<PlutoRow\> MUST be wrapped in useMemoized(() \=\> ..., \[dependencies\]). It is strictly FORBIDDEN to map data directly inside the build() method.  
+* **\[MUST\] Computed Fields:** Calculated values MUST be computed in the Riverpod provider or RowData mapping. NEVER compute them inside the DataGrid widget's build cycle.  
+* **\[MUST\] Stream-Driven Data:** All data sources MUST be Drift .watch() streams wrapped in Riverpod StreamProvider. Manual polling is forbidden.  
+* **\[MUST\] Selective Rebuilds:** Use ref.watch(provider.select(...)) in child widgets to prevent unnecessary UI renders.  
+* **\[MUST\] Dart Documentation:** Use strict Dart doc comments (///) for all public classes and methods. Use bracket references \[variableName\] for IDE integration.
 
-Every instantiation of `AppDataGrid` must apply the following
-`PlutoGridConfiguration` as default:
+## **7\. NAMING & DIRECTORY CONVENTIONS**
 
-```dart
-PlutoGridConfiguration(
-  style: PlutoGridStyleConfig(
-    enableColumnBorderVertical: true,
-    enableColumnBorderHorizontal: true,
-    oddRowColor: Color(0xFFF9F9F9),
-  ),
-  columnFilter: PlutoGridColumnFilterConfig(
-    filters: const [
-      ...FilterHelper.defaultFilters,
-    ],
-  ),
-  localeText: appGermanLocaleText, // defined once, reused everywhere
-)
-```
+lib/  
+└── widgets/  
+    └── data\_grid/  
+        ├── app\_data\_grid.dart          \<- Base class, Toolbar, Controller (JSON/CRUD API)  
+        ├── sort\_column\_config.dart     \<- Sort Model  
+        ├── sort\_settings\_dialog.dart   \<- Multi-Sort Modal  
+        ├── filter\_settings\_dialog.dart \<- Filter Modal  
+        └── app\_data\_grid\_locale.dart   \<- German Locales  
+lib/  
+└── features/  
+    └── \[entity\_name\]/  
+        └── widgets/  
+            └── \[entity\]\_data\_grid.dart \<- Concrete implementation
 
----
+## **8\. REQUIRED AI CHECKLIST (Verify before generating code)**
 
-## 12. Feature: Column Visibility & Ordering
-
-Every concrete child class of `AppDataGrid` may define which columns are **visible by default**. Columns can be toggled by the user at runtime via the PlutoGrid built-in column menu (`enableDropToResize`, `enableContextMenu`).
-
-- **[MUST]** The initial column order MUST match the `Data Grid Konfiguration` in `structur.md` exactly.
-- **[MUST]** Computed columns (e.g. `nettopreis`, `alter`) MUST have `enableEditingMode: false` and `enableSorting` set as per `structur.md`.
-- **[MUST]** Non-visible columns (e.g. `id`, internal FKs) MUST NOT appear in the `columns` list passed to `AppDataGrid`. They are passed only as data in `PlutoRow.cells` without a corresponding `PlutoColumn`.
-
----
-
-## 13. Performance Rules
-
-- **[MUST] `useMemoized` for Row Mapping:** The conversion of `List<FeatureRowData>` to `List<PlutoRow>` MUST be wrapped in `useMemoized(() => ..., [dependencies])` in the child widget. Row mapping [NEVER] happens inside the `build()` call directly.
-- **[MUST] Computed Fields in Provider:** Computed values (`nettopreis`, `alter`, etc.) MUST be calculated in the Riverpod provider or in the RowData mapping — never inside the DataGrid widget or dialog.
-- **[MUST] Stream-Driven:** All data sources are Drift `.watch()` streams wrapped in Riverpod `StreamProvider`. Never poll / manually refresh data.
-- **[MUST] Selective Rebuilds:** Use `ref.watch(provider.select(...))` in child widgets when only a subset of the provider state is needed.
-
----
-
-## 14. Naming & File Conventions
-
-```
-lib/
-└── widgets/
-    └── data_grid/
-        ├── app_data_grid.dart          ← abstract base class + toolbar
-        ├── sort_column_config.dart     ← SortColumnConfig model
-        ├── sort_settings_dialog.dart   ← multi-sort modal dialog
-        ├── filter_settings_dialog.dart ← column filter modal dialog
-        └── app_data_grid_locale.dart   ← German PlutoGridLocaleText const
-lib/
-└── features/
-    └── members/
-        └── widgets/
-            └── member_data_grid.dart   ← concrete implementation
-```
-
----
-
-## 15. Checklist for Every New DataGrid Screen
-
-Before submitting code for a new table view, verify:
-
-- [ ] Extends / uses `AppDataGrid` — no standalone PlutoGrid widget.
-- [ ] `toSearchString` implemented and covers all displayed fields.
-- [ ] `sortableColumns` list provided with human-readable labels.
-- [ ] All date columns use `format: 'dd.MM.yyyy'`.
-- [ ] `PlutoGridConfiguration` applied with `appGermanLocaleText`.
-- [ ] Filter dialog autocomplete derives options from actual row data.
-- [ ] Sort dialog uses `ReorderableListView` with checkbox + direction toggle.
-- [ ] Toolbar buttons have tooltips in German.
-- [ ] No other grid/table widget imported or used.
-- [ ] Column order matches `structur.md` exactly.
-- [ ] Computed columns are `enableEditingMode: false`, computed in Provider.
-- [ ] Row mapping uses `useMemoized`, NOT inline in `build()`.
-- [ ] Modal dialog receives `initialFocusField` from clicked cell. (See `app_data_grid.md`)
-- [ ] Inline-edit save/commit is called before opening modal dialog on double-click.
-
----
-
-*Last updated: 2026-03-02 — Version 1.1*
-
+* \[ \] Extends AppDataGrid (No standalone PlutoGrid implementations).  
+* \[ \] toSearchString implemented and covers all visible fields.  
+* \[ \] Controller implements all JSON Inbound/Outbound APIs (getExportJson, applyStateFromJson, executeCrudFromJson).  
+* \[ \] Text File Import/Export methods are fully implemented.  
+* \[ \] onItemCreated, onItemUpdated, onItemDeleted callbacks defined for DB persistence.  
+* \[ \] Modal dialog receives focusedColumnId from double-click event.  
+* \[ \] Inline-edit is correctly committed before modal dialog opens.  
+* \[ \] Sort dialog uses ReorderableListView.  
+* \[ \] Filter dialog autocomplete derives options from actual runtime row data.  
+* \[ \] Column order matches structur.md exactly.  
+* \[ \] Row mapping utilizes useMemoized.  
+* \[ \] All public API surfaces are documented using ///.

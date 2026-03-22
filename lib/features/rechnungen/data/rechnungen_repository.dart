@@ -11,6 +11,18 @@ class RechnungRowData {
   final String kundeName; // Mitglied-Name oder kundeName
 
   const RechnungRowData({required this.rechnung, required this.kundeName});
+
+  Map<String, dynamic> toJson() => {
+        'rechnung': rechnung.toJson(),
+        'kundeName': kundeName,
+      };
+
+  factory RechnungRowData.fromJson(Map<String, dynamic> json) {
+    return RechnungRowData(
+      rechnung: Rechnung.fromJson(json['rechnung'] as Map<String, dynamic>),
+      kundeName: json['kundeName'] as String,
+    );
+  }
 }
 
 /// Data class holding a complete Rechnung with all its positions.

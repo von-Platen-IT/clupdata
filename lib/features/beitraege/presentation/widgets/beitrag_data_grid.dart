@@ -4,8 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
 import '../dialogs/beitrag_edit_dialog.dart';
@@ -13,7 +13,7 @@ import 'status_badge.dart';
 
 /// DataGrid for Beiträge (invoices). One row per Beitrag, colour-coded by status.
 class BeitragDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  final void Function(BeitragRowData? row)? onRowSelected;
 
   const BeitragDataGrid({super.key, this.onRowSelected});
 
@@ -23,52 +23,37 @@ class BeitragDataGrid extends HookConsumerWidget {
     final dateFormatter = DateFormat('dd.MM.yyyy');
 
     // Columns per structur.md screen_beitrag_list
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    final columns = useMemoized<List<DataGridColumnConfig<BeitragRowData>>>(() {
       return [
-        PlutoColumn(
-          title: 'Rechnungs-Nr.',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'rechnungsnummer',
+          title: 'Rechnungs-Nr.',
+          valueExtractor: (row) => row.beitrag.rechnungsnummer,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 150,
         ),
-        PlutoColumn(
-          title: 'Mitglied',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'mitglied_name',
+          title: 'Mitglied',
+          valueExtractor: (row) => row.mitgliedName,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 200,
         ),
-        PlutoColumn(
-          title: 'Leistung',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'leistung_name',
+          title: 'Leistung',
+          valueExtractor: (row) => row.leistungName,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 180,
         ),
-        PlutoColumn(
-          title: 'Kontiert am',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'kontiert_am',
+          title: 'Kontiert am',
+          valueExtractor: (row) => dateFormatter.format(row.beitrag.kontiertAm),
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 120,
         ),
-        PlutoColumn(
-          title: 'Status',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'status',
+          title: 'Status',
+          valueExtractor: (row) => row.beitrag.status,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 120,
           renderer: (rendererContext) {
             final statusValue = rendererContext.cell.value as String? ?? '';
             return Container(
@@ -77,75 +62,45 @@ class BeitragDataGrid extends HookConsumerWidget {
             );
           },
         ),
-        PlutoColumn(
-          title: 'Statusdatum',
+        DataGridColumnConfig<BeitragRowData>(
           field: 'status_datum',
+          title: 'Statusdatum',
+          valueExtractor: (row) => dateFormatter.format(row.beitrag.statusDatum),
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 120,
         ),
       ];
     }, []);
 
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    final rowData = beitraegeAsync.value ?? [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      return rowData.map((rd) {
-        return PlutoRow(
-          cells: {
-            'id': PlutoCell(value: rd.beitrag.id),
-            'rechnungsnummer': PlutoCell(value: rd.beitrag.rechnungsnummer),
-            'mitglied_name': PlutoCell(value: rd.mitgliedName),
-            'leistung_name': PlutoCell(value: rd.leistungName),
-            'kontiert_am': PlutoCell(
-              value: dateFormatter.format(rd.beitrag.kontiertAm),
-            ),
-            'status': PlutoCell(value: rd.beitrag.status),
-            'status_datum': PlutoCell(
-              value: dateFormatter.format(rd.beitrag.statusDatum),
-            ),
+    return beitraegeAsync.when(
+      data: (rowData) {
+        return AppDataGridV2<BeitragRowData>(
+          items: rowData,
+          columnConfigs: columns,
+          toSearchString: (row) {
+            return [
+              row.beitrag.rechnungsnummer,
+              row.mitgliedName,
+              row.leistungName,
+              row.beitrag.status,
+              dateFormatter.format(row.beitrag.kontiertAm),
+            ].where((e) => e.isNotEmpty).join(' ').toLowerCase();
+          },
+          toJson: (row) => row.toJson(),
+          fromJson: BeitragRowData.fromJson,
+          onRowSelected: onRowSelected,
+          detailModalBuilder: (row, fieldName) {
+            final beitragId = row.beitrag.id;
+            BeitragEditDialog.show(
+              context,
+              beitragId: beitragId,
+              initialFocusField: fieldName,
+            );
           },
         );
-      }).toList();
-    }, [rowData]);
-
-    return beitraegeAsync.when(
-      data: (_) => AppDataGrid(
-        rows: plutoRows,
-        columns: columns,
-        sortableColumns: sortConfigs,
-        toSearchString: (row) {
-          return [
-                row.cells['rechnungsnummer']?.value,
-                row.cells['mitglied_name']?.value,
-                row.cells['leistung_name']?.value,
-                row.cells['status']?.value,
-                row.cells['kontiert_am']?.value,
-              ]
-              .where((e) => e != null && e.toString().isNotEmpty)
-              .join(' ')
-              .toLowerCase();
-        },
-        onRowSelected: onRowSelected,
-        onRowActivated: (row, fieldName) {
-          final beitragId = row.cells['id']?.value as int;
-          BeitragEditDialog.show(
-            context,
-            beitragId: beitragId,
-            initialFocusField: fieldName,
-          );
-        },
-      ),
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Fehler beim Laden: $err')),
     );
   }
 }
+

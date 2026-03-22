@@ -68,8 +68,8 @@ class WarenScreen extends HookConsumerWidget {
             )
           : null,
       body: WarenDataGrid(
-        onRowSelected: (row) {
-          selectedRowId.value = row?.cells['id']?.value as int?;
+        onRowSelected: (item) {
+          selectedRowId.value = item?.id;
         },
       ),
     );

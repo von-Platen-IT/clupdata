@@ -16,6 +16,20 @@ class BeitragRowData {
     required this.mitgliedName,
     required this.leistungName,
   });
+
+  Map<String, dynamic> toJson() => {
+        'beitrag': beitrag.toJson(),
+        'mitgliedName': mitgliedName,
+        'leistungName': leistungName,
+      };
+
+  factory BeitragRowData.fromJson(Map<String, dynamic> json) {
+    return BeitragRowData(
+      beitrag: Beitrag.fromJson(json['beitrag'] as Map<String, dynamic>),
+      mitgliedName: json['mitgliedName'] as String,
+      leistungName: json['leistungName'] as String,
+    );
+  }
 }
 
 /// Repository for all database operations on the [Beitraege] table.

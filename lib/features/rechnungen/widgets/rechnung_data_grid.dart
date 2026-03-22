@@ -4,15 +4,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../data/rechnungen_repository.dart';
 import '../utils/rechnung_status_colors.dart';
 import 'rechnung_edit_dialog.dart';
 
 /// DataGrid for Rechnungen (invoices). One row per Rechnung, colour-coded by status.
 class RechnungDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  final void Function(RechnungRowData? row)? onRowSelected;
 
   const RechnungDataGrid({super.key, this.onRowSelected});
 
@@ -26,52 +26,39 @@ class RechnungDataGrid extends HookConsumerWidget {
     );
 
     // Columns per structur.md
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    final columns = useMemoized<List<DataGridColumnConfig<RechnungRowData>>>(() {
       return [
-        PlutoColumn(
-          title: 'Rechnungs-Nr.',
+        DataGridColumnConfig<RechnungRowData>(
           field: 'rechnungsnummer',
+          title: 'Rechnungs-Nr.',
+          valueExtractor: (row) => row.rechnung.rechnungsnummer,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 150,
         ),
-        PlutoColumn(
-          title: 'Kunde',
+        DataGridColumnConfig<RechnungRowData>(
           field: 'kunde_name',
+          title: 'Kunde',
+          valueExtractor: (row) => row.kundeName,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 250,
         ),
-        PlutoColumn(
-          title: 'Datum',
+        DataGridColumnConfig<RechnungRowData>(
           field: 'datum',
+          title: 'Datum',
+          valueExtractor: (row) => dateFormatter.format(row.rechnung.datum),
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 120,
         ),
-        PlutoColumn(
-          title: 'Betrag (Brutto)',
+        DataGridColumnConfig<RechnungRowData>(
           field: 'betrag_brutto',
-          type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 140,
+          title: 'Betrag (Brutto)',
+          valueExtractor: (row) => row.rechnung.betragBrutto,
+          type: PlutoColumnType.number(),
+          filterable: false,
+          formatter: (value) => currencyFormatter.format(value),
         ),
-        PlutoColumn(
-          title: 'Status',
+        DataGridColumnConfig<RechnungRowData>(
           field: 'status',
+          title: 'Status',
+          valueExtractor: (row) => row.rechnung.status,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
-          width: 120,
           renderer: (rendererContext) {
             final status = rendererContext.cell.value as String? ?? '';
             final color = rechnungStatusColor(status);
@@ -97,59 +84,35 @@ class RechnungDataGrid extends HookConsumerWidget {
       ];
     }, []);
 
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    final rowData = rechnungenAsync.value ?? [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      return rowData.map((rd) {
-        return PlutoRow(
-          cells: {
-            'id': PlutoCell(value: rd.rechnung.id),
-            'rechnungsnummer': PlutoCell(value: rd.rechnung.rechnungsnummer),
-            'kunde_name': PlutoCell(value: rd.kundeName),
-            'datum': PlutoCell(value: dateFormatter.format(rd.rechnung.datum)),
-            'betrag_brutto': PlutoCell(
-              value: currencyFormatter.format(rd.rechnung.betragBrutto),
-            ),
-            'status': PlutoCell(value: rd.rechnung.status),
+    return rechnungenAsync.when(
+      data: (rowData) {
+        return AppDataGridV2<RechnungRowData>(
+          items: rowData,
+          columnConfigs: columns,
+          toSearchString: (row) {
+            return [
+              row.rechnung.rechnungsnummer,
+              row.kundeName,
+              row.rechnung.status,
+              dateFormatter.format(row.rechnung.datum),
+            ].where((e) => e.isNotEmpty).join(' ').toLowerCase();
+          },
+          toJson: (row) => row.toJson(),
+          fromJson: RechnungRowData.fromJson,
+          onRowSelected: onRowSelected,
+          detailModalBuilder: (row, fieldName) {
+            final rechnungId = row.rechnung.id;
+            RechnungEditDialog.show(
+              context,
+              rechnungId: rechnungId,
+              initialFocusField: fieldName,
+            );
           },
         );
-      }).toList();
-    }, [rowData]);
-
-    return rechnungenAsync.when(
-      data: (_) => AppDataGrid(
-        rows: plutoRows,
-        columns: columns,
-        sortableColumns: sortConfigs,
-        toSearchString: (row) {
-          return [
-                row.cells['rechnungsnummer']?.value,
-                row.cells['kunde_name']?.value,
-                row.cells['status']?.value,
-                row.cells['datum']?.value,
-              ]
-              .where((e) => e != null && e.toString().isNotEmpty)
-              .join(' ')
-              .toLowerCase();
-        },
-        onRowSelected: onRowSelected,
-        onRowActivated: (row, fieldName) {
-          final rechnungId = row.cells['id']?.value as int;
-          RechnungEditDialog.show(
-            context,
-            rechnungId: rechnungId,
-            initialFocusField: fieldName,
-          );
-        },
-      ),
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Fehler beim Laden: $err')),
     );
   }
 }
+

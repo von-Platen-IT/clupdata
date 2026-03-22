@@ -25,7 +25,7 @@ class StammdatenScreen extends HookConsumerWidget {
       onDeleteSelection: null, // Deletion of system settings not allowed by default
       body: StammdatenDataGrid(
         onRowSelected: (row) {
-          selectedKey.value = row?.cells['schluessel']?.value as String?;
+          selectedKey.value = row?.schluessel;
         },
       ),
     );

@@ -69,7 +69,7 @@ class LeistungenScreen extends HookConsumerWidget {
           : null,
       body: LeistungDataGrid(
         onRowSelected: (row) {
-          selectedRowId.value = row?.cells['id']?.value as int?;
+          selectedRowId.value = row?.id;
         },
       ),
     );

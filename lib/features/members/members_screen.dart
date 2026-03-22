@@ -70,7 +70,7 @@ class MembersScreen extends HookConsumerWidget {
           : null,
       body: MemberDataGrid(
         onRowSelected: (row) {
-          selectedRowId.value = row?.cells['id']?.value as int?;
+          selectedRowId.value = row?.id;
         },
       ),
     );

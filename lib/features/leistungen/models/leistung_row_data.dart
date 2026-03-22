@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'leistung_row_data.freezed.dart';
+part 'leistung_row_data.g.dart';
 
 @freezed
 abstract class LeistungRowData with _$LeistungRowData {
@@ -13,4 +14,7 @@ abstract class LeistungRowData with _$LeistungRowData {
     required double nettopreis, // Computed at runtime via Stammdaten
     int? bemerkungId,
   }) = _LeistungRowData;
+
+  factory LeistungRowData.fromJson(Map<String, dynamic> json) =>
+      _$LeistungRowDataFromJson(json);
 }

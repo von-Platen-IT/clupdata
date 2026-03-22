@@ -3,14 +3,14 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../../../core/database/database.dart';
 import '../presentation/providers/stammdaten_list_provider.dart';
 import 'stammdaten_edit_dialog.dart';
 
 class StammdatenDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  final void Function(StammdatenItem? row)? onRowSelected;
 
   const StammdatenDataGrid({
     super.key,
@@ -23,88 +23,53 @@ class StammdatenDataGrid extends HookConsumerWidget {
 
     // Columns based on structur.md:
     // bezeichnung, wert, kategorie, schluessel, beschreibung (hidden)
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    final columns = useMemoized<List<DataGridColumnConfig<StammdatenItem>>>(() {
       return [
-        PlutoColumn(
-          title: 'Bezeichnung',
+        DataGridColumnConfig<StammdatenItem>(
           field: 'bezeichnung',
+          title: 'Bezeichnung',
+          valueExtractor: (row) => row.bezeichnung,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Wert',
+        DataGridColumnConfig<StammdatenItem>(
           field: 'wert',
+          title: 'Wert',
+          valueExtractor: (row) => row.wert ?? '',
           type: PlutoColumnType.text(), // Stored as text, parsed dynamically
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Kategorie',
+        DataGridColumnConfig<StammdatenItem>(
           field: 'kategorie',
+          title: 'Kategorie',
+          valueExtractor: (row) => row.kategorie,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Schlüssel',
+        DataGridColumnConfig<StammdatenItem>(
           field: 'schluessel',
+          title: 'Schlüssel',
+          valueExtractor: (row) => row.schluessel,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
       ];
     }, []);
 
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    // Fast mapping inside useMemoized so we don't rebuild PlutoRows on every frame
-    final List<StammdatenItem> rowData = rowsAsync.value ?? const [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      return rowData.map((s) {
-        return PlutoRow(
-          cells: {
-             // System fields used for edit mapping but not necessarily displayed
-            'id': PlutoCell(value: s.id),
-            'typ': PlutoCell(value: s.typ),
-            'aenderbar': PlutoCell(value: s.aenderbar),
-            'beschreibung': PlutoCell(value: s.beschreibung ?? ''),
-            // Visible grid columns
-            'bezeichnung': PlutoCell(value: s.bezeichnung),
-            'wert': PlutoCell(value: s.wert ?? ''),
-            'kategorie': PlutoCell(value: s.kategorie),
-            'schluessel': PlutoCell(value: s.schluessel),
-          },
-        );
-      }).toList();
-    }, [rowData]);
-
     return rowsAsync.when(
-      data: (_) {
-        return AppDataGrid(
-          rows: plutoRows,
-          columns: columns,
-          sortableColumns: sortConfigs,
+      data: (rowData) {
+        return AppDataGridV2<StammdatenItem>(
+          items: rowData,
+          columnConfigs: columns,
           toSearchString: (row) {
-             return [
-               row.cells['bezeichnung']?.value,
-               row.cells['wert']?.value,
-               row.cells['kategorie']?.value,
-               row.cells['schluessel']?.value,
-             ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+            return [
+              row.bezeichnung,
+              row.wert ?? '',
+              row.kategorie,
+              row.schluessel,
+            ].where((e) => e.isNotEmpty).join(' ').toLowerCase();
           },
+          toJson: (row) => row.toJson(),
+          fromJson: StammdatenItem.fromJson,
           onRowSelected: onRowSelected,
-          onRowActivated: (row, fieldName) {
-             final schluessel = row.cells['schluessel']?.value as String;
+          detailModalBuilder: (row, fieldName) {
+             final schluessel = row.schluessel;
              StammdatenEditDialog.show(context, schluessel: schluessel);
           },
         );
@@ -114,3 +79,4 @@ class StammdatenDataGrid extends HookConsumerWidget {
     );
   }
 }
+

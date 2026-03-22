@@ -82,7 +82,7 @@ class RechnungenScreen extends HookConsumerWidget {
           : null,
       body: RechnungDataGrid(
         onRowSelected: (row) {
-          selectedRowId.value = row?.cells['id']?.value as int?;
+          selectedRowId.value = row?.rechnung.id;
         },
       ),
     );

@@ -82,7 +82,7 @@ class BeitraegeScreen extends HookConsumerWidget {
           : null,
       body: BeitragDataGrid(
         onRowSelected: (row) {
-          selectedRowId.value = row?.cells['id']?.value as int?;
+          selectedRowId.value = row?.beitrag.id;
         },
       ),
     );

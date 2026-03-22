@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'member_row_data.freezed.dart';
+part 'member_row_data.g.dart';
 
 /// encapsulates the Member data intended for display in the table,
 /// including pre-calculated or joined properties like age or leistung.
@@ -22,4 +23,7 @@ abstract class MemberRowData with _$MemberRowData {
     int? alter,
     double? beitrag,
   }) = _MemberRowData;
+
+  factory MemberRowData.fromJson(Map<String, dynamic> json) =>
+      _$MemberRowDataFromJson(json);
 }

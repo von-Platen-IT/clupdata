@@ -4,135 +4,138 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
+import '../models/waren_row_data.dart';
 import '../widgets/waren_edit_dialog.dart';
 import '../presentation/providers/waren_list_provider.dart';
 
+/// Concrete DataGrid implementation for [WarenRowData] using [AppDataGridV2].
+///
+/// Fetches data via Riverpod, defines columns per structur.md (Section 4.2,
+/// Screen: Waren), and delegates detail editing to [WarenEditDialog].
 class WarenDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  /// Called when the selected row changes. Provides the [WarenRowData]
+  /// of the selected row, or `null` if selection is cleared.
+  final void Function(WarenRowData? item)? onRowSelected;
 
   const WarenDataGrid({super.key, this.onRowSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Fetch data
     final rowsAsync = ref.watch(warenGridRowsProvider);
 
-    // 2. Define Columns per structur.md (Waren)
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    // ── Column definitions per structur.md (exact order) ──────────────────
+    final columnConfigs =
+        useMemoized<List<DataGridColumnConfig<WarenRowData>>>(() {
       final currencyFormatter = NumberFormat.currency(
         locale: 'de_DE',
         symbol: '€',
       );
 
       return [
-        PlutoColumn(
-          title: 'Bezeichnung',
+        DataGridColumnConfig<WarenRowData>(
           field: 'bezeichnung',
+          title: 'Bezeichnung',
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
+          sortable: true,
+          filterable: true,
+          valueExtractor: (w) => w.bezeichnung,
         ),
-        PlutoColumn(
-          title: 'Kategorie',
+        DataGridColumnConfig<WarenRowData>(
           field: 'kategorie',
+          title: 'Kategorie',
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
+          sortable: true,
+          filterable: true,
+          valueExtractor: (w) => w.kategorie ?? '',
         ),
-        PlutoColumn(
-          title: 'Bestand',
+        DataGridColumnConfig<WarenRowData>(
           field: 'bestand',
+          title: 'Bestand',
           type: PlutoColumnType.number(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
+          sortable: true,
+          filterable: true,
           textAlign: PlutoColumnTextAlign.right,
           titleTextAlign: PlutoColumnTextAlign.right,
+          valueExtractor: (w) => w.bestand,
         ),
-        PlutoColumn(
-          title: 'Brutto (€)',
+        DataGridColumnConfig<WarenRowData>(
           field: 'bruttopreis',
+          title: 'Brutto (€)',
           type: PlutoColumnType.number(),
-          enableEditingMode: false,
-          enableFilterMenuItem: false,
-          enableSorting: true,
+          sortable: true,
+          filterable: false,
           textAlign: PlutoColumnTextAlign.right,
           titleTextAlign: PlutoColumnTextAlign.right,
           formatter: (value) => currencyFormatter.format(value),
+          valueExtractor: (w) => w.bruttopreis,
         ),
-        PlutoColumn(
-          title: 'Netto (€)',
+        DataGridColumnConfig<WarenRowData>(
           field: 'nettopreis',
+          title: 'Netto (€)',
           type: PlutoColumnType.number(),
-          enableEditingMode: false, // Computed field based on MwSt
-          enableFilterMenuItem: false,
-          enableSorting: false,
+          editable: false, // Computed field
+          sortable: false,
+          filterable: false,
           textAlign: PlutoColumnTextAlign.right,
           titleTextAlign: PlutoColumnTextAlign.right,
           formatter: (value) => currencyFormatter.format(value),
+          valueExtractor: (w) => w.nettopreis,
         ),
-        PlutoColumn(
-          title: 'Aktiv',
+        DataGridColumnConfig<WarenRowData>(
           field: 'aktiv',
+          title: 'Aktiv',
           type: PlutoColumnType.text(),
-          // Unused in PlutoGrid 8.x, boolean columns are handled differently
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
+          sortable: true,
+          filterable: true,
           formatter: (value) => value == true ? 'Ja' : 'Nein',
+          valueExtractor: (w) => w.aktiv,
         ),
       ];
     }, []);
 
-    // 3. Define Sortconfigs
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    // 4. Map Rows
+    // ── Data ──────────────────────────────────────────────────────────────
     final rowData = rowsAsync.value ?? [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      return rowData.map((w) {
-        return PlutoRow(
-          cells: {
-            'id': PlutoCell(value: w.id), // Hidden data
-            'bezeichnung': PlutoCell(value: w.bezeichnung),
-            'kategorie': PlutoCell(value: w.kategorie ?? ''),
-            'bestand': PlutoCell(value: w.bestand),
-            'bruttopreis': PlutoCell(value: w.bruttopreis),
-            'nettopreis': PlutoCell(value: w.nettopreis),
-            'aktiv': PlutoCell(value: w.aktiv),
-          },
-        );
-      }).toList();
-    }, [rowData]);
 
     return rowsAsync.when(
       data: (_) {
-        return AppDataGrid(
-          rows: plutoRows,
-          columns: columns,
-          sortableColumns: sortConfigs,
-          toSearchString: (row) {
+        return AppDataGridV2<WarenRowData>(
+          items: rowData,
+          columnConfigs: columnConfigs,
+          toSearchString: (w) {
             return [
-              row.cells['bezeichnung']?.value,
-              row.cells['kategorie']?.value,
+              w.bezeichnung,
+              w.kategorie,
             ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
           },
+          toJson: (w) => {
+                'id': w.id,
+                'bezeichnung': w.bezeichnung,
+                'kategorie': w.kategorie,
+                'bestand': w.bestand,
+                'bruttopreis': w.bruttopreis,
+                'nettopreis': w.nettopreis,
+                'aktiv': w.aktiv,
+              },
+          fromJson: (json) => WarenRowData(
+                id: json['id'] as int,
+                bezeichnung: json['bezeichnung'] as String,
+                kategorie: json['kategorie'] as String?,
+                bruttopreis: (json['bruttopreis'] as num).toDouble(),
+                nettopreis: (json['nettopreis'] as num).toDouble(),
+                bestand: json['bestand'] as int,
+                mindestbestand: 0,
+                aktiv: json['aktiv'] as bool,
+                erstelltAm: DateTime.now(),
+                aktualisiertAm: DateTime.now(),
+              ),
           onRowSelected: onRowSelected,
-          onRowActivated: (row, fieldName) {
-            final wareId = row.cells['id']?.value as int;
+          detailModalBuilder: (item, focusedColumnId) {
             WarenEditDialog.show(
               context,
-              wareId: wareId,
-              initialFocusField: fieldName,
+              wareId: item.id,
+              initialFocusField: focusedColumnId,
             );
           },
         );

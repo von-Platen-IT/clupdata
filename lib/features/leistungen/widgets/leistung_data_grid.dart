@@ -4,13 +4,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid/app_data_grid.dart';
-import '../../../../widgets/data_grid/sort_column_config.dart';
+import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
+import '../models/leistung_row_data.dart';
 import '../widgets/leistung_edit_dialog.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
 
 class LeistungDataGrid extends HookConsumerWidget {
-  final void Function(PlutoRow? row)? onRowSelected;
+  final void Function(LeistungRowData? row)? onRowSelected;
 
   const LeistungDataGrid({super.key, this.onRowSelected});
 
@@ -20,93 +21,61 @@ class LeistungDataGrid extends HookConsumerWidget {
     final rowsAsync = ref.watch(leistungenGridRowsProvider);
 
     // 2. Define Columns per structur.md
-    final columns = useMemoized<List<PlutoColumn>>(() {
+    final columns = useMemoized<List<DataGridColumnConfig<LeistungRowData>>>(() {
       final currencyFormatter = NumberFormat.currency(
         locale: 'de_DE',
         symbol: '€',
       );
 
       return [
-        PlutoColumn(
-          title: 'Name',
+        DataGridColumnConfig<LeistungRowData>(
           field: 'name',
+          title: 'Name',
+          valueExtractor: (row) => row.name,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Laufzeit',
+        DataGridColumnConfig<LeistungRowData>(
           field: 'laufzeit',
+          title: 'Laufzeit',
+          valueExtractor: (row) => row.laufzeit,
           type: PlutoColumnType.text(),
-          enableEditingMode: false,
-          enableFilterMenuItem: true,
-          enableSorting: true,
         ),
-        PlutoColumn(
-          title: 'Brutto (€)',
+        DataGridColumnConfig<LeistungRowData>(
           field: 'bruttopreis',
+          title: 'Brutto (€)',
+          valueExtractor: (row) => row.bruttopreis,
           type: PlutoColumnType.number(),
-          enableEditingMode: false,
-          enableFilterMenuItem: false,
-          enableSorting: true,
-          textAlign: PlutoColumnTextAlign.right,
-          titleTextAlign: PlutoColumnTextAlign.right,
+          filterable: false,
           formatter: (value) => currencyFormatter.format(value),
         ),
-        PlutoColumn(
-          title: 'Netto (€)',
+        DataGridColumnConfig<LeistungRowData>(
           field: 'nettopreis',
+          title: 'Netto (€)',
+          valueExtractor: (row) => row.nettopreis,
           type: PlutoColumnType.number(),
-          enableEditingMode: false, // Computed field based on MwSt
-          enableFilterMenuItem: false,
-          enableSorting: false, // Rule says Sort:False, Filter:False
-          textAlign: PlutoColumnTextAlign.right,
-          titleTextAlign: PlutoColumnTextAlign.right,
+          filterable: false,
+          sortable: false,
           formatter: (value) => currencyFormatter.format(value),
         ),
       ];
     }, []);
 
-    // 3. Define Sortconfigs
-    final sortConfigs = useMemoized<List<SortColumnConfig>>(() {
-      return columns
-          .where((c) => c.enableSorting)
-          .map((c) => SortColumnConfig(field: c.field, label: c.title))
-          .toList();
-    }, [columns]);
-
-    // 4. Map Rows (cached to avoid rebuilding PlutoRows on every build)
-    final rowData = rowsAsync.value ?? [];
-    final plutoRows = useMemoized<List<PlutoRow>>(() {
-      return rowData.map((l) {
-        return PlutoRow(
-          cells: {
-            'id': PlutoCell(value: l.id), // Hidden data
-            'name': PlutoCell(value: l.name),
-            'laufzeit': PlutoCell(value: l.laufzeit),
-            'bruttopreis': PlutoCell(value: l.bruttopreis),
-            'nettopreis': PlutoCell(value: l.nettopreis),
-          },
-        );
-      }).toList();
-    }, [rowData]);
-
     return rowsAsync.when(
-      data: (_) {
-        return AppDataGrid(
-          rows: plutoRows,
-          columns: columns,
-          sortableColumns: sortConfigs,
+      data: (rowData) {
+        return AppDataGridV2<LeistungRowData>(
+          items: rowData,
+          columnConfigs: columns,
           toSearchString: (row) {
             return [
-              row.cells['name']?.value,
-              row.cells['laufzeit']?.value,
-            ].where((e) => e != null && e.toString().isNotEmpty).join(' ');
+              row.name,
+              row.laufzeit,
+            ].where((e) => e.isNotEmpty).join(' ').toLowerCase();
           },
+          toJson: (row) => row.toJson(),
+          fromJson: LeistungRowData.fromJson,
           onRowSelected: onRowSelected,
-          onRowActivated: (row, fieldName) async {
-            final leistungId = row.cells['id']?.value as int;
+          detailModalBuilder: (row, fieldName) async {
+            final leistungId = row.id;
 
             // Fetch full details (incl. preis/bemerkung) before opening dialog
             final detailsList = await ref.read(
@@ -131,3 +100,4 @@ class LeistungDataGrid extends HookConsumerWidget {
     );
   }
 }
+
