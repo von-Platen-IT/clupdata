@@ -298,6 +298,14 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 - **Route**: /mitglieder
 - **Typ**: dataGridScreen
 - **Datenquelle**: `mitglied`
+- **State Management:**
+  - **Provider**: `selectedMemberIdProvider` (keepAlive: true) - Persistiert die ausgewählte Mitglied-ID über Navigation hinweg
+  - **Location**: `lib/features/members/presentation/providers/selected_member_provider.dart`
+- **Verhalten:**
+  - Zeilenauswahl wird beim Verlassen des Screens gespeichert
+  - Beim Zurückkehren wird die zuletzt ausgewählte Zeile automatisch wiederhergestellt
+  - Der Bemerkungsbereich wird entsprechend der wiederhergestellten Auswahl angezeigt
+  - Beim Löschen eines Datensatzes wird die Auswahl zurückgesetzt
 - **Data Grid Konfiguration:**
   - Spalte `name` (Name) - text - Sort:True Filter:True
   - Spalte `vorname` (Vorname) - text - Sort:True Filter:True

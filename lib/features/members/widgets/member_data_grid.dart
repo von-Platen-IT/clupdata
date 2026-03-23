@@ -12,8 +12,9 @@ import '../presentation/providers/members_list_provider.dart';
 
 class MemberDataGrid extends HookConsumerWidget {
   final void Function(MemberRowData? row)? onRowSelected;
+  final int? initialSelectedId;
 
-  const MemberDataGrid({super.key, this.onRowSelected});
+  const MemberDataGrid({super.key, this.onRowSelected, this.initialSelectedId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,17 +86,21 @@ class MemberDataGrid extends HookConsumerWidget {
           columnConfigs: columns,
           toSearchString: (row) {
             return [
-              row.name,
-              row.vorname,
-              row.ort,
-              row.telefon1,
-              row.email,
-              row.leistungName,
-            ].where((e) => e != null && e.toString().isNotEmpty).join(' ').toLowerCase();
+                  row.name,
+                  row.vorname,
+                  row.ort,
+                  row.telefon1,
+                  row.email,
+                  row.leistungName,
+                ]
+                .where((e) => e != null && e.toString().isNotEmpty)
+                .join(' ')
+                .toLowerCase();
           },
           toJson: (row) => row.toJson(),
           fromJson: MemberRowData.fromJson,
           onRowSelected: onRowSelected,
+          initialSelectedId: initialSelectedId,
           detailModalBuilder: (row, fieldName) {
             final memberId = row.id;
             MemberEditDialog.show(
@@ -111,4 +116,3 @@ class MemberDataGrid extends HookConsumerWidget {
     );
   }
 }
-

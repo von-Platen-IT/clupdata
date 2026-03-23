@@ -81,6 +81,10 @@ class AppDataGridV2<T> extends HookWidget {
   /// If not provided, an internal controller is created and managed.
   final DataGridController<T>? controller;
 
+  /// The ID of the row that should be initially selected.
+  /// Used to restore selection when navigating back to the screen.
+  final int? initialSelectedId;
+
   const AppDataGridV2({
     super.key,
     required this.items,
@@ -97,6 +101,7 @@ class AppDataGridV2<T> extends HookWidget {
     this.rowBgColorResolver,
     this.onRowSelected,
     this.controller,
+    this.initialSelectedId,
   });
 
   @override
@@ -148,7 +153,11 @@ class AppDataGridV2<T> extends HookWidget {
     final searchController = useTextEditingController();
     final hasSearchText = useState(false);
     final debounceTimer = useRef<Timer?>(null);
-    useEffect(() => () => debounceTimer.value?.cancel(), []);
+    useEffect(
+      () =>
+          () => debounceTimer.value?.cancel(),
+      [],
+    );
 
     // ── Create PlutoColumns from configs ───────────────────────────────────
     final plutoColumns = useMemoized(
@@ -202,10 +211,47 @@ class AppDataGridV2<T> extends HookWidget {
       sm.removeAllRows();
       if (plutoRows.isNotEmpty) {
         sm.appendRows(plutoRows);
+
+        // Restore selection after PlutoGrid has processed the rows
+        if (initialSelectedId != null) {
+          // Use addPostFrameCallback to ensure PlutoGrid has processed the rows
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Find the row with the matching ID
+            for (final row in plutoRows) {
+              final item = rowItemMap.value[row.key];
+              if (item != null) {
+                try {
+                  final id = (item as dynamic).id;
+                  if (id == initialSelectedId) {
+                    final rowIdx = plutoRows.indexOf(row);
+                    if (rowIdx >= 0 && rowIdx < sm.rows.length) {
+                      // Get the actual row from state manager (it may be a different instance)
+                      final actualRow = sm.rows[rowIdx];
+                      // Set current cell for keyboard navigation
+                      sm.setCurrentCell(
+                        actualRow.cells.entries.first.value,
+                        rowIdx,
+                      );
+                      // Notify state change for visual update
+                      sm.notifyListeners();
+                    }
+                    // Notify parent about the restored selection
+                    if (onRowSelected != null) {
+                      onRowSelected!(item);
+                    }
+                    break;
+                  }
+                } catch (_) {
+                  // If id property doesn't exist, skip
+                }
+              }
+            }
+          });
+        }
       }
-      
+
       return null;
-    }, [plutoRows, stateManager.value]);
+    }, [plutoRows, stateManager.value, initialSelectedId]);
 
     // ── Track row selection via PlutoGrid StateManager listener ────────────
     useEffect(() {
@@ -218,8 +264,9 @@ class AppDataGridV2<T> extends HookWidget {
         final currentRow = sm.currentRow;
         if (currentRow != lastSelectedRow) {
           lastSelectedRow = currentRow;
-          final item =
-              currentRow != null ? rowItemMap.value[currentRow.key] : null;
+          final item = currentRow != null
+              ? rowItemMap.value[currentRow.key]
+              : null;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) onRowSelected!(item);
           });
@@ -326,8 +373,9 @@ class AppDataGridV2<T> extends HookWidget {
                   onPressed: () async {
                     final result = await SortSettingsDialog.show(
                       context,
-                      initialConfigs:
-                          ctrl.sortConfigs.map((c) => c.copyWith()).toList(),
+                      initialConfigs: ctrl.sortConfigs
+                          .map((c) => c.copyWith())
+                          .toList(),
                     );
                     if (result != null) ctrl.sortConfigs = result;
                   },
@@ -340,8 +388,7 @@ class AppDataGridV2<T> extends HookWidget {
                 IconButton.outlined(
                   tooltip: 'Daten exportieren',
                   icon: const Icon(Icons.file_download_outlined),
-                  onPressed: () =>
-                      onListExportRequested!(ctrl.getExportJson()),
+                  onPressed: () => onListExportRequested!(ctrl.getExportJson()),
                 ),
               ],
             ],
