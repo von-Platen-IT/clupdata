@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'data_grid_column_config.dart';
+import 'export/export_data_table.dart';
 import 'json_payload.dart';
 import 'sort_column_config.dart';
 
@@ -284,6 +285,42 @@ class DataGridController<T> extends ChangeNotifier {
     }
     final json = await file.readAsString();
     applyStateFromJson(json);
+  }
+
+  // ── Export API ─────────────────────────────────────────────────────────
+
+  /// Converts the controller's data into a type-safe [ExportDataTable].
+  ///
+  /// When [visibleOnly] is true (default), only the currently filtered and
+  /// sorted items are exported. Set to false to export all raw items.
+  ///
+  /// This method lives on the controller (not an external adapter) because
+  /// it needs access to the correctly typed [DataGridColumnConfig<T>]
+  /// value extractors. Calling from a `DataGridController<dynamic>` context
+  /// would cause a runtime type mismatch.
+  ExportDataTable toExportDataTable({
+    String title = '',
+    bool visibleOnly = true,
+  }) {
+    final source = visibleOnly ? _filteredSortedItems : _items;
+    final headers = _columnConfigs.map((c) => c.title).toList();
+
+    final rows = source.map((item) {
+      return _columnConfigs.map((config) {
+        final rawValue = config.valueExtractor(item);
+        if (config.formatter != null) {
+          return config.formatter!(rawValue);
+        }
+        return rawValue?.toString() ?? '';
+      }).toList();
+    }).toList();
+
+    return ExportDataTable(
+      title: title,
+      headers: headers,
+      rows: rows,
+      exportedAt: DateTime.now(),
+    );
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────

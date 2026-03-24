@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
 
+import '../../core/providers/active_data_grid_provider.dart';
 import 'data_grid_column_config.dart';
 import 'data_grid_controller.dart';
 import 'data_grid_locale_de.dart';
@@ -33,7 +35,7 @@ import 'sort_settings_dialog.dart';
 ///   detailModalBuilder: (item, colId) => MyEditDialog.show(context, item),
 /// )
 /// ```
-class VpitDataGrid<T> extends HookWidget {
+class VpitDataGrid<T> extends HookConsumerWidget {
   /// The raw data items to display in the grid.
   final List<T> items;
 
@@ -105,7 +107,7 @@ class VpitDataGrid<T> extends HookWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // ── Controller Setup ──────────────────────────────────────────────────
     final ownsController = controller == null;
     final ctrl = useMemoized(
@@ -142,6 +144,21 @@ class VpitDataGrid<T> extends HookWidget {
       ctrl.updateItems(items);
       return null;
     }, [items]);
+
+    // Register controller globally so the MainMenuBar export menu can access it.
+    // Deferred via Future to avoid modifying a provider during widget build.
+    useEffect(() {
+      Future(() {
+        if (context.mounted) {
+          ref.read(activeDataGridControllerProvider.notifier).register(ctrl);
+        }
+      });
+      return () {
+        Future(() {
+          ref.read(activeDataGridControllerProvider.notifier).unregister();
+        });
+      };
+    }, [ctrl]);
 
     // Rebuild widget when controller state changes
     useListenable(ctrl);

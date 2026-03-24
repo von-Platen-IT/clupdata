@@ -1,16 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../core/providers/active_data_grid_provider.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
 import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
 import '../features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart';
+import '../widgets/data_grid_v2/export/csv_exporter.dart';
 
-class MainMenuBar extends StatelessWidget {
+class MainMenuBar extends ConsumerWidget {
   const MainMenuBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Hier verwenden wir eine einfache AppBar als MenuBar-Ersatz,
     // um die Kompatibilität auf allen OS zu garantieren und es einheitlich zu stylen.
     return Container(
@@ -70,6 +73,48 @@ class MainMenuBar extends StatelessWidget {
                 onTap: () {
                   // Dialog zur Massenerstellung von Beiträgen öffnen
                   RechnungslegungDialog.show(context);
+                },
+              ),
+            ],
+          ),
+          _MenuButton(
+            title: 'Exportieren',
+            items: [
+              PopupMenuItem(
+                child: const Text('CSV erstellen'),
+                onTap: () async {
+                  final controller = ref.read(activeDataGridControllerProvider);
+                  if (controller == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Keine Tabelle aktiv. Bitte wähle zuerst eine Funktion im Seitenmenü.'),
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  try {
+                    final table = controller.toExportDataTable(title: 'export');
+                    final exporter = CsvExporter();
+                    final file = await exporter.export(table);
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('CSV erstellt: ${file.path}'),
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Fehler beim CSV-Export: $e')),
+                      );
+                    }
+                  }
                 },
               ),
             ],
