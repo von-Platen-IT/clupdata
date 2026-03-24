@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../../../core/database/database.dart';
 import '../presentation/providers/stammdaten_list_provider.dart';
@@ -54,7 +54,7 @@ class StammdatenDataGrid extends HookConsumerWidget {
 
     return rowsAsync.when(
       data: (rowData) {
-        return AppDataGridV2<StammdatenItem>(
+        return VpitDataGrid<StammdatenItem>(
           items: rowData,
           columnConfigs: columns,
           toSearchString: (row) {

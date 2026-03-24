@@ -24,7 +24,7 @@ import 'sort_settings_dialog.dart';
 ///
 /// Example usage:
 /// ```dart
-/// AppDataGridV2<MyItem>(
+/// VpitDataGrid<MyItem>(
 ///   items: myItems,
 ///   columnConfigs: myColumnConfigs,
 ///   toSearchString: (item) => '${item.name} ${item.category}',
@@ -33,7 +33,7 @@ import 'sort_settings_dialog.dart';
 ///   detailModalBuilder: (item, colId) => MyEditDialog.show(context, item),
 /// )
 /// ```
-class AppDataGridV2<T> extends HookWidget {
+class VpitDataGrid<T> extends HookWidget {
   /// The raw data items to display in the grid.
   final List<T> items;
 
@@ -85,7 +85,7 @@ class AppDataGridV2<T> extends HookWidget {
   /// Used to restore selection when navigating back to the screen.
   final int? initialSelectedId;
 
-  const AppDataGridV2({
+  const VpitDataGrid({
     super.key,
     required this.items,
     required this.columnConfigs,
@@ -204,54 +204,69 @@ class AppDataGridV2<T> extends HookWidget {
     // that the `PlutoRow` instances in the grid are *exactly* the ones we mapped,
     // preserving their keys for double-click lookups and preserving selection
     // across parent rebuilds that do not change `plutoRows`.
-    useEffect(() {
-      final sm = stateManager.value;
-      if (sm == null) return null;
+    useEffect(
+      () {
+        final sm = stateManager.value;
+        if (sm == null) return null;
 
-      sm.removeAllRows();
-      if (plutoRows.isNotEmpty) {
-        sm.appendRows(plutoRows);
+        sm.removeAllRows();
+        if (plutoRows.isNotEmpty) {
+          sm.appendRows(plutoRows);
 
-        // Restore selection after PlutoGrid has processed the rows
-        if (initialSelectedId != null) {
-          // Use addPostFrameCallback to ensure PlutoGrid has processed the rows
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Find the row with the matching ID
-            for (final row in plutoRows) {
-              final item = rowItemMap.value[row.key];
-              if (item != null) {
-                try {
-                  final id = (item as dynamic).id;
-                  if (id == initialSelectedId) {
-                    final rowIdx = plutoRows.indexOf(row);
-                    if (rowIdx >= 0 && rowIdx < sm.rows.length) {
-                      // Get the actual row from state manager (it may be a different instance)
-                      final actualRow = sm.rows[rowIdx];
-                      // Set current cell for keyboard navigation
-                      sm.setCurrentCell(
-                        actualRow.cells.entries.first.value,
-                        rowIdx,
-                      );
-                      // Notify state change for visual update
-                      sm.notifyListeners();
+          // Restore selection after PlutoGrid has processed the rows
+          if (initialSelectedId != null) {
+            // Use Future.delayed to ensure PlutoGrid has finished laying out the rows
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (!context.mounted) return;
+              // Find the row with the matching ID
+              for (final row in plutoRows) {
+                final item = rowItemMap.value[row.key];
+                if (item != null) {
+                  try {
+                    final id = (item as dynamic).id;
+                    if (id == initialSelectedId) {
+                      final rowIdx = plutoRows.indexOf(row);
+                      if (rowIdx >= 0 && rowIdx < sm.rows.length) {
+                        // Get the actual row from state manager
+                        final actualRow = sm.rows[rowIdx];
+                        // Set current cell for keyboard navigation and visual highlighting
+                        sm.setCurrentCell(
+                          actualRow.cells.entries.first.value,
+                          rowIdx,
+                        );
+                        sm.notifyListeners();
+                      }
+                      break;
                     }
-                    // Notify parent about the restored selection
-                    if (onRowSelected != null) {
-                      onRowSelected!(item);
-                    }
-                    break;
+                  } catch (_) {
+                    // If id property doesn't exist, skip
                   }
-                } catch (_) {
-                  // If id property doesn't exist, skip
                 }
               }
-            }
-          });
+            });
+          }
         }
-      }
 
+        return null;
+      },
+      [plutoRows, stateManager.value],
+    ); // Removed initialSelectedId from dependencies to prevent rebuild loop
+
+    final localSelectedId = useState<int?>(initialSelectedId);
+
+    // Sync external changes to local state
+    useEffect(() {
+      localSelectedId.value = initialSelectedId;
       return null;
-    }, [plutoRows, stateManager.value, initialSelectedId]);
+    }, [initialSelectedId]);
+
+    // Force PlutoGrid to repaint rows when selection changes
+    useEffect(() {
+      if (stateManager.value != null) {
+        stateManager.value!.notifyListeners();
+      }
+      return null;
+    }, [localSelectedId.value, stateManager.value]);
 
     // ── Track row selection via PlutoGrid StateManager listener ────────────
     useEffect(() {
@@ -264,12 +279,30 @@ class AppDataGridV2<T> extends HookWidget {
         final currentRow = sm.currentRow;
         if (currentRow != lastSelectedRow) {
           lastSelectedRow = currentRow;
-          final item = currentRow != null
-              ? rowItemMap.value[currentRow.key]
-              : null;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) onRowSelected!(item);
-          });
+
+          if (currentRow != null) {
+            final item = rowItemMap.value[currentRow.key];
+            if (item != null) {
+              try {
+                final newId = (item as dynamic).id as int;
+                if (localSelectedId.value != newId) {
+                  localSelectedId.value = newId;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) onRowSelected!(item);
+                  });
+                }
+              } catch (_) {
+                // Fallback if no id exists
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) onRowSelected!(item);
+                });
+              }
+            }
+          } else {
+            // Intentionally DO NOT clear localSelectedId or fire onRowSelected(null)
+            // when PlutoGrid spontaneously clears its current cell (e.g. on blur).
+            // Deselection is purely driven by the parent mutating initialSelectedId.
+          }
         }
       }
 
@@ -287,16 +320,25 @@ class AppDataGridV2<T> extends HookWidget {
     }
 
     // ── Row color resolver ────────────────────────────────────────────────
-    PlutoRowColorCallback? rowColorCallback;
-    if (rowBgColorResolver != null) {
-      rowColorCallback = (PlutoRowColorContext ctx) {
-        final item = rowItemMap.value[ctx.row.key];
-        if (item != null) {
+    PlutoRowColorCallback rowColorCallback = (PlutoRowColorContext ctx) {
+      final item = rowItemMap.value[ctx.row.key];
+      if (item != null) {
+        // 1. Force highlight for logically selected row
+        try {
+          if (localSelectedId.value != null &&
+              (item as dynamic).id == localSelectedId.value) {
+            // Material 3 selected row color
+            return Theme.of(context).colorScheme.primaryContainer;
+          }
+        } catch (_) {}
+
+        // 2. Fallback to domain-specific color resolver if present
+        if (rowBgColorResolver != null) {
           return rowBgColorResolver!(item) ?? Colors.transparent;
         }
-        return Colors.transparent;
-      };
-    }
+      }
+      return Colors.transparent;
+    };
 
     // ── Build ─────────────────────────────────────────────────────────────
     return Column(
@@ -377,7 +419,36 @@ class AppDataGridV2<T> extends HookWidget {
                           .map((c) => c.copyWith())
                           .toList(),
                     );
-                    if (result != null) ctrl.sortConfigs = result;
+                    if (result != null) {
+                      ctrl.sortConfigs = result;
+
+                      // Sync PlutoGrid's native header icons
+                      final sm = stateManager.value;
+                      if (sm != null) {
+                        final activeCount = result
+                            .where((c) => c.enabled)
+                            .length;
+                        if (activeCount != 1) {
+                          // Clear all native icons when multi-sort is active or no sort
+                          for (final col in sm.columns) {
+                            col.sort = PlutoColumnSort.none;
+                          }
+                        } else {
+                          // Set the single sort icon
+                          final active = result.firstWhere((c) => c.enabled);
+                          for (final col in sm.columns) {
+                            if (col.field == active.field) {
+                              col.sort = active.ascending
+                                  ? PlutoColumnSort.ascending
+                                  : PlutoColumnSort.descending;
+                            } else {
+                              col.sort = PlutoColumnSort.none;
+                            }
+                          }
+                        }
+                        sm.notifyListeners();
+                      }
+                    }
                   },
                 ),
               ),
@@ -417,6 +488,45 @@ class AppDataGridV2<T> extends HookWidget {
               onLoaded: (PlutoGridOnLoadedEvent event) {
                 stateManager.value = event.stateManager;
                 event.stateManager.setShowColumnFilter(false);
+
+                // Sync initial sort icons if exactly 1 column is sorted
+                final activeSorts = ctrl.sortConfigs
+                    .where((c) => c.enabled)
+                    .toList();
+                if (activeSorts.length == 1) {
+                  final active = activeSorts.first;
+                  for (final col in event.stateManager.columns) {
+                    if (col.field == active.field) {
+                      col.sort = active.ascending
+                          ? PlutoColumnSort.ascending
+                          : PlutoColumnSort.descending;
+                    } else {
+                      col.sort = PlutoColumnSort.none;
+                    }
+                  }
+                }
+              },
+              onSorted: (PlutoGridOnSortedEvent event) {
+                final field = event.column.field;
+                final sortDir = event.column.sort;
+
+                // Single header click overrides and resets the multi-sort configuration
+                if (sortDir == PlutoColumnSort.none) {
+                  ctrl.sortConfigs = ctrl.sortConfigs
+                      .map((c) => c.copyWith(enabled: false))
+                      .toList();
+                } else {
+                  ctrl.sortConfigs = ctrl.sortConfigs.map((c) {
+                    if (c.field == field) {
+                      return c.copyWith(
+                        enabled: true,
+                        ascending: sortDir == PlutoColumnSort.ascending,
+                        priority: 0, // Top priority
+                      );
+                    }
+                    return c.copyWith(enabled: false); // Disable all others
+                  }).toList();
+                }
               },
               onRowDoubleTap: (PlutoGridOnRowDoubleTapEvent event) {
                 activateRow(event.row, event.cell.column.field);

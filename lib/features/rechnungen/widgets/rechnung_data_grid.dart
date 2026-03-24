@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../data/rechnungen_repository.dart';
 import '../utils/rechnung_status_colors.dart';
@@ -86,7 +86,7 @@ class RechnungDataGrid extends HookConsumerWidget {
 
     return rechnungenAsync.when(
       data: (rowData) {
-        return AppDataGridV2<RechnungRowData>(
+        return VpitDataGrid<RechnungRowData>(
           items: rowData,
           columnConfigs: columns,
           toSearchString: (row) {

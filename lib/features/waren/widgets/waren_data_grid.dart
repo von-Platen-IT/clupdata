@@ -4,13 +4,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../models/waren_row_data.dart';
 import '../widgets/waren_edit_dialog.dart';
 import '../presentation/providers/waren_list_provider.dart';
 
-/// Concrete DataGrid implementation for [WarenRowData] using [AppDataGridV2].
+/// Concrete DataGrid implementation for [WarenRowData] using [VpitDataGrid].
 ///
 /// Fetches data via Riverpod, defines columns per structur.md (Section 4.2,
 /// Screen: Waren), and delegates detail editing to [WarenEditDialog].
@@ -100,7 +100,7 @@ class WarenDataGrid extends HookConsumerWidget {
 
     return rowsAsync.when(
       data: (_) {
-        return AppDataGridV2<WarenRowData>(
+        return VpitDataGrid<WarenRowData>(
           items: rowData,
           columnConfigs: columnConfigs,
           toSearchString: (w) {

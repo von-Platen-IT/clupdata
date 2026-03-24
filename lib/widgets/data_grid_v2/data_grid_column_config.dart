@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-/// Type-safe column configuration for [AppDataGridV2].
+/// Type-safe column configuration for [VpitDataGrid].
 ///
 /// Wraps all PlutoGrid column settings and provides a [valueExtractor]
 /// function to map domain objects of type [T] to cell values. This
@@ -66,7 +66,7 @@ class DataGridColumnConfig<T> {
 
   /// Creates a [PlutoColumn] from this configuration.
   ///
-  /// Used internally by [AppDataGridV2] to build the column list
+  /// Used internally by [VpitDataGrid] to build the column list
   /// for the PlutoGrid widget.
   PlutoColumn toPlutoColumn() {
     return PlutoColumn(

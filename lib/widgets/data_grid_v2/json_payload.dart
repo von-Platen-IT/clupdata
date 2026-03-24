@@ -2,7 +2,7 @@ import 'dart:convert';
 
 /// Standardized JSON payload structure for data exchange.
 ///
-/// Every JSON payload processed or emitted by [AppDataGridV2] follows this
+/// Every JSON payload processed or emitted by [VpitDataGrid] follows this
 /// exact structure as defined in the DataGrid specification (Section 3.1):
 /// ```json
 /// {

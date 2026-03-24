@@ -46,7 +46,7 @@ trigger: always_on
 - **[MUST] Datenstruktur:** Die Datei `lib/assets/data/structur.md` gilt als *single source of truth* für das Schema und die Struktur der Datenbank. Beachte die Versionierung bei der Datenbankentwicklung wie sie in der Datei `DatabaseMigration.md` vorgegeben wird.
 
 ## 8. DataGrid im UI
-- **[MUST] Tabellen im UI:** Beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei `.agent/rules/datagrid.md` und `.agent/rules/app_data_grid.md`.
+- **[MUST] Tabellen im UI:** Beachte die Definition für die Darstellung von Daten in Tabellenform in der Datei `.agent/rules/datagrid.md`
 
 ## 9. Dropdowns & Select-Felder
 - **[MUST] Dropdown/Select:** Verwende AUSSCHLIESSLICH `AppDropdownField` (feste Liste) oder `AppSelectField` (autocomplete). [NEVER] Flutters `DropdownMenu`, `DropdownButton` oder `Autocomplete` nutzen.

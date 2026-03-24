@@ -6,7 +6,7 @@ import 'data_grid_column_config.dart';
 import 'json_payload.dart';
 import 'sort_column_config.dart';
 
-/// Headless controller for [AppDataGridV2] that manages search, filter,
+/// Headless controller for [VpitDataGrid] that manages search, filter,
 /// and sort state programmatically.
 ///
 /// Provides a complete bidirectional JSON API (Section 3) and file I/O

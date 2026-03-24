@@ -2,7 +2,7 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 /// German locale text for PlutoGrid v8.x.
 ///
-/// Applied globally via [PlutoGridConfiguration.localeText] in [AppDataGridV2].
+/// Applied globally via [PlutoGridConfiguration.localeText] in [VpitDataGrid].
 /// All user-visible strings from the built-in PlutoGrid UI are translated
 /// to German for consistent desktop application localization.
 const dataGridGermanLocaleText = PlutoGridLocaleText(

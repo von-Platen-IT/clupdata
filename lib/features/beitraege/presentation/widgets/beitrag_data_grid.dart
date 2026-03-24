@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
-import '../../../../widgets/data_grid_v2/app_data_grid_v2.dart';
+import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
@@ -73,7 +73,7 @@ class BeitragDataGrid extends HookConsumerWidget {
 
     return beitraegeAsync.when(
       data: (rowData) {
-        return AppDataGridV2<BeitragRowData>(
+        return VpitDataGrid<BeitragRowData>(
           items: rowData,
           columnConfigs: columns,
           toSearchString: (row) {
