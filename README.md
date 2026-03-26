@@ -199,4 +199,150 @@ Die Rechnungslegung ermöglicht die Massenerstellung von Beiträgen für alle Mi
 
 ---
 
+## 📄 PDF Export & Templates
+
+Das System unterstützt flexible PDF-Ausgaben mit einem Template-basierten Ansatz. Templates definieren das visuelle Layout des PDFs, während die Daten automatisch aus der aktuellen DataGrid-Ansicht bezogen werden.
+
+### Zwei Betriebsmodi
+
+| Modus | Beschreibung | Verwendung |
+|-------|--------------|------------|
+| **Einfache Tabelle** | Automatische Tabellengenerierung ohne Dekoration | Schnelle Listen-Ausdrucke, Rohdaten-Export |
+| **Template-basiert** | Domain-spezifische Layouts mit Briefköpfen, Logos | Rechnungen, Mitgliederausweise, Berichte |
+
+### Template-System Architektur
+
+```
+DataGridController → ExportDataTable → PdfTemplate → PDF-Dokument
+```
+
+1. **DataGridController** liefert die gefilterten/sortierten Daten
+2. **ExportDataTable** konvertiert Daten in ein generisches Format (Header + Zeilen)
+3. **PdfTemplate** generiert das Layout (einfach oder domain-spezifisch)
+4. **PdfExporter** erstellt das finale PDF
+
+### Ein Template erstellen
+
+1. **Interface implementieren:**
+
+```dart
+class MeinTemplate implements PdfTemplate {
+  @override
+  String get displayName => 'Mein Layout';
+  
+  @override
+  bool get supportsDetailView => true; // true = Detail-Export möglich
+  
+  @override
+  Future<pw.Document> generate(
+    ExportDataTable dataTable,
+    PdfExportContext context,
+  ) async {
+    final pdf = pw.Document();
+    
+    pdf.addPage(
+      pw.Page(
+        build: (pwContext) => pw.Column(
+          children: [
+            // Header mit Logo
+            pw.Text('Mein Verein', style: pw.TextStyle(fontSize: 24)),
+            pw.SizedBox(height: 20),
+            
+            // Daten-Tabelle
+            pw.Table.fromTextArray(
+              headers: dataTable.headers,
+              data: dataTable.rows.map((r) =>
+                r.map((v) => v.toString()).toList()
+              ).toList(),
+            ),
+            
+            // Footer
+            pw.Spacer(),
+            pw.Text('Seite 1'),
+          ],
+        ),
+      ),
+    );
+    
+    return pdf;
+  }
+}
+```
+
+2. **Template registrieren:**
+
+```dart
+// In der Feature-Initialisierung
+PdfTemplateRegistry.register('mein_template', MeinTemplate());
+```
+
+### Template-Kontext
+
+Das `PdfExportContext` Objekt bietet Metadaten für das Template:
+
+| Eigenschaft | Typ | Beschreibung |
+|-------------|-----|--------------|
+| `title` | `String` | Titel des Exports (z.B. "Mitgliederliste") |
+| `exportTimestamp` | `DateTime` | Zeitpunkt des Exports |
+| `activeFilters` | `Map<String, String>?` | Aktive DataGrid-Filter |
+| `activeSorts` | `List<SortColumnConfig>?` | Aktive Sortierungen |
+| `isDetailView` | `bool` | true = Einzel-Item, false = Liste |
+| `entityName` | `String?` | Entity-Name (z.B. "Mitglied", "Rechnung") |
+
+### Verwendung im UI
+
+Die PDF-Funktionen sind im globalen **"Exportieren"** Menü integriert:
+
+```
+Exportieren
+├── Drucken...          → Druckvorschau mit Template-Auswahl
+├── PDF erstellen...    → PDF speichern
+├── CSV erstellen...    → CSV-Export
+└── Excel erstellen...  → Excel-Export
+```
+
+Das System erkennt automatisch:
+- **Listen-Export:** Wenn kein Detail-Dialog geöffnet ist → `filteredSortedItems`
+- **Detail-Export:** Wenn ein Detail-Dialog geöffnet ist → Einzel-Item
+
+### Eingebaute Templates
+
+| Template | Zweck | Detail-Export |
+|----------|-------|---------------|
+| `SimpleTableTemplate` | Saubere Tabelle, automatische Paginierung | ✅ |
+| `InvoicePdfTemplate` | Rechnungslayout mit Briefkopf | ✅ |
+
+### Formatierung & Lokalisierung
+
+Templates müssen die deutsche Lokalisierung beachten:
+
+- **Datum:** `dd.MM.yyyy` (z.B. 24.03.2026)
+- **Zahlen:** `1.234,56` (Deutsches Format)
+- **Währung:** `123,45 €` (Symbol nach Betrag)
+- **Formatierer:** `DataGridColumnConfig.formatter` wird automatisch angewendet
+
+### Datei-Struktur
+
+```
+lib/
+└── widgets/
+    └── data_grid_v2/
+        └── export/
+            ├── pdf/
+            │   ├── pdf_exporter.dart       # Haupt-Exporter
+            │   ├── pdf_template.dart       # Interface
+            │   ├── simple_table_template.dart
+            │   └── template_registry.dart
+            └── templates/                   # Domain-Templates
+                └── mein_template.dart
+```
+
+### Weitere Informationen
+
+Detaillierte Architektur-Regeln für KI-Entwickler:
+- [`.agent/rules/dataexport_pdf.md`](.agent/rules/dataexport_pdf.md) - PDF-spezifische Regeln
+- [`.agent/rules/dataexport.md`](.agent/rules/dataexport.md) - Allgemeine Export-Architektur
+
+---
+
 *Entwickelt mit modernen Flutter Best Practices und Desktop-First Ansatz.*

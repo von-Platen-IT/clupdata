@@ -8,6 +8,9 @@ import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
 import '../features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart';
 import '../widgets/data_grid_v2/export/csv_exporter.dart';
+import '../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
+import '../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
+import '../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 
 class MainMenuBar extends ConsumerWidget {
   const MainMenuBar({super.key});
@@ -81,14 +84,100 @@ class MainMenuBar extends ConsumerWidget {
             title: 'Exportieren',
             items: [
               PopupMenuItem(
-                child: const Text('CSV erstellen'),
+                child: const Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('PDF erstellen'),
+                  ],
+                ),
                 onTap: () async {
                   final controller = ref.read(activeDataGridControllerProvider);
                   if (controller == null) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Keine Tabelle aktiv. Bitte wähle zuerst eine Funktion im Seitenmenü.'),
+                          content: Text(
+                            'Keine Tabelle aktiv. Bitte wähle zuerst eine Funktion im Seitenmenü.',
+                          ),
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  // Show loading dialog
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const AlertDialog(
+                        content: Row(
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(width: 20),
+                            Text('PDF wird erstellt...'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  try {
+                    final exporter = PdfExporter(
+                      template: PdfTemplateRegistry.simple,
+                    );
+                    final pdfBytes = await exporter.exportList(
+                      controller,
+                      title: 'Export',
+                    );
+
+                    // Hide loading
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+
+                    // Show preview
+                    if (context.mounted) {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => PdfPreviewDialog(
+                          pdfData: pdfBytes,
+                          title: 'PDF Export',
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    // Hide loading
+                    if (context.mounted && Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Fehler beim PDF-Export: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+              PopupMenuItem(
+                child: const Row(
+                  children: [
+                    Icon(Icons.table_chart_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('CSV erstellen'),
+                  ],
+                ),
+                onTap: () async {
+                  final controller = ref.read(activeDataGridControllerProvider);
+                  if (controller == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Keine Tabelle aktiv. Bitte wähle zuerst eine Funktion im Seitenmenü.',
+                          ),
                         ),
                       );
                     }
