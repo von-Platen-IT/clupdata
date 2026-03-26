@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/providers/active_data_grid_provider.dart';
+import 'package:printing/printing.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
 import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
@@ -83,6 +84,79 @@ class MainMenuBar extends ConsumerWidget {
           _MenuButton(
             title: 'Exportieren',
             items: [
+              PopupMenuItem(
+                child: const Row(
+                  children: [
+                    Icon(Icons.print_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('Drucken...'),
+                  ],
+                ),
+                onTap: () async {
+                  final controller = ref.read(activeDataGridControllerProvider);
+                  if (controller == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Keine Tabelle aktiv. Bitte wähle zuerst eine Funktion im Seitenmenü.',
+                          ),
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  // Show loading dialog
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const AlertDialog(
+                        content: Row(
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(width: 20),
+                            Text('Druckdaten werden aufbereitet...'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  try {
+                    final exporter = PdfExporter(
+                      template: PdfTemplateRegistry.simple,
+                    );
+                    final pdfBytes = await exporter.exportList(
+                      controller,
+                      title: 'Druck',
+                    );
+
+                    // Hide loading
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+
+                    // Native Print
+                    await Printing.layoutPdf(
+                      onLayout: (format) async => pdfBytes,
+                      name: 'ClupData Export',
+                    );
+                  } catch (e) {
+                    // Hide loading
+                    if (context.mounted && Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Fehler beim Drucken: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
               PopupMenuItem(
                 child: const Row(
                   children: [
