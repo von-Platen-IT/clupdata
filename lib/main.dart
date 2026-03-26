@@ -8,6 +8,8 @@ import 'package:window_manager/window_manager.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'widgets/data_grid_v2/export/pdf/compact_table_template.dart';
+import 'widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 
 /// The entry point of the ClupData application.
 ///
@@ -19,7 +21,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE', null);
   Intl.defaultLocale = 'de_DE';
-  
+
+  // Register PDF templates
+  PdfTemplateRegistry.register('compact', CompactTableTemplate());
+
   // Nur auf Desktop-Systemen initialisieren
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();
@@ -39,11 +44,7 @@ void main() async {
     });
   }
 
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 /// The root widget of the ClupData application.
@@ -71,9 +72,7 @@ class MyApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('de', 'DE'),
-      ],
+      supportedLocales: const [Locale('de', 'DE')],
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

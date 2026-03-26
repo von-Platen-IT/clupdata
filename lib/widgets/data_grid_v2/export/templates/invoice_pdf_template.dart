@@ -65,6 +65,12 @@ class InvoicePdfTemplate implements PdfTemplate {
   bool get supportsDetailView => true;
 
   @override
+  PdfTemplateCategory get category => PdfTemplateCategory.invoice;
+
+  @override
+  List<String>? get supportedEntityTypes => ['rechnung'];
+
+  @override
   Future<pw.Document> generate(
     ExportDataTable dataTable,
     PdfExportContext context,

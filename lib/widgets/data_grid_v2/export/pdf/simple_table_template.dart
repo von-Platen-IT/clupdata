@@ -27,6 +27,12 @@ class SimpleTableTemplate implements PdfTemplate {
   bool get supportsDetailView => true;
 
   @override
+  PdfTemplateCategory get category => PdfTemplateCategory.generic;
+
+  @override
+  List<String>? get supportedEntityTypes => null;
+
+  @override
   Future<pw.Document> generate(
     ExportDataTable dataTable,
     PdfExportContext context,
@@ -57,10 +63,7 @@ class SimpleTableTemplate implements PdfTemplate {
       fontWeight: pw.FontWeight.bold,
     );
 
-    final metaStyle = pw.TextStyle(
-      font: font,
-      fontSize: 8,
-    );
+    final metaStyle = pw.TextStyle(font: font, fontSize: 8);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -85,10 +88,7 @@ class SimpleTableTemplate implements PdfTemplate {
       fontWeight: pw.FontWeight.bold,
     );
 
-    final valueStyle = pw.TextStyle(
-      font: font,
-      fontSize: 10,
-    );
+    final valueStyle = pw.TextStyle(font: font, fontSize: 10);
 
     final blocks = <pw.Widget>[];
 
@@ -103,22 +103,20 @@ class SimpleTableTemplate implements PdfTemplate {
             spacing: 24,
             runSpacing: 12,
             children: [
-              for (var colIndex = 0; colIndex < dataTable.headers.length; colIndex++)
+              for (
+                var colIndex = 0;
+                colIndex < dataTable.headers.length;
+                colIndex++
+              )
                 if (row[colIndex].isNotEmpty)
                   pw.SizedBox(
                     width: 160,
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text(
-                          dataTable.headers[colIndex],
-                          style: labelStyle,
-                        ),
+                        pw.Text(dataTable.headers[colIndex], style: labelStyle),
                         pw.SizedBox(height: 2),
-                        pw.Text(
-                          row[colIndex],
-                          style: valueStyle,
-                        ),
+                        pw.Text(row[colIndex], style: valueStyle),
                       ],
                     ),
                   ),
@@ -126,13 +124,13 @@ class SimpleTableTemplate implements PdfTemplate {
           ),
         ),
       );
-      
+
       if (!isLastRow) {
         blocks.add(
           pw.Padding(
             padding: const pw.EdgeInsets.symmetric(vertical: 8),
             child: pw.Divider(thickness: 0.5, color: PdfColors.black),
-          )
+          ),
         );
       }
     }
@@ -146,10 +144,7 @@ class SimpleTableTemplate implements PdfTemplate {
     pw.Context pwContext,
     pw.Font font,
   ) {
-    final footerStyle = pw.TextStyle(
-      font: font,
-      fontSize: 8,
-    );
+    final footerStyle = pw.TextStyle(font: font, fontSize: 8);
 
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

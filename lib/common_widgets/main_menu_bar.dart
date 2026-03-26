@@ -198,12 +198,11 @@ class MainMenuBar extends ConsumerWidget {
                   }
 
                   try {
-                    final exporter = PdfExporter(
-                      template: PdfTemplateRegistry.simple,
-                    );
-                    final pdfBytes = await exporter.exportList(
+                    final exporter = PdfExporter();
+                    final exportData = exporter.prepareListExport(
                       controller,
                       title: 'Export',
+                      visibleOnly: true,
                     );
 
                     // Hide loading
@@ -211,14 +210,12 @@ class MainMenuBar extends ConsumerWidget {
                       Navigator.of(context).pop();
                     }
 
-                    // Show preview
+                    // Show preview with template selection
                     if (context.mounted) {
                       await showDialog(
                         context: context,
-                        builder: (_) => PdfPreviewDialog(
-                          pdfData: pdfBytes,
-                          title: 'PDF Export',
-                        ),
+                        builder: (_) =>
+                            PdfPreviewDialog(exportData: exportData),
                       );
                     }
                   } catch (e) {

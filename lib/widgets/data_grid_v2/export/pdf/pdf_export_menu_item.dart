@@ -6,12 +6,12 @@ import 'pdf_preview_dialog.dart';
 import 'pdf_template.dart';
 import 'pdf_template_registry.dart';
 
-/// Menu item widget for PDF export functionality.
+/// Menu item widget for PDF export functionality with template selection.
 ///
 /// Handles the complete export flow:
 /// 1. Extract data from controller
-/// 2. Generate PDF with selected template
-/// 3. Show preview dialog
+/// 2. Show preview dialog with template selection
+/// 3. User selects template and generates PDF
 ///
 /// Can be used in DropdownButton, MenuBar, or PopupMenuButton.
 ///
@@ -38,8 +38,8 @@ class PdfExportMenuItem<T> extends StatelessWidget {
   /// Optional entity name for context (e.g., "Mitglied", "Rechnung").
   final String? entityName;
 
-  /// Optional specific template to use. If null, uses [PdfTemplateRegistry.simple].
-  final PdfTemplate? template;
+  /// Optional specific template to pre-select. If null, the default is used.
+  final PdfTemplate? initialTemplate;
 
   /// Optional callback when export completes successfully.
   final VoidCallback? onExported;
@@ -50,7 +50,7 @@ class PdfExportMenuItem<T> extends StatelessWidget {
     required this.controller,
     required this.title,
     this.entityName,
-    this.template,
+    this.initialTemplate,
     this.onExported,
   });
 
@@ -63,32 +63,34 @@ class PdfExportMenuItem<T> extends StatelessWidget {
     );
   }
 
-  /// Handles the export flow: generate PDF and show preview.
+  /// Handles the export flow: prepare data and show preview with template selection.
   Future<void> _handleExport(BuildContext context) async {
     try {
-      // Show loading indicator
+      // Show loading indicator briefly
       _showLoadingDialog(context);
 
-      // Generate PDF
-      final exporter = PdfExporter(
-        template: template ?? PdfTemplateRegistry.simple,
-      );
-      final pdfBytes = await exporter.exportList(
+      // Prepare export data (no PDF generation yet)
+      final exporter = PdfExporter();
+      final exportData = exporter.prepareListExport(
         controller,
         title: title,
         entityName: entityName,
+        visibleOnly: true,
       );
 
       // Hide loading
       if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
+        Navigator.of(context).pop();
       }
 
-      // Show preview
+      // Show preview dialog with template selection
       if (context.mounted) {
         await showDialog(
           context: context,
-          builder: (_) => PdfPreviewDialog(pdfData: pdfBytes, title: title),
+          builder: (_) => PdfPreviewDialog(
+            exportData: exportData,
+            initialTemplate: initialTemplate,
+          ),
         );
       }
 
@@ -106,7 +108,7 @@ class PdfExportMenuItem<T> extends StatelessWidget {
     }
   }
 
-  /// Shows a loading indicator while generating PDF.
+  /// Shows a loading indicator while preparing export data.
   void _showLoadingDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -116,7 +118,7 @@ class PdfExportMenuItem<T> extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 20),
-            Text('PDF wird erstellt...'),
+            Text('PDF wird vorbereitet...'),
           ],
         ),
       ),
@@ -131,7 +133,7 @@ class PdfExportMenuItem<T> extends StatelessWidget {
         icon: const Icon(Icons.error_outline, color: Colors.red),
         title: const Text('Export fehlgeschlagen'),
         content: Text(
-          'Beim Erstellen des PDF ist ein Fehler aufgetreten:\n$error',
+          'Beim Vorbereiten des PDF ist ein Fehler aufgetreten:\n$error',
         ),
         actions: [
           TextButton(
@@ -144,10 +146,10 @@ class PdfExportMenuItem<T> extends StatelessWidget {
   }
 }
 
-/// Extension for detail view PDF export.
+/// Extension for detail view PDF export with template selection.
 ///
 /// Similar to [PdfExportMenuItem] but exports a single item
-/// in detail view format.
+/// in detail view format with template selection.
 class PdfExportDetailMenuItem<T> extends StatelessWidget {
   /// The controller providing column configuration.
   final DataGridController<T> controller;
@@ -161,8 +163,8 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
   /// Optional entity name.
   final String? entityName;
 
-  /// Optional template. Defaults to simple template.
-  final PdfTemplate? template;
+  /// Optional template to pre-select.
+  final PdfTemplate? initialTemplate;
 
   /// Creates a [PdfExportDetailMenuItem].
   const PdfExportDetailMenuItem({
@@ -171,7 +173,7 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
     required this.item,
     required this.title,
     this.entityName,
-    this.template,
+    this.initialTemplate,
   });
 
   @override
@@ -187,10 +189,8 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
     try {
       _showLoadingDialog(context);
 
-      final exporter = PdfExporter(
-        template: template ?? PdfTemplateRegistry.simple,
-      );
-      final pdfBytes = await exporter.exportDetail(
+      final exporter = PdfExporter();
+      final exportData = exporter.prepareDetailExport(
         controller,
         item,
         title: title,
@@ -204,7 +204,10 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
       if (context.mounted) {
         await showDialog(
           context: context,
-          builder: (_) => PdfPreviewDialog(pdfData: pdfBytes, title: title),
+          builder: (_) => PdfPreviewDialog(
+            exportData: exportData,
+            initialTemplate: initialTemplate,
+          ),
         );
       }
     } catch (e) {
@@ -226,7 +229,7 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 20),
-            Text('PDF wird erstellt...'),
+            Text('PDF wird vorbereitet...'),
           ],
         ),
       ),
@@ -239,9 +242,7 @@ class PdfExportDetailMenuItem<T> extends StatelessWidget {
       builder: (_) => AlertDialog(
         icon: const Icon(Icons.error_outline, color: Colors.red),
         title: const Text('Export fehlgeschlagen'),
-        content: Text(
-          'Beim Erstellen des PDF ist ein Fehler aufgetreten:\n$error',
-        ),
+        content: Text('Fehler: $error'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

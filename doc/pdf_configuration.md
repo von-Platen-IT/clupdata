@@ -1,18 +1,22 @@
-# PDF-Export Konfigurationsanleitung
+# PDF-Export und Druck Konfigurationsanleitung
 
-Diese Anleitung beschreibt, wie Sie in der ClupData-Anwendung benutzerdefinierte PDF-Vorlagen erstellen und konfigurieren können, um Daten aus dem System zu exportieren.
+Diese Anleitung beschreibt, wie Sie in der ClupData-Anwendung benutzerdefinierte PDF-Vorlagen erstellen und konfigurieren können, um Daten aus dem System zu **exportieren** und zu **drucken**.
+
+> **Wichtig:** Die gleichen PDF-Vorlagen werden sowohl für den PDF-Export als auch für den direkten Drucker-Output verwendet. Es gibt keinen Unterschied zwischen "Druck-Vorlagen" und "PDF-Vorlagen".
 
 ---
 
 ## Inhaltsverzeichnis
 
 1. [Systemübersicht](#1-systemübersicht)
-2. [PDF-Vorlagen verstehen](#2-pdf-vorlagen-verstehen)
-3. [Vorlagentypen](#3-vorlagentypen)
-4. [Vorlagen erstellen](#4-vorlagen-erstellen)
-5. [Datenformatierung](#5-datenformatierung)
-6. [Beispiele](#6-beispiele)
-7. [Fehlerbehebung](#7-fehlerbehebung)
+2. [PDF und Druck: Einheitliches System](#2-pdf-und-druck-einheitliches-system)
+3. [Template-Auswahl im Preview-Dialog](#3-template-auswahl-im-preview-dialog)
+4. [PDF-Vorlagen verstehen](#4-pdf-vorlagen-verstehen)
+5. [Vorlagentypen](#5-vorlagentypen)
+6. [Vorlagen erstellen](#6-vorlagen-erstellen)
+7. [Datenformatierung](#7-datenformatierung)
+8. [Beispiele](#8-beispiele)
+9. [Fehlerbehebung](#9-fehlerbehebung)
 
 ---
 
@@ -34,34 +38,169 @@ Exportiert einen einzelnen Datensatz mit allen Details (z.B. eine einzelne Rechn
 │  (Modelle)      │     │  (formatiert)   │     │  (Layout)       │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
                                                          │
-                                                         ▼
-                                               ┌─────────────────┐
-                                               │  PDF Dokument   │
-                                               └─────────────────┘
+                              ┌──────────────────────────┼──────────────────┐
+                              │                          │                  │
+                              ▼                          ▼                  ▼
+                    ┌─────────────────┐      ┌─────────────────┐   ┌───────────────┐
+                    │  PDF Datei      │      │  Drucker        │   │  E-Mail       │
+                    │  (Speichern)    │      │  (Direktdruck)  │   │  (Anhang)     │
+                    └─────────────────┘      └─────────────────┘   └───────────────┘
 ```
 
 ---
 
-## 2. PDF-Vorlagen verstehen
+## 2. PDF und Druck: Einheitliches System
 
-### 2.1 Was ist eine PDF-Vorlage?
+### 2.1 Ein Template für alles
+
+Die ClupData-Anwendung verwendet **dieselben PDF-Vorlagen** für:
+
+| Funktion | Beschreibung |
+|----------|--------------|
+| **PDF Export** | Speichern als `.pdf`-Datei auf dem Computer |
+| **Drucken** | Direkte Ausgabe auf einem Drucker |
+| **Vorschau** | Anzeige vor dem Speichern/Drucken |
+| **Teilen** | Versenden per E-Mail oder Messenger |
+
+Das bedeutet: Wenn Sie eine Vorlage konfigurieren, wirkt sich das **automatisch** auf alle Ausgabeformen aus.
+
+### 2.2 Ablauf beim Drucken
+
+```
+┌─────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌───────────────┐
+│  Benutzer   │───▶│  PDF Vorlage    │───▶│  PDF Dokument   │───▶│  Drucker      │
+│  klickt     │    │  wird angewendet│    │  wird erstellt  │    │  (A4-Format)  │
+│  "Drucken"  │    │                 │    │                 │    │               │
+└─────────────┘    └─────────────────┘    └─────────────────┘    └───────────────┘
+```
+
+### 2.3 Warum PDF als Zwischenformat?
+
+**Vorteile dieses Ansatzes:**
+
+1. **Konsistenz** - PDF und Papierausdruck sehen identisch aus
+2. **Vorschau** - Benutzer können das Ergebnis vor dem Druck prüfen
+3. **Flexibilität** - Gleiches Layout für Datei, Druck und E-Mail
+4. **Kompatibilität** - PDF wird von allen Druckern unterstützt
+
+### 2.4 Druck-Dialog
+
+Wenn ein Benutzer "Drucken" auswählt:
+
+1. Die PDF-Vorlage wird auf die Daten angewendet
+2. Ein PDF-Dokument wird im Hintergrund erzeugt
+3. Der System-Druckdialog öffnet sich mit der PDF-Vorschau
+4. Der Benutzer kann Drucker, Papierformat und weitere Optionen wählen
+5. Das Dokument wird auf dem ausgewählten Drucker ausgegeben
+
+> **Hinweis:** Das Drucken erfolgt immer im **A4-Format**, da dies vom PDF-Template festgelegt wird.
+
+---
+
+## 3. Template-Auswahl im Preview-Dialog
+
+### 3.1 Übersicht
+
+Die Anwendung bietet einen interaktiven Preview-Dialog mit integrierter Template-Auswahl:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 📄 PDF Vorschau - Mitgliederliste                      [X]          │
+├─────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────┬─────────────────────────────┐   │
+│ │ Vorlage: [Einfache Tabelle ▼]   │  [Allgemein]                │   │
+│ └─────────────────────────────────┴─────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  [PDF-Vorschau mit ausgewählter Vorlage]                           │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  [Drucken]  [Speichern]  [Teilen]                                   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Funktionen
+
+| Feature | Beschreibung |
+|---------|--------------|
+| **Template-Dropdown** | Auswahl aus allen passenden Vorlagen |
+| **Live-Regeneration** | PDF wird sofort neu generiert bei Template-Wechsel |
+| **Kontext-Filterung** | Nur geeignete Vorlagen werden angezeigt |
+| **Kategorie-Anzeige** | Jede Vorlage zeigt ihre Kategorie (z.B. "Rechnung") |
+
+### 3.3 Filterung der Vorlagen
+
+Die angezeigten Vorlagen werden automatisch gefiltert:
+
+**Nach Export-Typ:**
+- **Listen-Export**: Zeigt alle Vorlagen mit `supportsDetailView = true` oder `false`
+- **Detail-Export**: Zeigt nur Vorlagen mit `supportsDetailView = true`
+
+**Nach Entitätstyp:**
+- **Rechnungen**: Priorisiert Vorlagen mit `supportedEntityTypes = ['rechnung']`
+- **Mitglieder**: Priorisiert Vorlagen mit `supportedEntityTypes = ['mitglied']`
+- **Allgemein**: Zeigt alle `generic` Vorlagen
+
+### 3.4 Vorlagen-Kategorien
+
+| Kategorie | Icon | Beschreibung |
+|-----------|------|--------------|
+| Allgemein | ⊞ | Universell einsetzbare Layouts |
+| Rechnung | 🧾 | Rechnungen, Angebote, Mahnungen |
+| Mitglied | 👤 | Mitglieder-Ausweise, Profile |
+| Liste | ☰ | Übersichten, Listen |
+| Detail | 📄 | Detail-Ansichten einzelner Datensätze |
+
+---
+
+## 4. PDF-Vorlagen verstehen
+
+### 3.1 Was ist eine PDF-Vorlage?
 
 Eine PDF-Vorlage ist eine Klasse, die definiert:
 - **Wie Daten angezeigt werden** (Layout, Farben, Schriftarten)
 - **Welche Elemente enthalten sind** (Kopfzeile, Tabelle, Fußzeile, Logos)
 - **Für welchen Zweck sie geeignet ist** (Listen oder Detailansicht)
+- **Zu welcher Kategorie sie gehört** (Rechnung, Mitglied, etc.)
 
-### 2.2 Vorlagen-Interface
+### 4.2 Vorlagen-Interface
 
 Jede Vorlage implementiert das `PdfTemplate`-Interface:
 
 | Eigenschaft | Beschreibung |
 |-------------|--------------|
-| `displayName` | Name der Vorlage in der Auswahlliste |
+| `displayName` | Deutscher Name in der Auswahlliste |
 | `supportsDetailView` | Unterstützt diese Vorlage Detail-Exports? |
+| `category` | Kategorie für Filterung und Gruppierung |
+| `supportedEntityTypes` | Für welche Entitäten geeignet (z.B. 'rechnung') |
 | `generate()` | Methode zur Erzeugung des PDF-Dokuments |
 
-### 2.3 Export-Kontext
+**Beispiel:**
+```dart
+class InvoicePdfTemplate implements PdfTemplate {
+  @override
+  String get displayName => 'Rechnungs-Layout';
+
+  @override
+  bool get supportsDetailView => true;
+
+  @override
+  PdfTemplateCategory get category => PdfTemplateCategory.invoice;
+
+  @override
+  List<String>? get supportedEntityTypes => ['rechnung'];
+
+  @override
+  Future<pw.Document> generate(
+    ExportDataTable dataTable,
+    PdfExportContext context,
+  ) async {
+    // ... Implementierung
+  }
+}
+```
+
+### 4.3 Export-Kontext
 
 Der `PdfExportContext` enthält Metadaten zum Export:
 
@@ -76,9 +215,9 @@ Der `PdfExportContext` enthält Metadaten zum Export:
 
 ---
 
-## 3. Vorlagentypen
+## 5. Vorlagentypen
 
-### 3.1 Einfache Tabelle (`SimpleTableTemplate`)
+### 5.1 Einfache Tabelle (`SimpleTableTemplate`)
 
 Die Standardvorlage für schnelle Datenexporte.
 
@@ -110,7 +249,44 @@ Die Standardvorlage für schnelle Datenexporte.
 └──────────────────────────────────────┘
 ```
 
-### 3.2 Rechnungsvorlage (`InvoicePdfTemplate`)
+### 5.2 Kompakte Tabelle (`CompactTableTemplate`)
+
+Eine platzsparende Vorlage für maximale Datendichte auf DIN-A4-Seiten.
+
+**Merkmale:**
+- Kleinere Schriftarten (7-8pt statt 10-12pt)
+- Minimale Ränder (32pt statt 48pt)
+- Kompakte Zeilenhöhen (14-18pt)
+- Numerische Werte werden rechtsbündig ausgerichtet
+- Zeilenweise Hintergrundfarbe für Lesbarkeit
+- Dynamische Spaltenbreiten basierend auf Inhalt
+
+**Verwendung:**
+- Listen mit vielen Spalten
+- Detaillierte Berichte
+- Wenn Platz effizient genutzt werden muss
+
+**Vorteile:**
+- Ca. 30-40% mehr Daten pro Seite
+- Bessere Übersicht bei breiten Tabellen
+- Weniger Seiten beim Drucken
+
+**Layout:**
+```
+┌────────────────────────────────────────────────────────────────┐
+│ Mitgliederliste                              24.03.2026        │
+│ Filter: Status: Aktiv | Sort: Name ↑                           │
+├────────────────────────────────────────────────────────────────┤
+│Name   │Vorname │Status │E-Mail              │Telefon    │Betrag│
+├────────────────────────────────────────────────────────────────┤
+│Müller │Hans    │Aktiv  │hans@example.com    │0123/456789│120,00│
+│Schmidt│Anna    │Aktiv  │anna@example.com    │0123/987654│ 85,00│
+└────────────────────────────────────────────────────────────────┘
+│ 25 Datensätze                          Seite 1/2               │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Rechnungsvorlage (`InvoicePdfTemplate`)
 
 Eine spezialisierte Vorlage für Rechnungen.
 
@@ -153,9 +329,9 @@ Eine spezialisierte Vorlage für Rechnungen.
 
 ---
 
-## 4. Vorlagen erstellen
+## 5. Vorlagen erstellen
 
-### 4.1 Neue Vorlage registrieren
+### 5.1 Neue Vorlage registrieren
 
 Um eine neue Vorlage zu erstellen, müssen Sie eine Dart-Datei im Projekt anlegen und die Vorlage im `PdfTemplateRegistry` registrieren.
 
@@ -238,7 +414,7 @@ void registerTemplates() {
 }
 ```
 
-### 4.2 Layout-Elemente
+### 5.2 Layout-Elemente
 
 #### Seiteneinrichtung
 
@@ -314,7 +490,7 @@ pw.Table.fromTextArray(
 )
 ```
 
-### 4.3 Kopf- und Fußzeilen
+### 5.3 Kopf- und Fußzeilen
 
 #### Kopfzeile mit Titel
 
@@ -354,9 +530,9 @@ pw.Widget _buildFooter(
 
 ---
 
-## 5. Datenformatierung
+## 6. Datenformatierung
 
-### 5.1 Datum formatieren
+### 6.1 Datum formatieren
 
 Verwenden Sie deutsche Datumsformate:
 
@@ -366,7 +542,7 @@ String date = context.formattedDate;        // "24.03.2026"
 String datetime = context.formattedTimestamp; // "24.03.2026 14:30"
 ```
 
-### 5.2 Währungsformatierung
+### 6.2 Währungsformatierung
 
 Formatieren Sie Beträge im deutschen Stil:
 
@@ -377,7 +553,7 @@ String formatCurrency(double amount) {
 // Ergebnis: "1.234,56 €"
 ```
 
-### 5.3 Daten aus ExportDataTable lesen
+### 6.3 Daten aus ExportDataTable lesen
 
 **Als Liste (Listen-Export):**
 
@@ -406,7 +582,7 @@ final name = fields['Name'];
 final datum = fields['Datum'];
 ```
 
-### 5.4 Filter- und Sortierinformationen
+### 6.4 Filter- und Sortierinformationen
 
 ```dart
 // Filter-Beschreibung
@@ -424,9 +600,9 @@ if (context.sortDescription != null) {
 
 ---
 
-## 6. Beispiele
+## 7. Beispiele
 
-### 6.1 Einfache Mitgliederliste
+### 7.1 Einfache Mitgliederliste
 
 ```dart
 class MitgliedListeTemplate implements PdfTemplate {
@@ -520,7 +696,7 @@ class MitgliedListeTemplate implements PdfTemplate {
 }
 ```
 
-### 6.2 Mitglieder-Ausweis (Detail-Export)
+### 7.2 Mitglieder-Ausweis (Detail-Export)
 
 ```dart
 class MitgliedAusweisTemplate implements PdfTemplate {
@@ -774,9 +950,9 @@ class MahnungListeTemplate implements PdfTemplate {
 
 ---
 
-## 7. Fehlerbehebung
+## 8. Fehlerbehebung
 
-### 7.1 Häufige Fehler
+### 8.1 Häufige Fehler
 
 #### "UnsupportedError: Template requires detail view"
 
@@ -817,7 +993,7 @@ Future<pw.Font> _loadFont() async {
 }
 ```
 
-### 7.2 Debug-Tipps
+### 8.2 Debug-Tipps
 
 #### Daten überprüfen
 
@@ -849,7 +1025,7 @@ await file.writeAsBytes(pdfBytes);
 print('PDF gespeichert unter: ${file.absolute.path}');
 ```
 
-### 7.3 Best Practices
+### 8.3 Best Practices
 
 | ✅ Richtig | ❌ Falsch |
 |-----------|-----------|
@@ -862,7 +1038,7 @@ print('PDF gespeichert unter: ${file.absolute.path}');
 
 ---
 
-## 8. Zusammenfassung
+## 9. Zusammenfassung
 
 ### Schnellstart-Checkliste
 
@@ -872,18 +1048,34 @@ print('PDF gespeichert unter: ${file.absolute.path}');
 - [ ] Layout mit `pw.MultiPage` oder `pw.Page` erstellen
 - [ ] Schriftart laden mit `_loadFont()`
 - [ ] Vorlage in `PdfTemplateRegistry.register()` registrieren
-- [ ] Testen mit verschiedenen Daten
+- [ ] **Testen als PDF-Export** und **als Druck**
+- [ ] Papierformat A4 und Seitenränder prüfen
+
+### Druck-spezifische Hinweise
+
+| Aspekt | Hinweis |
+|--------|---------|
+| **Papierformat** | Immer A4 (`PdfPageFormat.a4`) verwenden |
+| **Seitenränder** | Mindestens 48pt (ca. 1,7cm) für Druckersicherheit |
+| **Schriftgröße** | Mindestens 8pt für Lesbarkeit |
+| **Kontrast** | Ausreichender Kontrast für Schwarz-Weiß-Druck |
+| **Seitenumbruch** | `pw.MultiPage` für automatische Paginierung verwenden |
+
+> **Wichtig:** Testen Sie neue Vorlagen immer auf einem echten Drucker oder mit der Druckvorschau, da Bildschirm- und Papierausgabe sich unterscheiden können.
 
 ### Wichtige Dateien
 
 | Datei | Zweck |
 |-------|-------|
-| `lib/widgets/data_grid_v2/export/pdf/pdf_template.dart` | Interface-Definition |
+| `lib/widgets/data_grid_v2/export/pdf/pdf_template.dart` | Interface-Definition mit Category |
 | `lib/widgets/data_grid_v2/export/pdf/pdf_export_context.dart` | Kontext-Klasse |
-| `lib/widgets/data_grid_v2/export/pdf/pdf_template_registry.dart` | Template-Registry |
+| `lib/widgets/data_grid_v2/export/pdf/pdf_template_registry.dart` | Template-Registry mit Filterung |
+| `lib/widgets/data_grid_v2/export/pdf/pdf_template_selector.dart` | Template-Auswahl-Dropdown |
+| `lib/widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart` | Preview-Dialog mit Live-Regeneration |
+| `lib/widgets/data_grid_v2/export/pdf/pdf_exporter.dart` | Export-Logik mit `prepareExport()` |
 | `lib/widgets/data_grid_v2/export/export_data_table.dart` | Daten-DTO |
 | `lib/widgets/data_grid_v2/export/templates/` | Vorlagen-Verzeichnis |
 
 ---
 
-*Dokumentation erstellt für ClupData PDF-Export System v1.0*
+*Dokumentation erstellt für ClupData PDF-Export System v2.0 (mit Template-Auswahl)*

@@ -3,6 +3,42 @@ import 'package:pdf/widgets.dart' as pw;
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
 
+/// Categories for organizing PDF templates in selection UIs.
+enum PdfTemplateCategory {
+  /// Generic table layouts suitable for any data.
+  generic,
+
+  /// Invoice and financial document layouts.
+  invoice,
+
+  /// Member-related document layouts.
+  member,
+
+  /// List and overview layouts.
+  list,
+
+  /// Detail view layouts for single items.
+  detail,
+}
+
+/// Extension to get display names for categories.
+extension PdfTemplateCategoryName on PdfTemplateCategory {
+  String get displayName {
+    switch (this) {
+      case PdfTemplateCategory.generic:
+        return 'Allgemein';
+      case PdfTemplateCategory.invoice:
+        return 'Rechnung';
+      case PdfTemplateCategory.member:
+        return 'Mitglied';
+      case PdfTemplateCategory.list:
+        return 'Liste';
+      case PdfTemplateCategory.detail:
+        return 'Detail';
+    }
+  }
+}
+
 /// Interface for PDF layout templates.
 ///
 /// Implementations define how [ExportDataTable] data is rendered into
@@ -25,6 +61,12 @@ import 'pdf_export_context.dart';
 ///
 ///   @override
 ///   bool get supportsDetailView => true;
+///
+///   @override
+///   PdfTemplateCategory get category => PdfTemplateCategory.invoice;
+///
+///   @override
+///   List<String>? get supportedEntityTypes => ['rechnung', 'angebot'];
 ///
 ///   @override
 ///   Future<pw.Document> generate(
@@ -51,6 +93,17 @@ abstract class PdfTemplate {
   /// a detail dialog context.
   bool get supportsDetailView;
 
+  /// The category of this template for organization and filtering.
+  ///
+  /// Defaults to [PdfTemplateCategory.generic] if not overridden.
+  PdfTemplateCategory get category => PdfTemplateCategory.generic;
+
+  /// Optional list of entity types this template is designed for.
+  ///
+  /// Examples: 'rechnung', 'mitglied', 'beitrag'
+  /// If null or empty, the template is considered suitable for any entity.
+  List<String>? get supportedEntityTypes => null;
+
   /// Generates a PDF document from the given data and context.
   ///
   /// [dataTable] contains the pre-formatted tabular data extracted
@@ -64,4 +117,26 @@ abstract class PdfTemplate {
     ExportDataTable dataTable,
     PdfExportContext context,
   );
+}
+
+/// Extension for PdfTemplate helper methods.
+extension PdfTemplateHelpers on PdfTemplate {
+  /// Checks if this template supports the given entity type.
+  bool supportsEntityType(String? entityType) {
+    if (entityType == null || supportedEntityTypes == null) return true;
+    return supportedEntityTypes!.any(
+      (e) => e.toLowerCase() == entityType.toLowerCase(),
+    );
+  }
+
+  /// Checks if this template is suitable for the given context.
+  bool isSuitableFor({required bool isDetailView, String? entityType}) {
+    // Check detail view compatibility
+    if (isDetailView && !supportsDetailView) return false;
+
+    // Check entity type compatibility
+    if (!supportsEntityType(entityType)) return false;
+
+    return true;
+  }
 }

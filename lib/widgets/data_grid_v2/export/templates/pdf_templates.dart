@@ -7,6 +7,7 @@
 ///
 /// - [InvoicePdfTemplate] - Professional invoice layout with letterhead,
 ///   positions table, and totals section.
+/// - [CompactTableTemplate] - Compact table layout for maximum data density.
 ///
 /// ## Creating Custom Templates
 ///
@@ -19,6 +20,9 @@
 ///
 ///   @override
 ///   bool get supportsDetailView => true;
+///
+///   @override
+///   PdfTemplateCategory get category => PdfTemplateCategory.generic;
 ///
 ///   @override
 ///   Future<pw.Document> generate(
@@ -39,3 +43,4 @@
 library;
 
 export 'invoice_pdf_template.dart';
+export '../pdf/compact_table_template.dart';
