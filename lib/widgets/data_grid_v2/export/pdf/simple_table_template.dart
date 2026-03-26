@@ -1,5 +1,6 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
@@ -41,7 +42,7 @@ class SimpleTableTemplate implements PdfTemplate {
         margin: const pw.EdgeInsets.all(48),
         header: (format) => _buildHeader(context, baseFont),
         footer: (pwContext) => _buildFooter(context, pwContext, baseFont),
-        build: (pwContext) => [_buildTable(dataTable, baseFont)],
+        build: (pwContext) => _buildBlocks(dataTable, baseFont),
       ),
     );
 
@@ -59,7 +60,6 @@ class SimpleTableTemplate implements PdfTemplate {
     final metaStyle = pw.TextStyle(
       font: font,
       fontSize: 8,
-      color: PdfColors.grey600,
     );
 
     return pw.Column(
@@ -71,35 +71,73 @@ class SimpleTableTemplate implements PdfTemplate {
         if (context.sortDescription != null)
           pw.Text('Sortierung: ${context.sortDescription}', style: metaStyle),
         pw.SizedBox(height: 12),
-        pw.Divider(height: 1, color: PdfColors.grey300),
+        pw.Divider(height: 1, thickness: 0.5, color: PdfColors.black),
         pw.SizedBox(height: 8),
       ],
     );
   }
 
-  /// Builds the data table with alternating row colors.
-  pw.Widget _buildTable(ExportDataTable dataTable, pw.Font font) {
-    final headerStyle = pw.TextStyle(
+  /// Builds individual data blocks per row instead of a wide table.
+  List<pw.Widget> _buildBlocks(ExportDataTable dataTable, pw.Font font) {
+    final labelStyle = pw.TextStyle(
       font: font,
       fontSize: 9,
       fontWeight: pw.FontWeight.bold,
-      color: PdfColors.white,
     );
 
-    final cellStyle = pw.TextStyle(font: font, fontSize: 9);
-
-    return pw.TableHelper.fromTextArray(
-      headers: dataTable.headers,
-      data: dataTable.rows,
-      headerStyle: headerStyle,
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey700),
-      headerHeight: 28,
-      cellHeight: 22,
-      cellStyle: cellStyle,
-      cellAlignments: _buildCellAlignments(dataTable.columnCount),
-      oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
-      border: null,
+    final valueStyle = pw.TextStyle(
+      font: font,
+      fontSize: 10,
     );
+
+    final blocks = <pw.Widget>[];
+
+    for (var rowIndex = 0; rowIndex < dataTable.rows.length; rowIndex++) {
+      final isLastRow = rowIndex == dataTable.rows.length - 1;
+      final row = dataTable.rows[rowIndex];
+
+      blocks.add(
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 8),
+          child: pw.Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            children: [
+              for (var colIndex = 0; colIndex < dataTable.headers.length; colIndex++)
+                if (row[colIndex].isNotEmpty)
+                  pw.SizedBox(
+                    width: 160,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          dataTable.headers[colIndex],
+                          style: labelStyle,
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          row[colIndex],
+                          style: valueStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      );
+      
+      if (!isLastRow) {
+        blocks.add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 8),
+            child: pw.Divider(thickness: 0.5, color: PdfColors.black),
+          )
+        );
+      }
+    }
+
+    return blocks;
   }
 
   /// Builds the page footer with timestamp and page numbers.
@@ -111,7 +149,6 @@ class SimpleTableTemplate implements PdfTemplate {
     final footerStyle = pw.TextStyle(
       font: font,
       fontSize: 8,
-      color: PdfColors.grey500,
     );
 
     return pw.Row(
@@ -129,22 +166,14 @@ class SimpleTableTemplate implements PdfTemplate {
     );
   }
 
-  /// Determines text alignment for each column based on content.
-  Map<int, pw.Alignment> _buildCellAlignments(int columnCount) {
-    final alignments = <int, pw.Alignment>{};
-    // By default, all columns are left-aligned
-    // Subclasses could override this for numeric columns
-    for (var i = 0; i < columnCount; i++) {
-      alignments[i] = pw.Alignment.centerLeft;
-    }
-    return alignments;
-  }
-
-  /// Loads a font that supports German umlauts.
-  ///
-  /// Uses Helvetica as base font which is included in the pdf package.
+  /// Loads a font that supports German umlauts and Euro signs.
+  /// Uses Roboto from Google Fonts via the printing package.
   Future<pw.Font> _loadFont() async {
-    // The pdf package includes standard fonts with Unicode support
-    return pw.Font.helvetica();
+    try {
+      return await PdfGoogleFonts.robotoRegular();
+    } catch (_) {
+      // Fallback if offline and font not cached
+      return pw.Font.helvetica();
+    }
   }
 }

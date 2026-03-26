@@ -323,6 +323,33 @@ class DataGridController<T> extends ChangeNotifier {
     );
   }
 
+  /// Creates a detail-style [ExportDataTable] for a single [item].
+  ///
+  /// Creates a label-value pair table where each row represents
+  /// one column from the original grid configuration.
+  ExportDataTable toExportDataTableSingleItem(
+    T item, {
+    String title = '',
+  }) {
+    final headers = ['Feld', 'Wert'];
+
+    final rows = _columnConfigs.map((config) {
+      final rawValue = config.valueExtractor(item);
+      final formattedValue = config.formatter != null
+          ? config.formatter!(rawValue)
+          : rawValue?.toString() ?? '';
+
+      return [config.title, formattedValue];
+    }).toList();
+
+    return ExportDataTable(
+      title: title,
+      headers: headers,
+      rows: rows,
+      exportedAt: DateTime.now(),
+    );
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────
 
   DataGridJsonMetadata _buildMetadata() {

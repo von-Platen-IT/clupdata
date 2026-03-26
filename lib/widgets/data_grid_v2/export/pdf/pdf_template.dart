@@ -54,7 +54,7 @@ abstract class PdfTemplate {
   /// Generates a PDF document from the given data and context.
   ///
   /// [dataTable] contains the pre-formatted tabular data extracted
-  /// from [DataGridController] via [DataGridExportAdapter].
+  /// from [DataGridController].
   ///
   /// [context] provides metadata like title, timestamp, filters,
   /// and whether this is a detail view export.

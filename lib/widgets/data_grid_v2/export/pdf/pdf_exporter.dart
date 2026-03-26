@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import '../../data_grid_controller.dart';
-import '../data_grid_export_adapter.dart';
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
 import 'pdf_template.dart';
@@ -9,7 +8,7 @@ import 'simple_table_template.dart';
 
 /// Exports DataGrid data to PDF using a configurable template.
 ///
-/// The exporter uses [DataGridExportAdapter] to convert the controller's
+/// The exporter uses the controller's export methods to convert
 /// typed data into a generic [ExportDataTable], then applies a [PdfTemplate]
 /// to generate the final PDF document.
 ///
@@ -30,14 +29,12 @@ import 'simple_table_template.dart';
 /// ```
 class PdfExporter {
   final PdfTemplate _template;
-  final DataGridExportAdapter _adapter;
 
   /// Creates a [PdfExporter] with the given [template].
   ///
   /// If no template is provided, [SimpleTableTemplate] is used as default.
-  PdfExporter({PdfTemplate? template, DataGridExportAdapter? adapter})
-    : _template = template ?? SimpleTableTemplate(),
-      _adapter = adapter ?? DataGridExportAdapter();
+  PdfExporter({PdfTemplate? template})
+    : _template = template ?? SimpleTableTemplate();
 
   /// Exports the currently filtered and sorted items as a PDF list.
   ///
@@ -52,7 +49,7 @@ class PdfExporter {
     required String title,
     String? entityName,
   }) async {
-    final dataTable = _adapter.extractVisible(controller, title: title);
+    final dataTable = controller.toExportDataTable(title: title, visibleOnly: true);
     final context = PdfExportContext(
       title: title,
       exportTimestamp: DateTime.now(),
@@ -75,7 +72,7 @@ class PdfExporter {
     required String title,
     String? entityName,
   }) async {
-    final dataTable = _adapter.extractAll(controller, title: title);
+    final dataTable = controller.toExportDataTable(title: title, visibleOnly: false);
     final context = PdfExportContext(
       title: title,
       exportTimestamp: DateTime.now(),
@@ -104,7 +101,7 @@ class PdfExporter {
     required String title,
     String? entityName,
   }) async {
-    final dataTable = _extractSingleItem(controller, item, title: title);
+    final dataTable = controller.toExportDataTableSingleItem(item, title: title);
     final context = PdfExportContext(
       title: title,
       exportTimestamp: DateTime.now(),
@@ -114,35 +111,5 @@ class PdfExporter {
 
     final document = await _template.generate(dataTable, context);
     return document.save();
-  }
-
-  /// Creates a detail-style [ExportDataTable] for a single item.
-  ///
-  /// Unlike the regular adapter which produces multiple rows, this
-  /// creates a label-value pair table where each row represents
-  /// one column from the original grid.
-  ExportDataTable _extractSingleItem(
-    DataGridController<dynamic> controller,
-    dynamic item, {
-    required String title,
-  }) {
-    final configs = controller.columnConfigs;
-    final headers = ['Feld', 'Wert'];
-
-    final rows = configs.map((config) {
-      final rawValue = config.valueExtractor(item);
-      final formattedValue = config.formatter != null
-          ? config.formatter!(rawValue)
-          : rawValue?.toString() ?? '';
-
-      return [config.title, formattedValue];
-    }).toList();
-
-    return ExportDataTable(
-      title: title,
-      headers: headers,
-      rows: rows,
-      exportedAt: DateTime.now(),
-    );
   }
 }
