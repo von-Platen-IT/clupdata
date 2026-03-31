@@ -8,6 +8,8 @@ import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
 
 import '../../core/providers/active_data_grid_provider.dart';
+import '../../features/export/domain/export_config.dart';
+import '../../features/export/presentation/list_export_menu_button.dart';
 import 'data_grid_column_config.dart';
 import 'data_grid_controller.dart';
 import 'data_grid_locale_de.dart';
@@ -66,11 +68,9 @@ class VpitDataGrid<T> extends HookConsumerWidget {
   /// field name — used to set initial focus in the modal dialog.
   final void Function(T item, String focusedColumnId)? detailModalBuilder;
 
-  /// Called when a list export is requested via the toolbar export button.
-  final void Function(String json)? onListExportRequested;
-
-  /// Called when a detail export for a single item is requested.
-  final void Function(String json)? onDetailExportRequested;
+  /// Optional configuration for the export menu.
+  /// If provided, a comprehensive Export Menu (Print, PDF, CSV) will be shown in the toolbar.
+  final ExportConfig? exportConfig;
 
   /// Resolves row background color based on the data item.
   /// Return `null` for the default row color.
@@ -98,12 +98,11 @@ class VpitDataGrid<T> extends HookConsumerWidget {
     this.onItemUpdated,
     this.onItemDeleted,
     this.detailModalBuilder,
-    this.onListExportRequested,
-    this.onDetailExportRequested,
     this.rowBgColorResolver,
     this.onRowSelected,
     this.controller,
     this.initialSelectedId,
+    this.exportConfig,
   });
 
   @override
@@ -148,14 +147,14 @@ class VpitDataGrid<T> extends HookConsumerWidget {
     // Register controller globally so the MainMenuBar export menu can access it.
     // Deferred via Future to avoid modifying a provider during widget build.
     useEffect(() {
+      final notifier = ref.read(activeDataGridControllerProvider.notifier);
       Future(() {
-        if (context.mounted) {
-          ref.read(activeDataGridControllerProvider.notifier).register(ctrl);
-        }
+        notifier.register(ctrl);
       });
       return () {
+        // Defer unregister to avoid modifying provider during widget lifecycle
         Future(() {
-          ref.read(activeDataGridControllerProvider.notifier).unregister();
+          notifier.unregister();
         });
       };
     }, [ctrl]);
@@ -234,7 +233,8 @@ class VpitDataGrid<T> extends HookConsumerWidget {
           if (initialSelectedId != null) {
             // Use Future.delayed to ensure PlutoGrid has finished laying out the rows
             Future.delayed(const Duration(milliseconds: 50), () {
-              if (!context.mounted) return;
+              // Check if state manager is still valid before accessing
+              if (sm.rows.isEmpty) return;
               // Find the row with the matching ID
               for (final row in plutoRows) {
                 final item = rowItemMap.value[row.key];
@@ -292,6 +292,8 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
       PlutoRow? lastSelectedRow = sm.currentRow;
 
+      // Capture callback reference to avoid closure issues during unmount
+      final onRowSelectedCallback = onRowSelected;
       void listener() {
         final currentRow = sm.currentRow;
         if (currentRow != lastSelectedRow) {
@@ -305,13 +307,13 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                 if (localSelectedId.value != newId) {
                   localSelectedId.value = newId;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (context.mounted) onRowSelected!(item);
+                    onRowSelectedCallback?.call(item);
                   });
                 }
               } catch (_) {
                 // Fallback if no id exists
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (context.mounted) onRowSelected!(item);
+                  onRowSelectedCallback?.call(item);
                 });
               }
             }
@@ -337,6 +339,8 @@ class VpitDataGrid<T> extends HookConsumerWidget {
     }
 
     // ── Row color resolver ────────────────────────────────────────────────
+    // Capture theme color early to avoid context access during callback
+    final primaryContainerColor = Theme.of(context).colorScheme.primaryContainer;
     PlutoRowColorCallback rowColorCallback = (PlutoRowColorContext ctx) {
       final item = rowItemMap.value[ctx.row.key];
       if (item != null) {
@@ -345,7 +349,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
           if (localSelectedId.value != null &&
               (item as dynamic).id == localSelectedId.value) {
             // Material 3 selected row color
-            return Theme.of(context).colorScheme.primaryContainer;
+            return primaryContainerColor;
           }
         } catch (_) {}
 
@@ -392,7 +396,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                     debounceTimer.value = Timer(
                       const Duration(milliseconds: 300),
                       () {
-                        if (context.mounted) ctrl.searchText = val;
+                        ctrl.searchText = val;
                       },
                     );
                   },
@@ -455,11 +459,11 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                           final active = result.firstWhere((c) => c.enabled);
                           for (final col in sm.columns) {
                             if (col.field == active.field) {
-                              col.sort = active.ascending
-                                  ? PlutoColumnSort.ascending
-                                  : PlutoColumnSort.descending;
+                               col.sort = active.ascending
+                                   ? PlutoColumnSort.ascending
+                                   : PlutoColumnSort.descending;
                             } else {
-                              col.sort = PlutoColumnSort.none;
+                               col.sort = PlutoColumnSort.none;
                             }
                           }
                         }
@@ -470,13 +474,24 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                 ),
               ),
 
-              // Optional export button
-              if (onListExportRequested != null) ...[
+              // Export button
+              if (exportConfig != null) ...[
                 const Gap(8),
-                IconButton.outlined(
-                  tooltip: 'Daten exportieren',
-                  icon: const Icon(Icons.file_download_outlined),
-                  onPressed: () => onListExportRequested!(ctrl.getExportJson()),
+                ListExportMenuButton<T>(
+                  controller: ctrl,
+                  config: exportConfig!,
+                  // Sync hidden columns from PlutoGrid directly before export.
+                  // This is more reliable than listening to StateManager events
+                  // because PlutoGrid uses filtered notifications for hideColumn.
+                  onBeforeExport: () {
+                    final sm = stateManager.value;
+                    if (sm == null) return;
+                    final hidden = sm.columns
+                        .where((col) => col.hide)
+                        .map((col) => col.field)
+                        .toSet();
+                    ctrl.setHiddenFields(hidden);
+                  },
                 ),
               ],
             ],

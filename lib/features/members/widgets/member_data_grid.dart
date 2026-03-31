@@ -9,6 +9,7 @@ import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../models/member_row_data.dart';
 import '../widgets/member_edit_dialog.dart';
 import '../presentation/providers/members_list_provider.dart';
+import '../../export/domain/export_config.dart';
 
 class MemberDataGrid extends HookConsumerWidget {
   final void Function(MemberRowData? row)? onRowSelected;
@@ -109,6 +110,10 @@ class MemberDataGrid extends HookConsumerWidget {
               initialFocusField: fieldName,
             );
           },
+          exportConfig: const ExportConfig(
+            entityType: 'mitglied',
+            title: 'Mitglieder',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

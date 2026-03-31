@@ -9,6 +9,7 @@ import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../models/leistung_row_data.dart';
 import '../widgets/leistung_edit_dialog.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
+import '../../export/domain/export_config.dart';
 
 class LeistungDataGrid extends HookConsumerWidget {
   final void Function(LeistungRowData? row)? onRowSelected;
@@ -93,6 +94,10 @@ class LeistungDataGrid extends HookConsumerWidget {
               );
             }
           },
+          exportConfig: const ExportConfig(
+            entityType: 'leistung',
+            title: 'Leistungen',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

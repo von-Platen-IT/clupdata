@@ -9,6 +9,7 @@ import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../models/waren_row_data.dart';
 import '../widgets/waren_edit_dialog.dart';
 import '../presentation/providers/waren_list_provider.dart';
+import '../../export/domain/export_config.dart';
 
 /// Concrete DataGrid implementation for [WarenRowData] using [VpitDataGrid].
 ///
@@ -138,6 +139,10 @@ class WarenDataGrid extends HookConsumerWidget {
               initialFocusField: focusedColumnId,
             );
           },
+          exportConfig: const ExportConfig(
+            entityType: 'ware',
+            title: 'Waren',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

@@ -8,6 +8,7 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/waren_repository.dart';
 import '../presentation/providers/waren_list_provider.dart';
+import '../../export/domain/export_config.dart';
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 
@@ -287,6 +288,13 @@ class WarenEditDialog extends HookConsumerWidget {
       onSave: saveWare,
       contentWidth: 800,
       deleteEntityLabel: 'Ware',
+      exportConfig: wareId == null
+          ? null
+          : ExportConfig(
+              item: details,
+              entityType: 'ware',
+              title: 'Ware ${ctrlBezeichnung.text}',
+            ),
       onDelete: wareId == null
           ? null
           : () async {

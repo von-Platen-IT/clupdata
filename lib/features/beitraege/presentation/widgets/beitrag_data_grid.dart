@@ -10,6 +10,7 @@ import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
 import '../dialogs/beitrag_edit_dialog.dart';
 import 'status_badge.dart';
+import '../../../export/domain/export_config.dart';
 
 /// DataGrid for Beiträge (invoices). One row per Beitrag, colour-coded by status.
 class BeitragDataGrid extends HookConsumerWidget {
@@ -96,6 +97,10 @@ class BeitragDataGrid extends HookConsumerWidget {
               initialFocusField: fieldName,
             );
           },
+          exportConfig: const ExportConfig(
+            entityType: 'beitrag',
+            title: 'Beiträge',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

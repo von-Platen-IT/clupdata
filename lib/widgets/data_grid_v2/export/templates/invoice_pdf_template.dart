@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -336,8 +337,10 @@ class InvoicePdfTemplate implements PdfTemplate {
     return alignments;
   }
 
-  /// Loads the base font with Unicode support.
+  /// Loads Roboto Regular from the bundled local asset.
+  /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    return pw.Font.helvetica();
+    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    return pw.Font.ttf(fontData);
   }
 }

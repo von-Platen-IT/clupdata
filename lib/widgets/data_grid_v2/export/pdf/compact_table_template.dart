@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -269,24 +270,34 @@ class CompactTableTemplate implements PdfTemplate {
     return widths;
   }
 
-  /// Checks if a value appears to be numeric/currency.
+  /// Checks if a value is a formatted number or currency amount.
+  ///
+  /// Returns true only for values that contain a decimal separator (,)
+  /// or a currency/percent symbol. Pure digit strings like phone numbers
+  /// or IDs are treated as text and left-aligned.
   bool _isNumeric(String value) {
     if (value.isEmpty) return false;
-    // Remove common formatting characters
-    final cleanValue = value
-        .replaceAll('.', '')
-        .replaceAll(',', '.')
-        .replaceAll('€', '')
-        .replaceAll('%', '')
-        .trim();
-    return double.tryParse(cleanValue) != null;
+    // Must contain a currency symbol or decimal comma to be right-aligned.
+    // Plain digit sequences (phone numbers, IDs) return false.
+    final hasDecimalOrCurrency = RegExp(r'[,€$£%]').hasMatch(value);
+    if (!hasDecimalOrCurrency) return false;
+    // Strip formatting and verify it parses as a number.
+    final clean = value
+        .replaceAll(RegExp(r'[.€$£%\s]'), '')
+        .replaceAll(',', '.');
+    return double.tryParse(clean) != null;
   }
 
+  /// Loads Roboto Regular from the bundled local asset.
+  /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    return pw.Font.helvetica();
+    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    return pw.Font.ttf(fontData);
   }
 
+  /// Loads Roboto Bold from the bundled local asset.
   Future<pw.Font> _loadBoldFont() async {
-    return pw.Font.helveticaBold();
+    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Bold.ttf');
+    return pw.Font.ttf(fontData);
   }
 }

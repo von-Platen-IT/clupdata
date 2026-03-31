@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 
+import '../features/export/presentation/dialog_export_button.dart';
 import 'app_dialog_delete_action.dart';
+
+/// Configuration for export functionality in edit dialogs.
+import '../features/export/domain/export_config.dart';
 
 /// Returns `true` when the currently focused widget should consume the
 /// [LogicalKeyboardKey.enter] key itself (multi-line text fields, dropdown
@@ -13,15 +17,15 @@ bool _shouldSuppressEnter() {
   if (primaryFocus == null) return false;
   final context = primaryFocus.context;
   if (context == null) return false;
-  
+
   // Find the nearest EditableText ancestor
   final editableText = context.findAncestorWidgetOfExactType<EditableText>();
   if (editableText != null && editableText.maxLines != 1) return true;
-  
+
   // DropdownMenu uses _DropdownMenuBody
   final dropdownMenu = context.findAncestorWidgetOfExactType<DropdownMenu>();
   if (dropdownMenu != null) return true;
-  
+
   return false;
 }
 
@@ -37,8 +41,12 @@ class AppEditDialogScaffold extends StatelessWidget {
 
   /// If provided, a delete button is shown on the left side of the actions row.
   final Future<void> Function()? onDelete;
+
   /// The label for the entity to be deleted (e.g. 'Mitglied', 'Ware').
   final String? deleteEntityLabel;
+
+  /// Optional export configuration. If provided, an export button will be shown.
+  final ExportConfig? exportConfig;
 
   const AppEditDialogScaffold({
     super.key,
@@ -49,6 +57,7 @@ class AppEditDialogScaffold extends StatelessWidget {
     this.contentWidth = 800,
     this.onDelete,
     this.deleteEntityLabel,
+    this.exportConfig,
   });
 
   @override
@@ -70,18 +79,30 @@ class AppEditDialogScaffold extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title),
-              IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: 'Schließen',
-                onPressed: () => Navigator.of(context).pop(),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Export button (only when config is provided)
+                  if (exportConfig != null)
+                    DialogExportMenuButton(
+                      item: exportConfig!.item,
+                      entityType: exportConfig!.entityType,
+                      title: exportConfig!.title,
+                      subtitle: exportConfig!.subtitle,
+                    ),
+                  // Close button
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Schließen',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
             ],
           ),
           content: SizedBox(
             width: contentWidth,
-            child: SingleChildScrollView(
-              child: content,
-            ),
+            child: SingleChildScrollView(child: content),
           ),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
@@ -108,7 +129,10 @@ class AppEditDialogScaffold extends StatelessWidget {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.save),
                   label: const Text('Speichern'),

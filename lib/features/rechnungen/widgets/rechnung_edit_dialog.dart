@@ -12,6 +12,7 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../data/rechnungen_repository.dart';
 import '../utils/rechnung_status_colors.dart';
+import '../../export/domain/export_config.dart';
 
 /// Valid status values for a [Rechnung].
 const kRechnungStatusValues = ['offen', 'bezahlt', 'storniert'];
@@ -261,6 +262,11 @@ class RechnungEditDialog extends HookConsumerWidget {
       onSave: saveRechnung,
       onDelete: deleteRechnung,
       deleteEntityLabel: 'Rechnung',
+      exportConfig: ExportConfig(
+        item: data,
+        entityType: 'rechnung',
+        title: 'Rechnung ${ctrlRechnungsnummer.text}',
+      ),
       contentWidth: 700,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

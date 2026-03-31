@@ -50,6 +50,13 @@ class DataGridController<T> extends ChangeNotifier {
   List<T> _items = [];
   List<T> _filteredSortedItems = [];
 
+  /// Fields that are currently hidden in the UI grid.
+  ///
+  /// Updated by [VpitDataGrid] whenever the user hides/shows a column
+  /// via PlutoGrid's column context menu. Used by [toExportDataTable]
+  /// to skip invisible columns when [visibleOnly] is true.
+  Set<String> _hiddenFields = {};
+
   /// Creates a [DataGridController] with the given configuration.
   ///
   /// [columnConfigs] defines the columns and their value extractors.
@@ -93,6 +100,9 @@ class DataGridController<T> extends ChangeNotifier {
   /// The column configurations.
   List<DataGridColumnConfig<T>> get columnConfigs => _columnConfigs;
 
+  /// The set of field IDs that are currently hidden in the UI.
+  Set<String> get hiddenFields => Set.unmodifiable(_hiddenFields);
+
   // ── Setters (trigger recompute + notify) ───────────────────────────────
 
   /// Updates the full-text search query and recomputes the filtered view.
@@ -128,6 +138,14 @@ class DataGridController<T> extends ChangeNotifier {
   void updateColumnConfigs(List<DataGridColumnConfig<T>> configs) {
     _columnConfigs = List.from(configs);
     notifyListeners();
+  }
+
+  /// Updates the set of fields hidden in the PlutoGrid UI.
+  ///
+  /// Called by [VpitDataGrid] via the PlutoGrid column-hide callback.
+  /// Does not trigger [notifyListeners] to avoid unnecessary rebuilds.
+  void setHiddenFields(Set<String> hidden) {
+    _hiddenFields = Set.from(hidden);
   }
 
   // ── Recompute filtered + sorted items ──────────────────────────────────
@@ -303,10 +321,16 @@ class DataGridController<T> extends ChangeNotifier {
     bool visibleOnly = true,
   }) {
     final source = visibleOnly ? _filteredSortedItems : _items;
-    final headers = _columnConfigs.map((c) => c.title).toList();
+
+    // When visibleOnly, skip columns that the user has hidden in the UI.
+    final exportColumns = visibleOnly
+        ? _columnConfigs.where((c) => !_hiddenFields.contains(c.field)).toList()
+        : _columnConfigs;
+
+    final headers = exportColumns.map((c) => c.title).toList();
 
     final rows = source.map((item) {
-      return _columnConfigs.map((config) {
+      return exportColumns.map((config) {
         final rawValue = config.valueExtractor(item);
         if (config.formatter != null) {
           return config.formatter!(rawValue);
@@ -330,10 +354,16 @@ class DataGridController<T> extends ChangeNotifier {
   ExportDataTable toExportDataTableSingleItem(
     T item, {
     String title = '',
+    bool visibleOnly = false,
   }) {
     final headers = ['Feld', 'Wert'];
 
-    final rows = _columnConfigs.map((config) {
+    // For detail exports, optionally skip hidden columns.
+    final exportColumns = visibleOnly
+        ? _columnConfigs.where((c) => !_hiddenFields.contains(c.field)).toList()
+        : _columnConfigs;
+
+    final rows = exportColumns.map((config) {
       final rawValue = config.valueExtractor(item);
       final formattedValue = config.formatter != null
           ? config.formatter!(rawValue)

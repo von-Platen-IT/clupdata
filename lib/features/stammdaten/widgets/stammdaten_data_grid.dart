@@ -7,6 +7,7 @@ import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../../../core/database/database.dart';
 import '../presentation/providers/stammdaten_list_provider.dart';
+import '../../export/domain/export_config.dart';
 import 'stammdaten_edit_dialog.dart';
 
 class StammdatenDataGrid extends HookConsumerWidget {
@@ -72,6 +73,10 @@ class StammdatenDataGrid extends HookConsumerWidget {
              final schluessel = row.schluessel;
              StammdatenEditDialog.show(context, schluessel: schluessel);
           },
+          exportConfig: const ExportConfig(
+            entityType: 'stammdaten',
+            title: 'Stammdaten',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

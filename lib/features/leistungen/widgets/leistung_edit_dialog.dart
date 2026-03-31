@@ -8,6 +8,7 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/leistungen_repository.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
+import '../../export/domain/export_config.dart';
 
 class LeistungEditDialog extends HookConsumerWidget {
   final LeistungsDetail? details;
@@ -189,6 +190,13 @@ class LeistungEditDialog extends HookConsumerWidget {
       onSave: save,
       contentWidth: 600,
       deleteEntityLabel: 'Leistung',
+      exportConfig: details == null
+          ? null
+          : ExportConfig(
+              item: details,
+              entityType: 'leistung',
+              title: 'Leistung ${ctrlName.text}',
+            ),
       onDelete: details?.leistung.id == null
           ? null
           : () async {

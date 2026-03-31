@@ -1,6 +1,6 @@
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
@@ -116,7 +116,10 @@ class SimpleTableTemplate implements PdfTemplate {
                       children: [
                         pw.Text(dataTable.headers[colIndex], style: labelStyle),
                         pw.SizedBox(height: 2),
-                        pw.Text(row[colIndex], style: valueStyle),
+                        pw.Text(
+                          row[colIndex],
+                          style: valueStyle,
+                        ),
                       ],
                     ),
                   ),
@@ -161,14 +164,10 @@ class SimpleTableTemplate implements PdfTemplate {
     );
   }
 
-  /// Loads a font that supports German umlauts and Euro signs.
-  /// Uses Roboto from Google Fonts via the printing package.
+  /// Loads Roboto Regular from the bundled local asset.
+  /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    try {
-      return await PdfGoogleFonts.robotoRegular();
-    } catch (_) {
-      // Fallback if offline and font not cached
-      return pw.Font.helvetica();
-    }
+    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    return pw.Font.ttf(fontData);
   }
 }

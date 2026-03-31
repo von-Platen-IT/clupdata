@@ -9,6 +9,7 @@ import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../data/rechnungen_repository.dart';
 import '../utils/rechnung_status_colors.dart';
 import 'rechnung_edit_dialog.dart';
+import '../../export/domain/export_config.dart';
 
 /// DataGrid for Rechnungen (invoices). One row per Rechnung, colour-coded by status.
 class RechnungDataGrid extends HookConsumerWidget {
@@ -108,6 +109,10 @@ class RechnungDataGrid extends HookConsumerWidget {
               initialFocusField: fieldName,
             );
           },
+          exportConfig: const ExportConfig(
+            entityType: 'rechnung',
+            title: 'Rechnungen',
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

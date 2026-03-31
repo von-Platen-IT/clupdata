@@ -13,6 +13,7 @@ import '../../leistungen/presentation/providers/leistungen_list_provider.dart';
 import '../../leistungen/models/leistung_row_data.dart';
 import '../../leistungen/data/preise_repository.dart';
 import '../data/members_repository.dart';
+import '../../export/domain/export_config.dart';
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 
@@ -379,6 +380,13 @@ class MemberEditDialog extends HookConsumerWidget {
       onSave: saveMember,
       contentWidth: 800,
       deleteEntityLabel: 'Mitglied',
+      exportConfig: memberId == null
+          ? null
+          : ExportConfig(
+              item: memberSnapshot.data,
+              entityType: 'mitglied',
+              title: 'Mitglied ${ctrlName.text}',
+            ),
       onDelete: memberId == null
           ? null
           : () async {

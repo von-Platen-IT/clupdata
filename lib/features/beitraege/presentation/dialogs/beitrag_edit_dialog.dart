@@ -15,6 +15,7 @@ import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/status_history_list.dart';
+import '../../../export/domain/export_config.dart';
 
 /// Modal dialog for creating and editing a [Beitrag] record.
 class BeitragEditDialog extends HookConsumerWidget {
@@ -200,6 +201,13 @@ class BeitragEditDialog extends HookConsumerWidget {
       isSaving: isSaving.value,
       onSave: saveBeitrag,
       contentWidth: 700,
+      exportConfig: beitragId == null
+          ? null
+          : ExportConfig(
+              item: existing,
+              entityType: 'beitrag',
+              title: 'Beitrag ${ctrlRechnungsnummer.text}',
+            ),
       onDelete: beitragId == null
           ? null
           : () async {
