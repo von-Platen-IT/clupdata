@@ -51,12 +51,10 @@ class NeueRechnungDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateFormatter = DateFormat('dd.MM.yyyy');
     final currencyFormatter = NumberFormat.currency(
       locale: 'de_DE',
       symbol: '€',
     );
-    final db = ref.watch(appDatabaseProvider);
 
     final isSaving = useState(false);
     final rechnungsnummer = useState<String>('');

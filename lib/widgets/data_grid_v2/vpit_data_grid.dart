@@ -8,11 +8,13 @@ import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
 
 import '../../core/providers/active_data_grid_provider.dart';
+import '../../core/providers/export_context_provider.dart';
 import '../../features/export/domain/export_config.dart';
 import '../../features/export/presentation/list_export_menu_button.dart';
 import 'data_grid_column_config.dart';
 import 'data_grid_controller.dart';
 import 'data_grid_locale_de.dart';
+import 'export/export_data_table.dart';
 import 'filter_settings_dialog.dart';
 import 'sort_settings_dialog.dart';
 
@@ -159,11 +161,107 @@ class VpitDataGrid<T> extends HookConsumerWidget {
       };
     }, [ctrl]);
 
+    final stateManager = useState<PlutoGridStateManager?>(null);
+
+    // ── Export Cache Registration ─────────────────────────────────────────
+    // Register the generator function into the global exportCacheProvider
+    // so export buttons can pull an OOP data snapshot completely decoupled from UI
+    // ── Generator ─────────────────────────────────────────────────────────
+
+    ExportContextData? generateExportSnapshot() {
+      if (exportConfig == null) return null;
+      final sm = stateManager.value;
+      if (sm == null) return null;
+
+      final sourceItems = ctrl.filteredSortedItems;
+
+      // 1. Snapshot of Visible View (respecting user's column order and visibility)
+      final visibleConfigs = <DataGridColumnConfig<T>>[];
+      for (final plutoCol in sm.refColumns) {
+         final config = columnConfigs.where((c) => c.field == plutoCol.field).firstOrNull;
+         if (config != null) {
+           visibleConfigs.add(config);
+         }
+      }
+
+      final visibleHeaders = visibleConfigs.map((c) => c.title).toList();
+      final visibleRowData = sourceItems.map((item) {
+        return visibleConfigs.map((config) {
+          final rawValue = config.valueExtractor(item);
+          if (config.formatter != null) return config.formatter!(rawValue);
+          return rawValue?.toString() ?? '';
+        }).toList();
+      }).toList();
+
+      final visibleTable = ExportDataTable(
+        title: exportConfig!.title,
+        headers: visibleHeaders,
+        rows: visibleRowData,
+        exportedAt: DateTime.now(),
+      );
+
+      // 2. Snapshot of All Details (original column order)
+      final allHeaders = columnConfigs.map((c) => c.title).toList();
+      final allRowData = sourceItems.map((item) {
+        return columnConfigs.map((config) {
+          final rawValue = config.valueExtractor(item);
+          if (config.formatter != null) return config.formatter!(rawValue);
+          return rawValue?.toString() ?? '';
+        }).toList();
+      }).toList();
+
+      final allTable = ExportDataTable(
+        title: '${exportConfig!.title} - Alle Details',
+        headers: allHeaders,
+        rows: allRowData,
+        exportedAt: DateTime.now(),
+      );
+
+      final activeSortStrings = ctrl.sortConfigs
+          .where((s) => s.enabled)
+          .map((s) => '${columnConfigs.firstWhere((c) => c.field == s.field).title} (${s.ascending ? "aufsteigend" : "absteigend"})')
+          .toList();
+
+      return ExportContextData(
+        mode: ExportMode.list,
+        dataTable: visibleTable,
+        fullDataTable: allTable,
+        entityType: exportConfig!.entityType,
+        title: exportConfig!.title,
+        subtitle: exportConfig!.subtitle,
+        activeFilters: Map.from(ctrl.activeFilters),
+        activeSorts: activeSortStrings,
+      );
+    }
+
+    // A stable reference to always point to the latest generator closure.
+    final latestGenerator = useRef<ExportContextData? Function()?>(generateExportSnapshot);
+    latestGenerator.value = generateExportSnapshot;
+
+    // A single, stable proxy function that we register globally.
+    final proxyGenerator = useMemoized<ExportContextData? Function()>(
+      () => () => latestGenerator.value?.call(),
+    );
+
+    // Register our proxy to the global LIFO stack.
+    // Only happens once on mount, and removed once on unmount.
+    useEffect(() {
+      Future(() {
+        ref.read(exportCacheProvider.notifier).pushGenerator(proxyGenerator);
+      });
+
+      return () {
+        Future(() {
+          ref.read(exportCacheProvider.notifier).removeGenerator(proxyGenerator);
+        });
+      };
+    }, []);
+
     // Rebuild widget when controller state changes
     useListenable(ctrl);
 
     // ── PlutoGrid State Manager ───────────────────────────────────────────
-    final stateManager = useState<PlutoGridStateManager?>(null);
+    // Deklaration wurde nach oben verschoben (für Export-Cache-Generator)
 
     // ── Search UI State ───────────────────────────────────────────────────
     final searchController = useTextEditingController();
@@ -478,20 +576,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
               if (exportConfig != null) ...[
                 const Gap(8),
                 ListExportMenuButton<T>(
-                  controller: ctrl,
                   config: exportConfig!,
-                  // Sync hidden columns from PlutoGrid directly before export.
-                  // This is more reliable than listening to StateManager events
-                  // because PlutoGrid uses filtered notifications for hideColumn.
-                  onBeforeExport: () {
-                    final sm = stateManager.value;
-                    if (sm == null) return;
-                    final hidden = sm.columns
-                        .where((col) => col.hide)
-                        .map((col) => col.field)
-                        .toSet();
-                    ctrl.setHiddenFields(hidden);
-                  },
                 ),
               ],
             ],

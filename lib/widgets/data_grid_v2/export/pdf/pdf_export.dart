@@ -52,7 +52,6 @@ library;
 
 export 'pdf_export_context.dart';
 export 'pdf_exporter.dart';
-export 'pdf_export_menu_item.dart';
 export 'pdf_preview_dialog.dart';
 export 'pdf_template.dart';
 export 'pdf_template_registry.dart';

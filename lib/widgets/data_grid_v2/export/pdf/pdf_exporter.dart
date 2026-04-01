@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../../data_grid_controller.dart';
+import '../../../../core/providers/export_context_provider.dart';
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
 import 'pdf_template.dart';
@@ -41,25 +41,15 @@ class PdfExportData {
   String? get effectiveEntityType => detectedEntityType ?? entityType;
 }
 
-/// Exports DataGrid data to PDF using a configurable template.
+/// Exports cached DataGrid data to PDF using a configurable template.
 ///
-/// The exporter uses the controller's export methods to convert
-/// typed data into a generic [ExportDataTable], then applies a [PdfTemplate]
-/// to generate the final PDF document.
-///
-/// Supports both list exports (all filtered/sorted items) and detail
-/// exports (single item from a detail dialog).
-///
-/// Works with any [DataGridController] type, including [DataGridController<dynamic>]
-/// returned by the [activeDataGridControllerProvider].
+/// The exporter operates strictly on `ExportContextData` and `ExportDataTable`
+/// snapshots, remaining completely decoupled from UI components or PlutoGrid.
 ///
 /// Example usage:
 /// ```dart
 /// final exporter = PdfExporter(template: SimpleTableTemplate());
-/// final pdfBytes = await exporter.exportList(
-///   controller,
-///   title: 'Mitgliederliste',
-/// );
+/// final pdfBytes = await exporter.export(exportContextData);
 /// await File('export.pdf').writeAsBytes(pdfBytes);
 /// ```
 class PdfExporter {
@@ -71,152 +61,44 @@ class PdfExporter {
   PdfExporter({PdfTemplate? template})
     : _template = template ?? SimpleTableTemplate();
 
-  /// Prepares export data without generating the PDF.
+  /// Prepares PDF export data from a generic [ExportContextData] snapshot.
   ///
-  /// This allows template selection to happen in a preview dialog
-  /// before the actual PDF is generated.
-  ///
-  /// [controller] provides the data source.
-  /// [title] appears in the PDF header and context metadata.
-  /// [entityName] optionally identifies the entity type (e.g., "Mitglied").
-  /// [visibleOnly] if true, only filtered/sorted items are exported.
-  ///
-  /// Returns [PdfExportData] containing all data needed for PDF generation.
-  PdfExportData prepareListExport(
-    DataGridController<dynamic> controller, {
-    required String title,
-    String? entityName,
-    bool visibleOnly = true,
+  /// Maps the generic OOP export snapshot into PDF-specific metadata
+  /// so it can be previewed or rendered. If [useFullTable] is true and
+  /// the context has a full dataset, it uses [fullDataTable] instead of [dataTable].
+  PdfExportData prepareExport(
+    ExportContextData contextData, {
+    bool useFullTable = false,
   }) {
-    final dataTable = controller.toExportDataTable(
-      title: title,
-      visibleOnly: visibleOnly,
+    final table = (useFullTable && contextData.fullDataTable != null)
+        ? contextData.fullDataTable!
+        : contextData.dataTable;
+
+    final pdfContext = PdfExportContext(
+      title: contextData.title,
+      exportTimestamp: DateTime.now(),
+      activeFilters: contextData.activeFilters,
+      activeSorts: contextData.activeSorts,
+      isDetailView: contextData.isDetail,
+      entityName: contextData.entityType,
     );
 
     return PdfExportData(
-      dataTable: dataTable,
-      context: PdfExportContext(
-        title: title,
-        exportTimestamp: DateTime.now(),
-        activeFilters: controller.activeFilters,
-        activeSorts: controller.sortConfigs,
-        isDetailView: false,
-        entityName: entityName,
-      ),
-      isDetailView: false,
-      entityType: entityName,
-      detectedEntityType: _detectEntityType(entityName),
+      dataTable: table,
+      context: pdfContext,
+      isDetailView: contextData.isDetail,
+      entityType: contextData.entityType,
+      detectedEntityType: _detectEntityType(contextData.entityType),
     );
   }
 
-  /// Prepares detail export data for a single item.
-  ///
-  /// [controller] provides column configuration for formatting.
-  /// [item] is the single entity to export.
-  /// [title] appears in the PDF header.
-  /// [entityName] identifies the entity type for the context.
-  PdfExportData prepareDetailExport(
-    DataGridController<dynamic> controller,
-    dynamic item, {
-    required String title,
-    String? entityName,
-  }) {
-    final dataTable = controller.toExportDataTableSingleItem(
-      item,
-      title: title,
-    );
-
-    return PdfExportData(
-      dataTable: dataTable,
-      context: PdfExportContext(
-        title: title,
-        exportTimestamp: DateTime.now(),
-        isDetailView: true,
-        entityName: entityName,
-      ),
-      isDetailView: true,
-      entityType: entityName,
-      detectedEntityType: _detectEntityType(entityName),
-    );
-  }
-
-  /// Exports the currently filtered and sorted items as a PDF list.
-  ///
-  /// [controller] provides the data source. Can be any [DataGridController]
-  /// including [DataGridController<dynamic>].
-  /// [title] appears in the PDF header and context metadata.
-  /// [entityName] optionally identifies the entity type (e.g., "Mitglied").
-  ///
-  /// Returns the PDF as a byte array suitable for saving or printing.
-  Future<Uint8List> exportList(
-    DataGridController<dynamic> controller, {
-    required String title,
-    String? entityName,
+  /// Exports the given snapshot directly as a PDF.
+  Future<Uint8List> export(
+    ExportContextData contextData, {
+    bool useFullTable = false,
   }) async {
-    final exportData = prepareListExport(
-      controller,
-      title: title,
-      entityName: entityName,
-      visibleOnly: true,
-    );
-
-    final document = await _template.generate(
-      exportData.dataTable,
-      exportData.context,
-    );
-    return document.save();
-  }
-
-  /// Exports all items (ignoring filters) as a PDF list.
-  ///
-  /// Use this when you want to export the complete dataset regardless
-  /// of current filter/sort settings in the UI.
-  Future<Uint8List> exportAll(
-    DataGridController<dynamic> controller, {
-    required String title,
-    String? entityName,
-  }) async {
-    final exportData = prepareListExport(
-      controller,
-      title: title,
-      entityName: entityName,
-      visibleOnly: false,
-    );
-
-    final document = await _template.generate(
-      exportData.dataTable,
-      exportData.context,
-    );
-    return document.save();
-  }
-
-  /// Exports a single item as a PDF detail view.
-  ///
-  /// [controller] provides column configuration for formatting.
-  /// [item] is the single entity to export.
-  /// [title] appears in the PDF header.
-  /// [entityName] identifies the entity type for the context.
-  ///
-  /// This creates a single-row [ExportDataTable] with the item's data
-  /// formatted according to the controller's column configurations.
-  Future<Uint8List> exportDetail(
-    DataGridController<dynamic> controller,
-    dynamic item, {
-    required String title,
-    String? entityName,
-  }) async {
-    final exportData = prepareDetailExport(
-      controller,
-      item,
-      title: title,
-      entityName: entityName,
-    );
-
-    final document = await _template.generate(
-      exportData.dataTable,
-      exportData.context,
-    );
-    return document.save();
+    final exportData = prepareExport(contextData, useFullTable: useFullTable);
+    return generateFromData(exportData, _template);
   }
 
   /// Generates a PDF from prepared export data.

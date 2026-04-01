@@ -1,6 +1,5 @@
 import 'package:intl/intl.dart';
 
-import '../../sort_column_config.dart';
 
 /// Context object containing metadata for PDF export generation.
 ///
@@ -20,8 +19,8 @@ class PdfExportContext {
   /// Active column filters at the time of export (field → value).
   final Map<String, String>? activeFilters;
 
-  /// Active sort configurations at the time of export.
-  final List<SortColumnConfig>? activeSorts;
+  /// Active sort string representations (e.g. "Name (aufsteigend)").
+  final List<String>? activeSorts;
 
   /// Whether this is a detail view export (single item) or list export.
   final bool isDetailView;
@@ -65,17 +64,10 @@ class PdfExportContext {
 
   /// Returns a human-readable description of sort order.
   ///
-  /// Example: "Name ↑, Datum ↓"
   String? get sortDescription {
     if (activeSorts == null || activeSorts!.isEmpty) {
       return null;
     }
-    final enabledSorts = activeSorts!.where((s) => s.enabled).toList()
-      ..sort((a, b) => a.priority.compareTo(b.priority));
-    if (enabledSorts.isEmpty) return null;
-
-    return enabledSorts
-        .map((s) => '${s.label} ${s.ascending ? '↑' : '↓'}')
-        .join(', ');
+    return activeSorts!.join(', ');
   }
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/providers/export_context_provider.dart';
-import '../../../widgets/data_grid_v2/data_grid_controller.dart';
 import '../../../widgets/data_grid_v2/export/csv_exporter.dart';
+// PdfExportData is defined in pdf_exporter.dart (already imported below)
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
+import '../../../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 import '../domain/export_config.dart';
 import 'export_options_dialog.dart';
@@ -12,28 +14,19 @@ import 'export_options_dialog.dart';
 /// A button that provides export functionality for list views (DataGrid).
 ///
 /// Provides options to export to PDF, print, or CSV.
-class ListExportMenuButton<T> extends StatelessWidget {
-  /// The controller of the data grid to export.
-  final DataGridController<T> controller;
-
+/// Reads the data purely from the [exportCacheProvider] snapshot, completely
+/// decoupled from DataGridController or PlutoGrid.
+class ListExportMenuButton<T> extends ConsumerWidget {
   /// Configuration for the export (title, entity type).
   final ExportConfig config;
 
-  /// Optional callback invoked immediately before any export action begins.
-  ///
-  /// Use this to synchronize transient UI state (e.g., column visibility
-  /// from PlutoGrid's StateManager) into the controller before export.
-  final void Function()? onBeforeExport;
-
   const ListExportMenuButton({
     super.key,
-    required this.controller,
     required this.config,
-    this.onBeforeExport,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
       icon: Container(
         padding: const EdgeInsets.all(4),
@@ -91,79 +84,67 @@ class ListExportMenuButton<T> extends StatelessWidget {
           ),
         ),
       ],
-      onSelected: (value) => _handleSelection(context, value),
+      onSelected: (value) => _handleSelection(context, ref, value),
     );
   }
 
-  Future<void> _handleSelection(BuildContext context, String value) async {
-    // Sync transient UI state (hidden columns, etc.) before export.
-    onBeforeExport?.call();
+  Future<void> _handleSelection(BuildContext context, WidgetRef ref, String value) async {
+    final snapshotGenerator = ref.read(exportCacheProvider);
 
-    final exportContext = ExportContextData(
-      mode: ExportMode.list,
-      controller: controller,
-      entityType: config.entityType,
-      title: config.title,
-      subtitle: config.subtitle,
-    );
+    if (snapshotGenerator == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fehler: Export-Generator nicht gefunden.')),
+        );
+      }
+      return;
+    }
+
+    final exportContext = snapshotGenerator();
+
+    if (exportContext == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Die Tabelle ist noch nicht bereit für den Export.')),
+        );
+      }
+      return;
+    }
 
     switch (value) {
       case 'pdf':
-        await showDialog(
+        final exportData = await showDialog<PdfExportData>(
           context: context,
           builder: (_) => ExportOptionsDialog(contextData: exportContext),
         );
+        if (exportData != null && context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (_) => PdfPreviewDialog(exportData: exportData),
+          );
+        }
         break;
       case 'print':
-        await _handlePrint(context);
+        await _handlePrint(context, exportContext);
         break;
       case 'csv':
-        _handleCsv(context);
+        _handleCsv(context, exportContext);
         break;
     }
   }
 
-  Future<void> _handlePrint(BuildContext context) async {
-    // Show loading dialog and capture its context
-    BuildContext? dialogContext;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogContext = ctx;
-        return const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text('Druckdaten werden aufbereitet...'),
-            ],
-          ),
-        );
-      },
-    );
-
+  Future<void> _handlePrint(BuildContext context, ExportContextData exportContext) async {
     try {
       final exporter = PdfExporter(template: PdfTemplateRegistry.simple);
-      final pdfBytes = await exporter.exportList(
-        controller,
-        title: config.title,
-      );
-
-      // Close loading dialog using its own context
-      if (dialogContext != null && dialogContext!.mounted) {
-        Navigator.of(dialogContext!).pop();
-      }
+      
+      // Für schnellen Druck verwenden wir direkt die sichtbare Tabelle.
+      final pdfBytes = await exporter.export(exportContext, useFullTable: false);
 
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
-        name: '${config.title} Export',
+        name: '${exportContext.title} Export',
       );
     } catch (e) {
-      // Ensure dialog is closed and show error
-      if (dialogContext != null && dialogContext!.mounted) {
-        Navigator.of(dialogContext!).pop();
-      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Drucken: $e')),
@@ -172,11 +153,11 @@ class ListExportMenuButton<T> extends StatelessWidget {
     }
   }
 
-  Future<void> _handleCsv(BuildContext context) async {
+  Future<void> _handleCsv(BuildContext context, ExportContextData exportContext) async {
     try {
-      final table = controller.toExportDataTable(title: config.title);
       final exporter = CsvExporter();
-      final file = await exporter.export(table);
+      // CSV exportiert die aktuell sichtbare Tabelle
+      final file = await exporter.export(exportContext.dataTable);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

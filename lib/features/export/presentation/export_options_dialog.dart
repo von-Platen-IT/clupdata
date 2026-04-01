@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/providers/export_context_provider.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
-import '../../../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
+
 
 /// Dialog for selecting export options before creating a PDF.
 ///
@@ -179,120 +179,28 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
   }
 
   /// Handles the export based on selected option.
-  Future<void> _handleExport() async {
-    Navigator.of(context).pop();
-
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Text('PDF wird vorbereitet...'),
-          ],
-        ),
-      ),
-    );
-
+  void _handleExport() {
     try {
       final exporter = PdfExporter();
       PdfExportData exportData;
 
       switch (_selectedOption) {
         case ExportOption.currentView:
-          exportData = await _prepareCurrentViewExport(exporter);
+          exportData = exporter.prepareExport(widget.contextData, useFullTable: false);
           break;
         case ExportOption.allDetails:
-          exportData = await _prepareAllDetailsExport(exporter);
-          break;
         case ExportOption.fullExport:
-          exportData = await _prepareFullExport(exporter);
+          exportData = exporter.prepareExport(widget.contextData, useFullTable: true);
           break;
       }
 
-      // Hide loading
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // Show preview dialog
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (_) => PdfPreviewDialog(exportData: exportData),
-        );
-      }
+      Navigator.of(context).pop(exportData);
     } catch (e) {
-      // Hide loading
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
-      // Show error
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Fehler beim Export: $e')));
-      }
-    }
-  }
-
-  /// Prepares export for current view (visible columns only).
-  Future<PdfExportData> _prepareCurrentViewExport(PdfExporter exporter) async {
-    final ctx = widget.contextData;
-
-    if (ctx.isList && ctx.controller != null) {
-      // List export with visible columns
-      return exporter.prepareListExport(
-        ctx.controller!,
-        title: ctx.title,
-        entityName: ctx.entityType,
-        visibleOnly: true,
-      );
-    } else {
-      // Detail export with current view
-      return exporter.prepareDetailExport(
-        ctx.controller!,
-        ctx.item,
-        title: ctx.title,
-        entityName: ctx.entityType,
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Export: $e')),
       );
     }
-  }
-
-  /// Prepares export with all available fields.
-  Future<PdfExportData> _prepareAllDetailsExport(PdfExporter exporter) async {
-    final ctx = widget.contextData;
-
-    if (ctx.isList && ctx.controller != null) {
-      // List export with all columns
-      return exporter.prepareListExport(
-        ctx.controller!,
-        title: '${ctx.title} - Alle Details',
-        entityName: ctx.entityType,
-        visibleOnly: false,
-      );
-    } else {
-      // Detail export with all fields
-      return exporter.prepareDetailExport(
-        ctx.controller!,
-        ctx.item,
-        title: '${ctx.title} - Alle Details',
-        entityName: ctx.entityType,
-      );
-    }
-  }
-
-  /// Prepares full export including relations.
-  Future<PdfExportData> _prepareFullExport(PdfExporter exporter) async {
-    final ctx = widget.contextData;
-
-    // For now, same as all details
-    // TODO: Implement full export with relations
-    return _prepareAllDetailsExport(exporter);
   }
 }
 

@@ -60,7 +60,7 @@ class PdfTemplateSelector extends StatelessWidget {
     }
 
     return DropdownButtonFormField<PdfTemplate>(
-      value: effectiveSelection,
+      initialValue: effectiveSelection,
       isExpanded: true,
       isDense: true,
       decoration: InputDecoration(
@@ -108,10 +108,10 @@ class PdfTemplateSelector extends StatelessWidget {
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: _getCategoryColor(category).withOpacity(0.1),
+        color: _getCategoryColor(category).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: _getCategoryColor(category).withOpacity(0.3),
+          color: _getCategoryColor(category).withValues(alpha: 0.3),
           width: 1,
         ),
       ),

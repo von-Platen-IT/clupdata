@@ -13,7 +13,6 @@ import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
 import '../../domain/models/beitrag_status.dart';
 import '../../providers/beitraege_repository.dart';
-import '../widgets/status_badge.dart';
 import '../widgets/status_history_list.dart';
 import '../../../export/domain/export_config.dart';
 

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:printing/printing.dart';
 
-import 'export_options_dialog.dart';
 import '../../../core/providers/export_context_provider.dart';
 import '../../../core/providers/active_data_grid_provider.dart';
+import '../../../widgets/data_grid_v2/export/export_data_table.dart';
+// PdfExportData is defined in pdf_exporter.dart (already imported below)
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
+import '../../../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
+import 'export_options_dialog.dart';
 
 /// A button that provides export functionality for detail dialogs.
 ///
@@ -67,10 +70,33 @@ class DialogExportButton extends ConsumerWidget {
 
   Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
     final controller = ref.read(activeDataGridControllerProvider);
+    if (controller == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fehler: Kein aktiver DataGrid-Controller gefunden.')),
+        );
+      }
+      return;
+    }
+
+    final rows = controller.columnConfigs.map((config) {
+      final rawValue = config.valueExtractor(item);
+      final formattedValue = config.formatter != null
+          ? config.formatter!(rawValue)
+          : rawValue?.toString() ?? '';
+      return [config.title, formattedValue];
+    }).toList();
+
+    final dataTable = ExportDataTable(
+      title: title,
+      headers: ['Feld', 'Wert'],
+      rows: rows,
+      exportedAt: DateTime.now(),
+    );
+
     final exportContext = ExportContextData(
       mode: ExportMode.detail,
-      item: item,
-      controller: controller,
+      dataTable: dataTable,
       entityType: entityType,
       title: title,
       subtitle: subtitle,
@@ -152,10 +178,33 @@ class DialogExportMenuButton extends ConsumerWidget {
 
   Future<void> _handleSelection(BuildContext context, WidgetRef ref, String value) async {
     final controller = ref.read(activeDataGridControllerProvider);
+    if (controller == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fehler: Kein aktiver DataGrid-Controller gefunden.')),
+        );
+      }
+      return;
+    }
+
+    final List<List<String>> rows = controller.columnConfigs.map<List<String>>((config) {
+      final rawValue = config.valueExtractor(item);
+      final formattedValue = config.formatter != null
+          ? config.formatter!(rawValue).toString()
+          : rawValue?.toString() ?? '';
+      return <String>[config.title, formattedValue];
+    }).toList();
+
+    final dataTable = ExportDataTable(
+      title: title,
+      headers: ['Feld', 'Wert'],
+      rows: rows,
+      exportedAt: DateTime.now(),
+    );
+
     final exportContext = ExportContextData(
       mode: ExportMode.detail,
-      item: item,
-      controller: controller,
+      dataTable: dataTable,
       entityType: entityType,
       title: title,
       subtitle: subtitle,
@@ -163,53 +212,33 @@ class DialogExportMenuButton extends ConsumerWidget {
 
     switch (value) {
       case 'pdf':
-        await showDialog(
+        final exportData = await showDialog<PdfExportData>(
           context: context,
           builder: (_) => ExportOptionsDialog(contextData: exportContext),
         );
+        if (exportData != null && context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (_) => PdfPreviewDialog(exportData: exportData),
+          );
+        }
         break;
       case 'print':
-        _handlePrint(context, exportContext);
+        await _handlePrint(context, exportContext);
         break;
     }
   }
 
   Future<void> _handlePrint(BuildContext context, ExportContextData exportContext) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Text('Druckdaten werden aufbereitet...'),
-          ],
-        ),
-      ),
-    );
-
     try {
-      // Find template via _detectEntityType equivalent or fallback to simple if needed.
-      // Often in detail views we just dump current visible items.
-      final exporter = PdfExporter();
-      // Direct Print is mapped to essentially doing the export silently and printing
-      /*
+      final exporter = PdfExporter(template: PdfTemplateRegistry.simple);
+      final pdfBytes = await exporter.export(exportContext, useFullTable: false);
+
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
         name: '${exportContext.title} Export',
       );
-      */
-      
-      // Für jetzt: Öffne einfach den Preview Dialog, in dem der User direkt drucken kann
-      await showDialog(
-        context: context,
-        builder: (_) => ExportOptionsDialog(contextData: exportContext),
-      );
     } catch (e) {
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Drucken: $e')),

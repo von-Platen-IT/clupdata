@@ -50,13 +50,6 @@ class DataGridController<T> extends ChangeNotifier {
   List<T> _items = [];
   List<T> _filteredSortedItems = [];
 
-  /// Fields that are currently hidden in the UI grid.
-  ///
-  /// Updated by [VpitDataGrid] whenever the user hides/shows a column
-  /// via PlutoGrid's column context menu. Used by [toExportDataTable]
-  /// to skip invisible columns when [visibleOnly] is true.
-  Set<String> _hiddenFields = {};
-
   /// Creates a [DataGridController] with the given configuration.
   ///
   /// [columnConfigs] defines the columns and their value extractors.
@@ -100,9 +93,6 @@ class DataGridController<T> extends ChangeNotifier {
   /// The column configurations.
   List<DataGridColumnConfig<T>> get columnConfigs => _columnConfigs;
 
-  /// The set of field IDs that are currently hidden in the UI.
-  Set<String> get hiddenFields => Set.unmodifiable(_hiddenFields);
-
   // ── Setters (trigger recompute + notify) ───────────────────────────────
 
   /// Updates the full-text search query and recomputes the filtered view.
@@ -138,14 +128,6 @@ class DataGridController<T> extends ChangeNotifier {
   void updateColumnConfigs(List<DataGridColumnConfig<T>> configs) {
     _columnConfigs = List.from(configs);
     notifyListeners();
-  }
-
-  /// Updates the set of fields hidden in the PlutoGrid UI.
-  ///
-  /// Called by [VpitDataGrid] via the PlutoGrid column-hide callback.
-  /// Does not trigger [notifyListeners] to avoid unnecessary rebuilds.
-  void setHiddenFields(Set<String> hidden) {
-    _hiddenFields = Set.from(hidden);
   }
 
   // ── Recompute filtered + sorted items ──────────────────────────────────
@@ -303,81 +285,6 @@ class DataGridController<T> extends ChangeNotifier {
     }
     final json = await file.readAsString();
     applyStateFromJson(json);
-  }
-
-  // ── Export API ─────────────────────────────────────────────────────────
-
-  /// Converts the controller's data into a type-safe [ExportDataTable].
-  ///
-  /// When [visibleOnly] is true (default), only the currently filtered and
-  /// sorted items are exported. Set to false to export all raw items.
-  ///
-  /// This method lives on the controller (not an external adapter) because
-  /// it needs access to the correctly typed [DataGridColumnConfig<T>]
-  /// value extractors. Calling from a `DataGridController<dynamic>` context
-  /// would cause a runtime type mismatch.
-  ExportDataTable toExportDataTable({
-    String title = '',
-    bool visibleOnly = true,
-  }) {
-    final source = visibleOnly ? _filteredSortedItems : _items;
-
-    // When visibleOnly, skip columns that the user has hidden in the UI.
-    final exportColumns = visibleOnly
-        ? _columnConfigs.where((c) => !_hiddenFields.contains(c.field)).toList()
-        : _columnConfigs;
-
-    final headers = exportColumns.map((c) => c.title).toList();
-
-    final rows = source.map((item) {
-      return exportColumns.map((config) {
-        final rawValue = config.valueExtractor(item);
-        if (config.formatter != null) {
-          return config.formatter!(rawValue);
-        }
-        return rawValue?.toString() ?? '';
-      }).toList();
-    }).toList();
-
-    return ExportDataTable(
-      title: title,
-      headers: headers,
-      rows: rows,
-      exportedAt: DateTime.now(),
-    );
-  }
-
-  /// Creates a detail-style [ExportDataTable] for a single [item].
-  ///
-  /// Creates a label-value pair table where each row represents
-  /// one column from the original grid configuration.
-  ExportDataTable toExportDataTableSingleItem(
-    T item, {
-    String title = '',
-    bool visibleOnly = false,
-  }) {
-    final headers = ['Feld', 'Wert'];
-
-    // For detail exports, optionally skip hidden columns.
-    final exportColumns = visibleOnly
-        ? _columnConfigs.where((c) => !_hiddenFields.contains(c.field)).toList()
-        : _columnConfigs;
-
-    final rows = exportColumns.map((config) {
-      final rawValue = config.valueExtractor(item);
-      final formattedValue = config.formatter != null
-          ? config.formatter!(rawValue)
-          : rawValue?.toString() ?? '';
-
-      return [config.title, formattedValue];
-    }).toList();
-
-    return ExportDataTable(
-      title: title,
-      headers: headers,
-      rows: rows,
-      exportedAt: DateTime.now(),
-    );
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
