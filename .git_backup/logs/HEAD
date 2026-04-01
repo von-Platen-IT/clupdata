@@ -1,0 +1,49 @@
+0000000000000000000000000000000000000000 ea5fe8ab97a5a8b134ddc497c3a89e0afbb9ac94 BVPlaten <bernd.von.platen@gmail.com> 1771928759 +0100	commit (initial): first commit
+ea5fe8ab97a5a8b134ddc497c3a89e0afbb9ac94 0000000000000000000000000000000000000000 BVPlaten <bernd.von.platen@gmail.com> 1771928776 +0100	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 ea5fe8ab97a5a8b134ddc497c3a89e0afbb9ac94 BVPlaten <bernd.von.platen@gmail.com> 1771928776 +0100	Branch: renamed refs/heads/master to refs/heads/main
+ea5fe8ab97a5a8b134ddc497c3a89e0afbb9ac94 a39d8811fcd040ee535dbe27e246129970c20d60 BVPlaten <bernd.von.platen@gmail.com> 1771933143 +0100	commit: Kursplan bearbeitet
+a39d8811fcd040ee535dbe27e246129970c20d60 a39d8811fcd040ee535dbe27e246129970c20d60 BVPlaten <bernd.von.platen@gmail.com> 1771939320 +0100	reset: moving to HEAD
+a39d8811fcd040ee535dbe27e246129970c20d60 a39d8811fcd040ee535dbe27e246129970c20d60 BVPlaten <bernd.von.platen@gmail.com> 1771939430 +0100	reset: moving to HEAD
+a39d8811fcd040ee535dbe27e246129970c20d60 aa1c5c8ff1be9f9eb6e94dfc992f349734cba44d BVPlaten <bernd.von.platen@gmail.com> 1771942002 +0100	commit: Stammdaten hinzugefuegt
+aa1c5c8ff1be9f9eb6e94dfc992f349734cba44d e1a0083b0f4ac8362c319ef27aa5953c78d04477 BVPlaten <bernd.von.platen@gmail.com> 1772112304 +0100	commit: Erste Version Tabellenansicht realisiert
+e1a0083b0f4ac8362c319ef27aa5953c78d04477 50e03efe42784b3f4386c99889a304428f5a362b BVPlaten <bernd.von.platen@gmail.com> 1772117516 +0100	commit: TableView added.
+50e03efe42784b3f4386c99889a304428f5a362b 441c9812db49687b82dd6fbd39f7db4b0a22dd02 BVPlaten <bernd.von.platen@gmail.com> 1772135779 +0100	commit: Mitglieder Tabelle hinzugefügt
+441c9812db49687b82dd6fbd39f7db4b0a22dd02 18dece0af8d1e743cc6825b1e7838ce52d55003d BVPlaten <bernd.von.platen@gmail.com> 1772282610 +0100	commit: Mitglieder angepasst
+18dece0af8d1e743cc6825b1e7838ce52d55003d ea4eb10f5bd31636e6d2867c7af59149c0ddbe25 BVPlaten <bernd.von.platen@gmail.com> 1772285071 +0100	commit: Waren hinzugeügt
+ea4eb10f5bd31636e6d2867c7af59149c0ddbe25 366be005b797e6b67fc5ba396f12eb7b43fb125f BVPlaten <bernd.von.platen@gmail.com> 1772535160 +0100	commit: Added Data-Edit/Create Optimizations
+366be005b797e6b67fc5ba396f12eb7b43fb125f e6843793a3e55a8eed803780b8bb245e1b97c4ce BVPlaten <bernd.von.platen@gmail.com> 1772562784 +0100	commit: big bugfixes
+e6843793a3e55a8eed803780b8bb245e1b97c4ce ee2c625cddd7d82ebd2d7c87274d454ca56fb2c6 BVPlaten <bernd.von.platen@gmail.com> 1772564327 +0100	commit: Claude opus corrections !
+ee2c625cddd7d82ebd2d7c87274d454ca56fb2c6 53f501c2feea402fa40cc3ff351ab5af66caf99c BVPlaten <bernd.von.platen@gmail.com> 1772739262 +0100	commit: navigation in the gridview added
+53f501c2feea402fa40cc3ff351ab5af66caf99c eba79897ae23ff40c0c1783e38901f4965996d24 BVPlaten <bernd.von.platen@gmail.com> 1772751472 +0100	commit: listenübersicht überarbeitet
+eba79897ae23ff40c0c1783e38901f4965996d24 bcfde5ce8fe7b1a1add25cb2333687e0d9e601e0 BVPlaten <bernd.von.platen@gmail.com> 1772798930 +0100	commit: Peformance boost!
+bcfde5ce8fe7b1a1add25cb2333687e0d9e601e0 21b0d8e1829785fa19764b7db25cbc77f62c5c05 BVPlaten <bernd.von.platen@gmail.com> 1772808177 +0100	commit: Funktion Beitrag vorbereitet
+21b0d8e1829785fa19764b7db25cbc77f62c5c05 b839680721b364239353270ffdadfe8a1ffd86fe BVPlaten <bernd.von.platen@gmail.com> 1772825200 +0100	commit: Startseite geaendert
+b839680721b364239353270ffdadfe8a1ffd86fe 7df313d4c8932f7d08c12fd1533e39f8cb240e0b BVPlaten <bernd.von.platen@gmail.com> 1773224525 +0100	commit: stammdaten erweitert
+7df313d4c8932f7d08c12fd1533e39f8cb240e0b a1fa2c8724d5affeb001b86c2e985ea06729b901 BVPlaten <bernd.von.platen@gmail.com> 1773308869 +0100	commit: beitraege hinzugefügt ohne extras
+a1fa2c8724d5affeb001b86c2e985ea06729b901 71e55f859205166c1b03497b62e6a9a70d478cb8 BVPlaten <bernd.von.platen@gmail.com> 1773314734 +0100	commit: korrekturen am dropdown eingebaut
+71e55f859205166c1b03497b62e6a9a70d478cb8 330bfe31ec597d246862c261ae9d81d2ca68892e BVPlaten <bernd.von.platen@gmail.com> 1773317067 +0100	commit: Struktur der beiträger optimiert.
+330bfe31ec597d246862c261ae9d81d2ca68892e 042a69d6c34a0f4a5a4c200895fcdf0763265736 BVPlaten <bernd.von.platen@gmail.com> 1773402518 +0100	commit: Rechnungen hinzugefügt.
+042a69d6c34a0f4a5a4c200895fcdf0763265736 774de2e9a81568772776b3788a78a0dab0e992b8 BVPlaten <bernd.von.platen@gmail.com> 1773491223 +0100	commit: scrollbar changed
+774de2e9a81568772776b3788a78a0dab0e992b8 359d0823b35e4be5f24bb2acba81d63bbc718a54 BVPlaten <bernd.von.platen@gmail.com> 1773516517 +0100	commit: druckfunktion ist vorbereitet
+359d0823b35e4be5f24bb2acba81d63bbc718a54 774de2e9a81568772776b3788a78a0dab0e992b8 BVPlaten <bernd.von.platen@gmail.com> 1773520199 +0100	reset: moving to 774de2e
+774de2e9a81568772776b3788a78a0dab0e992b8 42ab931b644f3397bc45ef84c2a94a52b6c40947 BVPlaten <bernd.von.platen@gmail.com> 1773648630 +0100	commit: Flutter version upgrade
+42ab931b644f3397bc45ef84c2a94a52b6c40947 cfee83f211b0aa0c25afddefe2aee57fec59abd9 BVPlaten <bernd.von.platen@gmail.com> 1773648895 +0100	pull: Merge made by the 'ort' strategy.
+cfee83f211b0aa0c25afddefe2aee57fec59abd9 330acdf6b093e84ed7f9bc4087e6d24073f50d04 BVPlaten <bernd.von.platen@gmail.com> 1773650555 +0100	commit: Add pdf and printing package
+330acdf6b093e84ed7f9bc4087e6d24073f50d04 bfc4b6451ab28d5611353aa3495a72b95e49c797 BVPlaten <bernd.von.platen@gmail.com> 1773650609 +0100	pull: Merge made by the 'ort' strategy.
+bfc4b6451ab28d5611353aa3495a72b95e49c797 f1217dbc08574b785585feb1f490f512d12a20e7 BVPlaten <bernd.von.platen@gmail.com> 1773651232 +0100	commit: Fix pdf import alias
+f1217dbc08574b785585feb1f490f512d12a20e7 56792c7a2e15294afa5fc08c40abb07556862531 BVPlaten <bernd.von.platen@gmail.com> 1773652319 +0100	commit: optimizations for the github workflow
+56792c7a2e15294afa5fc08c40abb07556862531 082f1e37b5ec13ca0a89a2d7ae80c7ed429ea377 BVPlaten <bernd.von.platen@gmail.com> 1773653628 +0100	commit: remove sinple print server for future implementation
+082f1e37b5ec13ca0a89a2d7ae80c7ed429ea377 48c8a432d6a188f1c5ceba898633217f7cdacedd BVPlaten <bernd.von.platen@gmail.com> 1773657029 +0100	commit: ignore warnings in the build pipeline
+48c8a432d6a188f1c5ceba898633217f7cdacedd 74d4403d13540c9232a9905a7cd895eb1b9231f9 BVPlaten <bernd.von.platen@gmail.com> 1773658461 +0100	commit: changed to build without test
+74d4403d13540c9232a9905a7cd895eb1b9231f9 fb3fcf23ebd382e2a19b12f1814658f618ce7347 BVPlaten <bernd.von.platen@gmail.com> 1773659151 +0100	commit: changed to build without executable path
+fb3fcf23ebd382e2a19b12f1814658f618ce7347 dd7ac1e2fc135ceb3e6088012ff09aa1fb785b22 BVPlaten <bernd.von.platen@gmail.com> 1774219964 +0100	commit: migration to new datagrid
+dd7ac1e2fc135ceb3e6088012ff09aa1fb785b22 875cfe994c8be22e5a45d0456a15898f43dcc448 BVPlaten <bernd.von.platen@gmail.com> 1774260255 +0100	commit: refactoring of the gridview finished
+875cfe994c8be22e5a45d0456a15898f43dcc448 bbbfe3b15607fb892b9b78f4bded9355482eeb13 BVPlaten <bernd.von.platen@gmail.com> 1774345420 +0100	commit: VpitDataGrid realisiert
+bbbfe3b15607fb892b9b78f4bded9355482eeb13 558873477a686b4b76580a4d78e85e131639dd88 BVPlaten <bernd.von.platen@gmail.com> 1774348247 +0100	commit: CSV export added
+558873477a686b4b76580a4d78e85e131639dd88 ce55f189878d65ff5064b23af76a0007807b4eec BVPlaten <bernd.von.platen@gmail.com> 1774531771 +0100	commit: before the fix attempt with gemini
+ce55f189878d65ff5064b23af76a0007807b4eec 060f4e73b25a14dcf817da81da32c074f65bf77b BVPlaten <bernd.von.platen@gmail.com> 1774533679 +0100	commit: PDF Export is fixed now
+060f4e73b25a14dcf817da81da32c074f65bf77b db9bdd3ab1ecdf27fc601cd86aaf06b96cea10fb BVPlaten <bernd.von.platen@gmail.com> 1774534933 +0100	commit: added printing
+db9bdd3ab1ecdf27fc601cd86aaf06b96cea10fb 3607c0447d92efeb449f990a146682bef02315d6 BVPlaten <bernd.von.platen@gmail.com> 1774550148 +0100	commit: pdf-documentation
+3607c0447d92efeb449f990a146682bef02315d6 cfe407850b448bc935c3fdc07a31595b5d822021 BVPlaten <bernd.von.platen@gmail.com> 1774553245 +0100	commit: pdf export mit verschiedenen templates
+cfe407850b448bc935c3fdc07a31595b5d822021 849e325bbcac6ea43fc9176af1a00acb96152e4e BVPlaten <bernd.von.platen@gmail.com> 1774955362 +0200	commit: Arbeiten am Export als PDF und Druck-Funktion
+849e325bbcac6ea43fc9176af1a00acb96152e4e 533a32e8850cbe68634412c5dc50736d01a6be99 BVPlaten <bernd.von.platen@gmail.com> 1775040163 +0200	commit: pdf and print fixed

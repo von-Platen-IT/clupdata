@@ -80,7 +80,7 @@ class DialogExportButton extends ConsumerWidget {
     }
 
     final rows = controller.columnConfigs.map((config) {
-      final rawValue = config.valueExtractor(item);
+      final rawValue = (config as dynamic).valueExtractor(item);
       final formattedValue = config.formatter != null
           ? config.formatter!(rawValue)
           : rawValue?.toString() ?? '';
@@ -188,7 +188,7 @@ class DialogExportMenuButton extends ConsumerWidget {
     }
 
     final List<List<String>> rows = controller.columnConfigs.map<List<String>>((config) {
-      final rawValue = config.valueExtractor(item);
+      final rawValue = (config as dynamic).valueExtractor(item);
       final formattedValue = config.formatter != null
           ? config.formatter!(rawValue).toString()
           : rawValue?.toString() ?? '';
