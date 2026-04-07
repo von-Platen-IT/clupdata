@@ -9,6 +9,8 @@ import 'package:gap/gap.dart';
 
 import '../../core/providers/active_data_grid_provider.dart';
 import '../../core/providers/export_context_provider.dart';
+import '../../core/providers/data_grid_meta_state_provider.dart';
+import '../../core/models/data_grid_meta_state.dart' as meta;
 import '../../features/export/domain/export_config.dart';
 import '../../features/export/presentation/list_export_menu_button.dart';
 import 'data_grid_column_config.dart';
@@ -256,6 +258,38 @@ class VpitDataGrid<T> extends HookConsumerWidget {
         });
       };
     }, []);
+
+    // ── Meta State Sync ─────────────────────────────────────────────────────
+    // Sync controller state (filters, sorts, visible columns) to global provider
+    // so headless export can access current UI state without rendering the grid.
+    useEffect(() {
+      if (exportConfig == null) return null;
+
+      final notifier = ref.read(dataGridMetaStateProvider.notifier);
+
+      // Sync meta state after the frame is built to avoid modifying providers during build
+      void syncMetaState() {
+        final visibleFields = stateManager.value?.refColumns.map((c) => c.field).toList() ?? [];
+        notifier.updateMetaState(
+          exportConfig!.entityType,
+          meta.DataGridMetaState(
+            entityType: exportConfig!.entityType,
+            activeFilters: ctrl.activeFilters,
+            activeSorts: ctrl.sortConfigs,
+            visibleColumns: visibleFields,
+            allColumns: columnConfigs,
+            searchText: ctrl.searchText,
+          ),
+        );
+      }
+
+      // Defer initial sync to after the frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) => syncMetaState());
+
+      // Listen to controller changes
+      ctrl.addListener(syncMetaState);
+      return () => ctrl.removeListener(syncMetaState);
+    }, [ctrl, exportConfig]);
 
     // Rebuild widget when controller state changes
     useListenable(ctrl);

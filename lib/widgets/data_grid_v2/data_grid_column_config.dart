@@ -93,4 +93,75 @@ class DataGridColumnConfig<T> {
         'sortable': sortable,
         'filterable': filterable,
       };
+
+  /// Serializes column configuration to JSON-compatible map.
+  /// Note: valueExtractor and renderer are NOT serialized as they are functions.
+  /// Deserialization requires re-providing these callbacks.
+  Map<String, dynamic> toJson() => {
+        'field': field,
+        'title': title,
+        'type': _getTypeName(type),
+        'editable': editable,
+        'sortable': sortable,
+        'filterable': filterable,
+        'textAlign': textAlign.name,
+        'titleTextAlign': titleTextAlign.name,
+        'minWidth': minWidth,
+        'width': width,
+      };
+
+  /// Creates a column config from JSON, but requires valueExtractor to be provided.
+  /// This is used for metadata storage, not for full reconstruction.
+  static DataGridColumnConfig<T> fromJson<T>(Map<String, dynamic> json) {
+    // This method is primarily for metadata restoration.
+    // Since valueExtractor cannot be serialized, this returns a placeholder.
+    // In practice, column configs should be reconstructed from domain knowledge.
+    return DataGridColumnConfig<T>(
+      field: json['field'] as String,
+      title: json['title'] as String,
+      type: _parseColumnType(json['type'] as String),
+      editable: json['editable'] as bool? ?? false,
+      sortable: json['sortable'] as bool? ?? true,
+      filterable: json['filterable'] as bool? ?? true,
+      textAlign: _parseTextAlign(json['textAlign'] as String?),
+      titleTextAlign: _parseTextAlign(json['titleTextAlign'] as String?),
+      minWidth: json['minWidth'] as double?,
+      width: json['width'] as double?,
+      valueExtractor: (_) => null, // Placeholder - must be re-provided
+    );
+  }
+
+  static String _getTypeName(PlutoColumnType type) {
+    if (type is PlutoColumnTypeText) return 'text';
+    if (type is PlutoColumnTypeNumber) return 'number';
+    if (type is PlutoColumnTypeDate) return 'date';
+    if (type is PlutoColumnTypeSelect) return 'select';
+    return 'text';
+  }
+
+  static PlutoColumnType _parseColumnType(String name) {
+    switch (name) {
+      case 'text':
+        return PlutoColumnType.text();
+      case 'number':
+        return PlutoColumnType.number();
+      case 'date':
+        return PlutoColumnType.date();
+      case 'select':
+        return PlutoColumnType.select([]);
+      default:
+        return PlutoColumnType.text();
+    }
+  }
+
+  static PlutoColumnTextAlign _parseTextAlign(String? name) {
+    switch (name) {
+      case 'right':
+        return PlutoColumnTextAlign.right;
+      case 'center':
+        return PlutoColumnTextAlign.center;
+      default:
+        return PlutoColumnTextAlign.left;
+    }
+  }
 }
