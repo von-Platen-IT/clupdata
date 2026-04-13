@@ -6,7 +6,6 @@ import '../../../core/data/export_data_repository.dart';
 import '../../../core/models/data_grid_meta_state.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_export_context.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
-import '../../../widgets/data_grid_v2/export/pdf/pdf_template.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 import '../domain/batch_export_config.dart';
 
@@ -109,11 +108,13 @@ class BatchPdfExporter {
 
         generatedFiles.add(filePath);
       } catch (e, stackTrace) {
-        errors.add(BatchExportError(
-          itemId: itemId,
-          error: e.toString(),
-          stackTrace: stackTrace.toString(),
-        ));
+        errors.add(
+          BatchExportError(
+            itemId: itemId,
+            error: e.toString(),
+            stackTrace: stackTrace.toString(),
+          ),
+        );
       }
     }
 
@@ -197,11 +198,10 @@ class BatchPdfExporter {
   /// In production, use a proper PDF merging library.
   Future<String?> _combinePdfs(List<String> pdfPaths, String outputPath) async {
     if (pdfPaths.isEmpty) return null;
-    
+
     // Copy first file as combined output
     final firstFile = File(pdfPaths.first);
     if (await firstFile.exists()) {
-      final outputFile = File(outputPath);
       await firstFile.copy(outputPath);
       return outputPath;
     }

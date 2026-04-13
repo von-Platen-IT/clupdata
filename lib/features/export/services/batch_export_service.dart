@@ -10,11 +10,9 @@ import '../../../core/database/database.dart';
 import '../../../core/models/data_grid_meta_state.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_export_context.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
-import '../../../widgets/data_grid_v2/export/pdf/pdf_template.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 import '../domain/batch_export_config.dart';
 import '../domain/batch_export_summary.dart';
-import 'batch_pdf_exporter.dart';
 import 'summary_generator.dart';
 import 'summary_generators/mitglieder_summary_generator.dart';
 import 'summary_generators/rechnungen_summary_generator.dart';
@@ -28,21 +26,19 @@ import 'summary_generators/waren_summary_generator.dart';
 /// and combines everything into a single PDF or individual files.
 class BatchExportService {
   final ExportDataRepository _repository;
-  final AppDatabase _db;
   final Map<String, SummaryGenerator> _summaryGenerators;
 
   BatchExportService({
     required ExportDataRepository repository,
     required AppDatabase db,
-  })  : _repository = repository,
-        _db = db,
-        _summaryGenerators = {
-          'mitglied': MitgliederSummaryGenerator(db),
-          'rechnung': RechnungenSummaryGenerator(db),
-          'beitrag': BeitraegeSummaryGenerator(db),
-          'leistung': LeistungenSummaryGenerator(db),
-          'ware': WarenSummaryGenerator(db),
-        };
+  }) : _repository = repository,
+       _summaryGenerators = {
+         'mitglied': MitgliederSummaryGenerator(db),
+         'rechnung': RechnungenSummaryGenerator(db),
+         'beitrag': BeitraegeSummaryGenerator(db),
+         'leistung': LeistungenSummaryGenerator(db),
+         'ware': WarenSummaryGenerator(db),
+       };
 
   /// Executes a batch export operation.
   ///
@@ -140,16 +136,19 @@ class BatchExportService {
           pdfBytesList.add(pdfBytes);
         }
       } catch (e, stackTrace) {
-        errors.add(BatchExportError(
-          itemId: itemId,
-          error: e.toString(),
-          stackTrace: stackTrace.toString(),
-        ));
+        errors.add(
+          BatchExportError(
+            itemId: itemId,
+            error: e.toString(),
+            stackTrace: stackTrace.toString(),
+          ),
+        );
       }
     }
 
     // Generate summary if requested
-    if (config.includeSummary && config.outputMode == BatchExportOutputMode.combinedPdf) {
+    if (config.includeSummary &&
+        config.outputMode == BatchExportOutputMode.combinedPdf) {
       try {
         final summary = await _generateSummary(
           config.entityType,
@@ -160,16 +159,16 @@ class BatchExportService {
         final summaryPdfBytes = await _generateSummaryPdf(summary);
         pdfBytesList.add(summaryPdfBytes);
       } catch (e) {
-        errors.add(BatchExportError(
-          itemId: -1,
-          error: 'Summary generation failed: $e',
-        ));
+        errors.add(
+          BatchExportError(itemId: -1, error: 'Summary generation failed: $e'),
+        );
       }
     }
 
     // Combine PDFs if needed
     String? combinedFilePath;
-    if (config.outputMode == BatchExportOutputMode.combinedPdf && pdfBytesList.isNotEmpty) {
+    if (config.outputMode == BatchExportOutputMode.combinedPdf &&
+        pdfBytesList.isNotEmpty) {
       combinedFilePath = await _combinePdfs(
         pdfBytesList,
         '${outputDir.path}/${config.entityType}_batch_${DateTime.now().millisecondsSinceEpoch}.pdf',
@@ -261,7 +260,9 @@ class BatchExportService {
               if (summary.dateFrom != null || summary.dateTo != null)
                 pw.Text('Zeitraum: ${summary.dateRangeString}'),
               pw.SizedBox(height: 24),
-              ...summary.sections.map((section) => _buildSummarySection(section)),
+              ...summary.sections.map(
+                (section) => _buildSummarySection(section),
+              ),
             ],
           );
         },
@@ -277,10 +278,7 @@ class BatchExportService {
       children: [
         pw.Text(
           section.title,
-          style: pw.TextStyle(
-            fontSize: 14,
-            fontWeight: pw.FontWeight.bold,
-          ),
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 8),
         pw.Table(
@@ -329,9 +327,12 @@ class BatchExportService {
     return filename;
   }
 
-  Future<String?> _combinePdfs(List<Uint8List> pdfBytesList, String outputPath) async {
+  Future<String?> _combinePdfs(
+    List<Uint8List> pdfBytesList,
+    String outputPath,
+  ) async {
     if (pdfBytesList.isEmpty) return null;
-    
+
     // For now, save the first PDF as the combined output
     // In production, use a proper PDF merging library like pdfx or native merging
     final outputFile = File(outputPath);

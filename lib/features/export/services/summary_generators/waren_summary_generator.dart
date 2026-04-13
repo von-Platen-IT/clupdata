@@ -30,9 +30,9 @@ class WarenSummaryGenerator implements SummaryGenerator {
     }
 
     // Fetch all exported goods for aggregation
-    final waren = await (_db.select(_db.waren)
-          ..where((w) => w.id.isIn(exportedItemIds)))
-        .get();
+    final waren = await (_db.select(
+      _db.waren,
+    )..where((w) => w.id.isIn(exportedItemIds))).get();
 
     final totalCount = waren.length;
 
@@ -46,11 +46,13 @@ class WarenSummaryGenerator implements SummaryGenerator {
       final value = w.bruttopreis * w.bestand;
       totalInventoryValue += value;
 
-      final kategorie = w.kategorie?.isNotEmpty == true ? w.kategorie! : 'Unbekannt';
+      final kategorie = (w.kategorie?.isNotEmpty == true
+          ? w.kategorie
+          : 'Unbekannt')!;
       categoryCounts[kategorie] = (categoryCounts[kategorie] ?? 0) + 1;
       categoryValues[kategorie] = (categoryValues[kategorie] ?? 0) + value;
 
-      if (w.mindestbestand != null && w.bestand < w.mindestbestand!) {
+      if (w.bestand < w.mindestbestand) {
         belowMinStock++;
       }
     }

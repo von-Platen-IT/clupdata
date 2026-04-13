@@ -4,12 +4,6 @@ import '../../core/database/database.dart';
 import '../../widgets/data_grid_v2/export/export_data_table.dart';
 import '../../core/models/data_grid_meta_state.dart';
 import '../../widgets/data_grid_v2/sort_column_config.dart';
-// Import table types from generated database file
-import '../../core/database/tables/mitglied_table.dart';
-import '../../core/database/tables/rechnung_table.dart';
-import '../../core/database/tables/beitraege_table.dart';
-import '../../core/database/tables/leistung_table.dart';
-import '../../core/database/tables/waren_table.dart';
 
 /// Generic repository for fetching data for export purposes.
 ///
@@ -108,13 +102,21 @@ class ExportDataRepository {
 
     final columnsToInclude = _getColumnsToInclude(metaState, includeAllColumns);
     final headers = columnsToInclude.map((c) => c.title as String).toList();
-    final rows = results.map((mitglied) {
-      return columnsToInclude.map((config) {
-        final rawValue = config.valueExtractor(mitglied);
-        if (config.formatter != null) return config.formatter!(rawValue) as String;
-        return rawValue?.toString() ?? '';
-      }).toList().cast<String>();
-    }).toList().cast<List<String>>();
+    final rows = results
+        .map((mitglied) {
+          return columnsToInclude
+              .map((config) {
+                final rawValue = config.valueExtractor(mitglied);
+                if (config.formatter != null) {
+                  return config.formatter!(rawValue) as String;
+                }
+                return rawValue?.toString() ?? '';
+              })
+              .toList()
+              .cast<String>();
+        })
+        .toList()
+        .cast<List<String>>();
 
     return ExportDataTable(
       title: 'Mitglieder',
@@ -128,9 +130,9 @@ class ExportDataRepository {
     int itemId,
     DataGridMetaState metaState,
   ) async {
-    final mitglied = await (_db.select(_db.mitglieds)
-          ..where((m) => m.id.equals(itemId)))
-        .getSingleOrNull();
+    final mitglied = await (_db.select(
+      _db.mitglieds,
+    )..where((m) => m.id.equals(itemId))).getSingleOrNull();
 
     if (mitglied == null) {
       return ExportDataTable(
@@ -167,13 +169,15 @@ class ExportDataRepository {
     var query = _db.select(_db.mitglieds);
     query = _applyMitgliedFilters(query, metaState.activeFilters);
     query = _applyMitgliedSorts(query, metaState.activeSorts);
-    
+
     // Apply date range filter on vertragLaufzeitVon
     if (dateFrom != null) {
-      query = query..where((m) => m.vertragLaufzeitVon.isBiggerOrEqualValue(dateFrom));
+      query = query
+        ..where((m) => m.vertragLaufzeitVon.isBiggerOrEqualValue(dateFrom));
     }
     if (dateTo != null) {
-      query = query..where((m) => m.vertragLaufzeitVon.isSmallerOrEqualValue(dateTo));
+      query = query
+        ..where((m) => m.vertragLaufzeitVon.isSmallerOrEqualValue(dateTo));
     }
 
     final results = await query.get();
@@ -227,19 +231,19 @@ class ExportDataRepository {
       switch (sort.field) {
         case 'name':
           return (m) => OrderingTerm(
-                expression: m.name,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: m.name,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'vorname':
           return (m) => OrderingTerm(
-                expression: m.vorname,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: m.vorname,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'ort':
           return (m) => OrderingTerm(
-                expression: m.ort,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: m.ort,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         default:
           return (m) => OrderingTerm(expression: m.id);
       }
@@ -263,13 +267,21 @@ class ExportDataRepository {
 
     final columnsToInclude = _getColumnsToInclude(metaState, includeAllColumns);
     final headers = columnsToInclude.map((c) => c.title as String).toList();
-    final rows = results.map((rechnung) {
-      return columnsToInclude.map((config) {
-        final rawValue = config.valueExtractor(rechnung);
-        if (config.formatter != null) return config.formatter!(rawValue) as String;
-        return rawValue?.toString() ?? '';
-      }).toList().cast<String>();
-    }).toList().cast<List<String>>();
+    final rows = results
+        .map((rechnung) {
+          return columnsToInclude
+              .map((config) {
+                final rawValue = config.valueExtractor(rechnung);
+                if (config.formatter != null) {
+                  return config.formatter!(rawValue) as String;
+                }
+                return rawValue?.toString() ?? '';
+              })
+              .toList()
+              .cast<String>();
+        })
+        .toList()
+        .cast<List<String>>();
 
     return ExportDataTable(
       title: 'Rechnungen',
@@ -283,9 +295,9 @@ class ExportDataRepository {
     int itemId,
     DataGridMetaState metaState,
   ) async {
-    final rechnung = await (_db.select(_db.rechnungen)
-          ..where((r) => r.id.equals(itemId)))
-        .getSingleOrNull();
+    final rechnung = await (_db.select(
+      _db.rechnungen,
+    )..where((r) => r.id.equals(itemId))).getSingleOrNull();
 
     if (rechnung == null) {
       return ExportDataTable(
@@ -322,7 +334,7 @@ class ExportDataRepository {
     var query = _db.select(_db.rechnungen);
     query = _applyRechnungFilters(query, metaState.activeFilters);
     query = _applyRechnungSorts(query, metaState.activeSorts);
-    
+
     // Apply date range filter on datum
     if (dateFrom != null) {
       query = query..where((r) => r.datum.isBiggerOrEqualValue(dateFrom));
@@ -347,7 +359,8 @@ class ExportDataRepository {
 
       switch (field) {
         case 'rechnungsnummer':
-          query = query..where((r) => r.rechnungsnummer.lower().contains(value));
+          query = query
+            ..where((r) => r.rechnungsnummer.lower().contains(value));
           break;
         case 'status':
           query = query..where((r) => r.status.lower().contains(value));
@@ -370,19 +383,19 @@ class ExportDataRepository {
       switch (sort.field) {
         case 'rechnungsnummer':
           return (r) => OrderingTerm(
-                expression: r.rechnungsnummer,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: r.rechnungsnummer,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'datum':
           return (r) => OrderingTerm(
-                expression: r.datum,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: r.datum,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'status':
           return (r) => OrderingTerm(
-                expression: r.status,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: r.status,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         default:
           return (r) => OrderingTerm(expression: r.id);
       }
@@ -406,13 +419,21 @@ class ExportDataRepository {
 
     final columnsToInclude = _getColumnsToInclude(metaState, includeAllColumns);
     final headers = columnsToInclude.map((c) => c.title as String).toList();
-    final rows = results.map((beitrag) {
-      return columnsToInclude.map((config) {
-        final rawValue = config.valueExtractor(beitrag);
-        if (config.formatter != null) return config.formatter!(rawValue) as String;
-        return rawValue?.toString() ?? '';
-      }).toList().cast<String>();
-    }).toList().cast<List<String>>();
+    final rows = results
+        .map((beitrag) {
+          return columnsToInclude
+              .map((config) {
+                final rawValue = config.valueExtractor(beitrag);
+                if (config.formatter != null) {
+                  return config.formatter!(rawValue) as String;
+                }
+                return rawValue?.toString() ?? '';
+              })
+              .toList()
+              .cast<String>();
+        })
+        .toList()
+        .cast<List<String>>();
 
     return ExportDataTable(
       title: 'Beiträge',
@@ -426,9 +447,9 @@ class ExportDataRepository {
     int itemId,
     DataGridMetaState metaState,
   ) async {
-    final beitrag = await (_db.select(_db.beitraege)
-          ..where((b) => b.id.equals(itemId)))
-        .getSingleOrNull();
+    final beitrag = await (_db.select(
+      _db.beitraege,
+    )..where((b) => b.id.equals(itemId))).getSingleOrNull();
 
     if (beitrag == null) {
       return ExportDataTable(
@@ -465,7 +486,7 @@ class ExportDataRepository {
     var query = _db.select(_db.beitraege);
     query = _applyBeitragFilters(query, metaState.activeFilters);
     query = _applyBeitragSorts(query, metaState.activeSorts);
-    
+
     // Apply date range filter on kontiertAm
     if (dateFrom != null) {
       query = query..where((b) => b.kontiertAm.isBiggerOrEqualValue(dateFrom));
@@ -510,14 +531,14 @@ class ExportDataRepository {
       switch (sort.field) {
         case 'datum':
           return (b) => OrderingTerm(
-                expression: b.datum,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: b.datum,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'status':
           return (b) => OrderingTerm(
-                expression: b.status,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: b.status,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         default:
           return (b) => OrderingTerm(expression: b.id);
       }
@@ -541,13 +562,21 @@ class ExportDataRepository {
 
     final columnsToInclude = _getColumnsToInclude(metaState, includeAllColumns);
     final headers = columnsToInclude.map((c) => c.title as String).toList();
-    final rows = results.map((leistung) {
-      return columnsToInclude.map((config) {
-        final rawValue = config.valueExtractor(leistung);
-        if (config.formatter != null) return config.formatter!(rawValue) as String;
-        return rawValue?.toString() ?? '';
-      }).toList().cast<String>();
-    }).toList().cast<List<String>>();
+    final rows = results
+        .map((leistung) {
+          return columnsToInclude
+              .map((config) {
+                final rawValue = config.valueExtractor(leistung);
+                if (config.formatter != null) {
+                  return config.formatter!(rawValue) as String;
+                }
+                return rawValue?.toString() ?? '';
+              })
+              .toList()
+              .cast<String>();
+        })
+        .toList()
+        .cast<List<String>>();
 
     return ExportDataTable(
       title: 'Leistungen',
@@ -561,9 +590,9 @@ class ExportDataRepository {
     int itemId,
     DataGridMetaState metaState,
   ) async {
-    final leistung = await (_db.select(_db.leistung)
-          ..where((l) => l.id.equals(itemId)))
-        .getSingleOrNull();
+    final leistung = await (_db.select(
+      _db.leistung,
+    )..where((l) => l.id.equals(itemId))).getSingleOrNull();
 
     if (leistung == null) {
       return ExportDataTable(
@@ -633,9 +662,9 @@ class ExportDataRepository {
       switch (sort.field) {
         case 'name':
           return (l) => OrderingTerm(
-                expression: l.name,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: l.name,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         default:
           return (l) => OrderingTerm(expression: l.id);
       }
@@ -659,13 +688,21 @@ class ExportDataRepository {
 
     final columnsToInclude = _getColumnsToInclude(metaState, includeAllColumns);
     final headers = columnsToInclude.map((c) => c.title as String).toList();
-    final rows = results.map((ware) {
-      return columnsToInclude.map((config) {
-        final rawValue = config.valueExtractor(ware);
-        if (config.formatter != null) return config.formatter!(rawValue) as String;
-        return rawValue?.toString() ?? '';
-      }).toList().cast<String>();
-    }).toList().cast<List<String>>();
+    final rows = results
+        .map((ware) {
+          return columnsToInclude
+              .map((config) {
+                final rawValue = config.valueExtractor(ware);
+                if (config.formatter != null) {
+                  return config.formatter!(rawValue) as String;
+                }
+                return rawValue?.toString() ?? '';
+              })
+              .toList()
+              .cast<String>();
+        })
+        .toList()
+        .cast<List<String>>();
 
     return ExportDataTable(
       title: 'Waren',
@@ -679,9 +716,9 @@ class ExportDataRepository {
     int itemId,
     DataGridMetaState metaState,
   ) async {
-    final ware = await (_db.select(_db.waren)
-          ..where((w) => w.id.equals(itemId)))
-        .getSingleOrNull();
+    final ware = await (_db.select(
+      _db.waren,
+    )..where((w) => w.id.equals(itemId))).getSingleOrNull();
 
     if (ware == null) {
       return ExportDataTable(
@@ -754,14 +791,14 @@ class ExportDataRepository {
       switch (sort.field) {
         case 'bezeichnung':
           return (w) => OrderingTerm(
-                expression: w.bezeichnung,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: w.bezeichnung,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         case 'kategorie':
           return (w) => OrderingTerm(
-                expression: w.kategorie,
-                mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-              );
+            expression: w.kategorie,
+            mode: sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          );
         default:
           return (w) => OrderingTerm(expression: w.id);
       }

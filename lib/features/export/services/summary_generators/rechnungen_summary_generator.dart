@@ -1,5 +1,3 @@
-import 'package:drift/drift.dart';
-
 import '../../../../core/database/database.dart';
 import '../../domain/batch_export_summary.dart';
 import '../summary_generator.dart';
@@ -32,9 +30,9 @@ class RechnungenSummaryGenerator implements SummaryGenerator {
     }
 
     // Fetch all exported invoices for aggregation
-    final rechnungen = await (_db.select(_db.rechnungen)
-          ..where((r) => r.id.isIn(exportedItemIds)))
-        .get();
+    final rechnungen = await (_db.select(
+      _db.rechnungen,
+    )..where((r) => r.id.isIn(exportedItemIds))).get();
 
     // Calculate totals
     double totalNetto = 0;

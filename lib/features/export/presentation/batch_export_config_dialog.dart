@@ -117,7 +117,9 @@ class _BatchExportConfigDialogState extends State<BatchExportConfigDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 LinearProgressIndicator(
-                  value: _exportTotal > 0 ? _exportProgress / _exportTotal : null,
+                  value: _exportTotal > 0
+                      ? _exportProgress / _exportTotal
+                      : null,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -165,10 +167,7 @@ class _BatchExportConfigDialogState extends State<BatchExportConfigDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Zeitraum',
-          style: theme.textTheme.titleSmall,
-        ),
+        Text('Zeitraum', style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),
         if (!hasDateField)
           Text(
@@ -182,7 +181,8 @@ class _BatchExportConfigDialogState extends State<BatchExportConfigDialog> {
             title: const Text('Zeitraum einschränken'),
             subtitle: const Text('Optional: Export auf Zeitraum begrenzen'),
             value: _useDateRange,
-            onChanged: (value) => setState(() => _useDateRange = value ?? false),
+            onChanged: (value) =>
+                setState(() => _useDateRange = value ?? false),
             contentPadding: EdgeInsets.zero,
             dense: true,
           ),
@@ -214,54 +214,51 @@ class _BatchExportConfigDialogState extends State<BatchExportConfigDialog> {
   }
 
   Widget _buildOutputModeSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ausgabe',
-          style: theme.textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
-        RadioListTile<BatchExportOutputMode>(
-          title: const Text('Alle in einer PDF-Datei kombinieren'),
-          value: BatchExportOutputMode.combinedPdf,
-          groupValue: _outputMode,
-          onChanged: (value) => setState(() => _outputMode = value!),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        RadioListTile<BatchExportOutputMode>(
-          title: const Text('Einzelne PDF-Dateien pro Datensatz'),
-          value: BatchExportOutputMode.individualFiles,
-          groupValue: _outputMode,
-          onChanged: (value) => setState(() => _outputMode = value!),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        RadioListTile<BatchExportOutputMode>(
-          title: const Text('Direkt drucken'),
-          value: BatchExportOutputMode.printDirect,
-          groupValue: _outputMode,
-          onChanged: (value) => setState(() => _outputMode = value!),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        if (_outputMode != BatchExportOutputMode.printDirect) ...[
+    return RadioGroup<BatchExportOutputMode>(
+      groupValue: _outputMode,
+      onChanged: (BatchExportOutputMode? value) {
+        if (value != null) setState(() => _outputMode = value);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Ausgabe', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _selectOutputDirectory,
-            icon: const Icon(Icons.folder_open),
-            label: Text(
-              _outputDirectory.isEmpty
-                  ? 'Ausgabe-Verzeichnis wählen'
-                  : _outputDirectory,
-            ),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 40),
-            ),
+          RadioListTile<BatchExportOutputMode>(
+            title: const Text('Alle in einer PDF-Datei kombinieren'),
+            value: BatchExportOutputMode.combinedPdf,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
           ),
+          RadioListTile<BatchExportOutputMode>(
+            title: const Text('Einzelne PDF-Dateien pro Datensatz'),
+            value: BatchExportOutputMode.individualFiles,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+          RadioListTile<BatchExportOutputMode>(
+            title: const Text('Direkt drucken'),
+            value: BatchExportOutputMode.printDirect,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+          if (_outputMode != BatchExportOutputMode.printDirect) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _selectOutputDirectory,
+              icon: const Icon(Icons.folder_open),
+              label: Text(
+                _outputDirectory.isEmpty
+                    ? 'Ausgabe-Verzeichnis wählen'
+                    : _outputDirectory,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -269,10 +266,7 @@ class _BatchExportConfigDialogState extends State<BatchExportConfigDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Zusammenfassung',
-          style: theme.textTheme.titleSmall,
-        ),
+        Text('Zusammenfassung', style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),
         CheckboxListTile(
           title: const Text('Zusammenfassungs-Seite einfügen'),
@@ -368,8 +362,8 @@ class _DatePickerField extends StatelessWidget {
       label: Text(
         selectedDate != null
             ? '${selectedDate!.day.toString().padLeft(2, '0')}.'
-                '${selectedDate!.month.toString().padLeft(2, '0')}.'
-                '${selectedDate!.year}'
+                  '${selectedDate!.month.toString().padLeft(2, '0')}.'
+                  '${selectedDate!.year}'
             : label,
       ),
       style: OutlinedButton.styleFrom(
