@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 
+import '../../../../core/utils/date_formatters.dart';
 import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
 import '../../domain/models/beitrag_row_data.dart';
@@ -21,7 +21,6 @@ class BeitragDataGrid extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final beitraegeAsync = ref.watch(beitraegeListProvider);
-    final dateFormatter = DateFormat('dd.MM.yyyy');
 
     // Columns per structur.md screen_beitrag_list
     final columns = useMemoized<List<DataGridColumnConfig<BeitragRowData>>>(() {

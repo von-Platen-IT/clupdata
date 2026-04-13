@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:clupdata/core/providers/create_action_provider.dart';
 import '../../common_widgets/app_dialog_delete_action.dart';
 import '../../common_widgets/bemerkung_detail_view.dart';
 import '../../common_widgets/feature_screen_scaffold.dart';
@@ -10,6 +11,7 @@ import '../../core/database/database.dart';
 import 'data/beitraege_repository.dart';
 import 'presentation/widgets/beitrag_data_grid.dart';
 import 'presentation/dialogs/neuer_beitrag_dialog.dart';
+import 'presentation/dialogs/rechnungslegung_dialog.dart';
 
 /// Main screen for the Beiträge (invoices) module.
 class BeitraegeScreen extends HookConsumerWidget {
@@ -17,6 +19,26 @@ class BeitraegeScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Register create action in global registry (Issue 4.1)
+    // Deferred via Future to avoid modifying a provider during widget build.
+    useEffect(() {
+      Future(() {
+        ref
+            .read(createActionRegistryProvider.notifier)
+            .register(
+              CreateActionEntry(
+                label: 'Rechnungslegung',
+                action: (context) => RechnungslegungDialog.show(context),
+              ),
+            );
+      });
+      return () => Future(() {
+        ref
+            .read(createActionRegistryProvider.notifier)
+            .unregister('Rechnungslegung');
+      });
+    }, []);
+
     final selectedRowId = useState<int?>(null);
 
     // Stream bemerkung for the selected row

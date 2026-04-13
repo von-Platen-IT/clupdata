@@ -26,6 +26,7 @@ class DataGridController<T> extends ChangeNotifier {
   // ── Configuration ──────────────────────────────────────────────────────
 
   List<DataGridColumnConfig<T>> _columnConfigs;
+  Map<String, DataGridColumnConfig<T>> _columnConfigsMap;
   final Map<String, dynamic> Function(T item) _toJson;
   final T Function(Map<String, dynamic> json) _fromJson;
   final String Function(T item) _toSearchString;
@@ -63,6 +64,7 @@ class DataGridController<T> extends ChangeNotifier {
     this.onItemUpdated,
     this.onItemDeleted,
   }) : _columnConfigs = List.from(columnConfigs),
+       _columnConfigsMap = {for (final c in columnConfigs) c.field: c},
        _toJson = toJson,
        _fromJson = fromJson,
        _toSearchString = toSearchString {
@@ -91,6 +93,10 @@ class DataGridController<T> extends ChangeNotifier {
 
   /// The column configurations.
   List<DataGridColumnConfig<T>> get columnConfigs => _columnConfigs;
+
+  /// Column configurations as a field-keyed map for O(1) lookups.
+  Map<String, DataGridColumnConfig<T>> get columnConfigsMap =>
+      Map.unmodifiable(_columnConfigsMap);
 
   // ── Setters (trigger recompute + notify) ───────────────────────────────
 
@@ -126,6 +132,7 @@ class DataGridController<T> extends ChangeNotifier {
   /// Updates column configurations at runtime.
   void updateColumnConfigs(List<DataGridColumnConfig<T>> configs) {
     _columnConfigs = List.from(configs);
+    _columnConfigsMap = {for (final c in _columnConfigs) c.field: c};
     notifyListeners();
   }
 
@@ -140,9 +147,7 @@ class DataGridController<T> extends ChangeNotifier {
         for (final entry in _activeFilters.entries) {
           if (entry.value.isEmpty) continue;
           final filterValue = entry.value.toLowerCase();
-          final config = _columnConfigs
-              .where((c) => c.field == entry.key)
-              .firstOrNull;
+          final config = _columnConfigsMap[entry.key];
           if (config == null) continue;
           final cellValue =
               config.valueExtractor(item)?.toString().toLowerCase() ?? '';
@@ -167,9 +172,7 @@ class DataGridController<T> extends ChangeNotifier {
     if (sortChain.isNotEmpty) {
       result.sort((a, b) {
         for (final col in sortChain) {
-          final config = _columnConfigs
-              .where((c) => c.field == col.field)
-              .firstOrNull;
+          final config = _columnConfigsMap[col.field];
           if (config == null) continue;
           final valA = config.valueExtractor(a);
           final valB = config.valueExtractor(b);

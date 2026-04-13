@@ -2,16 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../core/providers/create_action_provider.dart';
 import '../core/providers/data_grid_meta_state_provider.dart';
 import '../core/providers/database_provider.dart';
 import '../core/providers/export_data_repository_provider.dart';
 import '../features/export/domain/batch_export_config.dart';
 import '../features/export/presentation/batch_export_config_dialog.dart';
 import '../features/export/services/batch_export_service.dart';
-import '../features/members/widgets/member_edit_dialog.dart';
-import '../features/leistungen/widgets/leistung_edit_dialog.dart';
-import '../features/waren/widgets/waren_edit_dialog.dart';
-import '../features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart';
 
 class MainMenuBar extends ConsumerWidget {
   const MainMenuBar({super.key});
@@ -48,31 +45,11 @@ class MainMenuBar extends ConsumerWidget {
           _MenuButton(
             title: 'Erstellen',
             items: [
-              PopupMenuItem(
-                child: const Text('Mitglied'),
-                onTap: () {
-                  MemberEditDialog.show(context);
-                },
-              ),
-              PopupMenuItem(
-                child: const Text('Leistung'),
-                onTap: () {
-                  LeistungEditDialog.show(context);
-                },
-              ),
-              PopupMenuItem(
-                child: const Text('Ware'),
-                onTap: () {
-                  WarenEditDialog.show(context);
-                },
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                child: const Text('Rechnungslegung'),
-                onTap: () {
-                  RechnungslegungDialog.show(context);
-                },
-              ),
+              for (final entry in ref.watch(createActionRegistryProvider))
+                PopupMenuItem(
+                  child: Text(entry.label),
+                  onTap: () => entry.action(context),
+                ),
             ],
           ),
           _MenuButton(
@@ -228,7 +205,9 @@ class MainMenuBar extends ConsumerWidget {
             }
 
             return AlertDialog(
-              title: Text(isComplete ? 'Export abgeschlossen' : 'Export läuft...'),
+              title: Text(
+                isComplete ? 'Export abgeschlossen' : 'Export läuft...',
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -243,7 +222,9 @@ class MainMenuBar extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Text(
                       errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   if (isComplete) ...[
@@ -254,7 +235,9 @@ class MainMenuBar extends ConsumerWidget {
               ),
               actions: [
                 TextButton(
-                  onPressed: isComplete ? () => Navigator.pop(dialogContext) : null,
+                  onPressed: isComplete
+                      ? () => Navigator.pop(dialogContext)
+                      : null,
                   child: const Text('Schließen'),
                 ),
               ],

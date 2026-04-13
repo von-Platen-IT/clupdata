@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clupdata/core/database/database.dart';
+import 'package:clupdata/core/data/bemerkung_repository.dart';
 import 'package:clupdata/core/providers/database_provider.dart';
 import 'package:clupdata/features/beitraege/domain/models/beitrag_row_data.dart';
 
@@ -9,9 +10,32 @@ part 'beitraege_repository.g.dart';
 /// Repository for all database operations on the [Beitraege] table.
 class BeitraegeRepository {
   final AppDatabase _db;
-  BeitraegeRepository(this._db);
+  final BemerkungRepository _bemerkungRepo;
+  BeitraegeRepository(this._db, this._bemerkungRepo);
 
   // ── Bemerkung ─────────────────────────────────────────────────────────────
+
+  /// Saves a Bemerkung (insert or update) and returns the ID.
+  /// Delegates to the central [BemerkungRepository].
+  Future<int> saveBemerkung(int? existingId, String titel, String text) {
+    return _bemerkungRepo.saveBemerkung(existingId, titel, text);
+  }
+
+  /// Saves a Bemerkung only if title or text is non-empty.
+  /// Delegates to the central [BemerkungRepository].
+  Future<int?> saveBemerkungIfContent(
+    int? existingId,
+    String titel,
+    String text,
+  ) {
+    return _bemerkungRepo.saveBemerkungIfContent(existingId, titel, text);
+  }
+
+  /// Gets a Bemerkung by its ID.
+  /// Delegates to the central [BemerkungRepository].
+  Future<BemerkungData?> getBemerkungById(int id) {
+    return _bemerkungRepo.getBemerkungById(id);
+  }
 
   /// Streams the [BemerkungData] linked to a [Beitrag] by [beitragId].
   Stream<BemerkungData?> watchBemerkungForBeitrag(int beitragId) {
@@ -210,5 +234,8 @@ class BeitraegeRepository {
 /// Riverpod provider for [BeitraegeRepository].
 @riverpod
 BeitraegeRepository beitraegeRepository(Ref ref) {
-  return BeitraegeRepository(ref.watch(appDatabaseProvider));
+  return BeitraegeRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(bemerkungRepositoryProvider),
+  );
 }

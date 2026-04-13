@@ -3,6 +3,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clupdata/core/database/database.dart';
 import 'package:clupdata/core/data/bemerkung_repository.dart';
 import 'package:clupdata/core/providers/database_provider.dart';
+import 'package:clupdata/features/members/domain/models/member_row_data.dart';
+import 'package:clupdata/features/members/domain/models/leistung_dropdown_item.dart';
 
 part 'members_repository.g.dart';
 
@@ -13,6 +15,47 @@ class MembersRepository {
 
   Stream<List<Mitglied>> watchMembers() {
     return _db.select(_db.mitglieds).watch();
+  }
+
+  /// Streams the full list of [MemberRowData], joined with Leistung and Preis.
+  /// Performs the join at the SQL level instead of in Dart, so only relevant
+  /// changes trigger a rebuild (Issue 3.1).
+  Stream<List<MemberRowData>> watchMembersWithDetails() {
+    final query = _db.select(_db.mitglieds).join([
+      drift.leftOuterJoin(
+        _db.leistung,
+        _db.leistung.id.equalsExp(_db.mitglieds.leistungId),
+      ),
+      drift.leftOuterJoin(
+        _db.preis,
+        _db.preis.id.equalsExp(_db.mitglieds.preisId),
+      ),
+    ]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final mitglied = row.readTable(_db.mitglieds);
+        final leistung = row.readTableOrNull(_db.leistung);
+        final preis = row.readTableOrNull(_db.preis);
+
+        return MemberRowData(
+          id: mitglied.id,
+          name: mitglied.name,
+          vorname: mitglied.vorname,
+          ort: mitglied.ort,
+          plz: mitglied.plz,
+          telefon1: mitglied.telefon1,
+          telefon2: mitglied.telefon2,
+          email: mitglied.email,
+          leistungName: leistung?.name,
+          vertragLaufzeitVon: mitglied.vertragLaufzeitVon,
+          vertragLaufzeitBis: mitglied.vertragLaufzeitBis,
+          vertragKontierung: mitglied.vertragKontierung,
+          geboren: mitglied.geboren,
+          beitrag: preis?.bruttopreis,
+        );
+      }).toList();
+    });
   }
 
   Stream<BemerkungData?> watchBemerkungForMember(int memberId) {
@@ -101,6 +144,50 @@ class MembersRepository {
       _db.preis,
     )..where((p) => p.id.equals(member.preisId!))).getSingleOrNull();
     return (member, preis);
+  }
+
+  // ── Lookup Data for Edit Dialog (Issue 4.2) ────────────────────────────
+  // These methods decouple the Member edit dialog from the Leistungen
+  // feature module by providing lookup data through the own repository.
+
+  /// Streams all available Leistungen for dropdown selection.
+  /// Decouples the Member edit dialog from the Leistungen feature module.
+  Stream<List<LeistungDropdownItem>> watchLeistungenForDropdown() {
+    final query = _db.select(_db.leistung).join([
+      drift.innerJoin(_db.preis, _db.preis.id.equalsExp(_db.leistung.preisId)),
+    ]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final leistung = row.readTable(_db.leistung);
+        final preis = row.readTable(_db.preis);
+        return LeistungDropdownItem(
+          id: leistung.id,
+          name: leistung.name,
+          bruttopreis: preis.bruttopreis,
+        );
+      }).toList();
+    });
+  }
+
+  /// Gets a Preis by its ID.
+  /// Decouples the Member edit dialog from the Preise repository.
+  Future<PreisItem?> getPreisById(int id) {
+    return (_db.select(
+      _db.preis,
+    )..where((p) => p.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Adds a new Preis and returns its ID.
+  /// Decouples the Member edit dialog from the Preise repository.
+  Future<int> addPreis(PreisCompanion companion) {
+    return _db.into(_db.preis).insert(companion);
+  }
+
+  /// Updates an existing Preis.
+  /// Decouples the Member edit dialog from the Preise repository.
+  Future<bool> updatePreis(PreisItem preis) {
+    return _db.update(_db.preis).replace(preis);
   }
 }
 

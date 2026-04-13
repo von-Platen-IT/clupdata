@@ -8,7 +8,7 @@ import 'package:pluto_grid/pluto_grid.dart';
 import 'package:gap/gap.dart';
 
 import '../../core/providers/active_data_grid_provider.dart';
-import '../../core/providers/export_context_provider.dart';
+import '../../core/models/export_context_data.dart';
 import '../../core/providers/data_grid_meta_state_provider.dart';
 import '../../core/models/data_grid_meta_state.dart' as meta;
 import '../../features/export/domain/export_config.dart';
@@ -148,21 +148,6 @@ class VpitDataGrid<T> extends HookConsumerWidget {
       return null;
     }, [items]);
 
-    // Register controller globally so the MainMenuBar export menu can access it.
-    // Deferred via Future to avoid modifying a provider during widget build.
-    useEffect(() {
-      final notifier = ref.read(activeDataGridControllerProvider.notifier);
-      Future(() {
-        notifier.register(ctrl);
-      });
-      return () {
-        // Defer unregister to avoid modifying provider during widget lifecycle
-        Future(() {
-          notifier.unregister();
-        });
-      };
-    }, [ctrl]);
-
     final stateManager = useState<PlutoGridStateManager?>(null);
 
     // ── Export Cache Registration ─────────────────────────────────────────
@@ -180,9 +165,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
       // 1. Snapshot of Visible View (respecting user's column order and visibility)
       final visibleConfigs = <DataGridColumnConfig<T>>[];
       for (final plutoCol in sm.refColumns) {
-        final config = columnConfigs
-            .where((c) => c.field == plutoCol.field)
-            .firstOrNull;
+        final config = ctrl.columnConfigsMap[plutoCol.field];
         if (config != null) {
           visibleConfigs.add(config);
         }
@@ -225,7 +208,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
           .where((s) => s.enabled)
           .map(
             (s) =>
-                '${columnConfigs.firstWhere((c) => c.field == s.field).title} (${s.ascending ? "aufsteigend" : "absteigend"})',
+                '${ctrl.columnConfigsMap[s.field]?.title ?? s.field} (${s.ascending ? "aufsteigend" : "absteigend"})',
           )
           .toList();
 
@@ -253,21 +236,20 @@ class VpitDataGrid<T> extends HookConsumerWidget {
           () => latestGenerator.value?.call(),
     );
 
-    // Register our proxy to the global LIFO stack.
-    // Only happens once on mount, and removed once on unmount.
+    // Register controller and export generator globally so the MainMenuBar
+    // export menu can access them. Deferred via Future to avoid modifying
+    // a provider during widget build.
     useEffect(() {
+      final notifier = ref.read(activeDataGridControllerProvider.notifier);
       Future(() {
-        ref.read(exportCacheProvider.notifier).pushGenerator(proxyGenerator);
+        notifier.register(ctrl, exportGenerator: proxyGenerator);
       });
-
       return () {
         Future(() {
-          ref
-              .read(exportCacheProvider.notifier)
-              .removeGenerator(proxyGenerator);
+          notifier.unregister();
         });
       };
-    }, []);
+    }, [ctrl]);
 
     // ── Meta State Sync ─────────────────────────────────────────────────────
     // Sync controller state (filters, sorts, visible columns) to global provider
@@ -279,7 +261,8 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
       // Sync meta state after the frame is built to avoid modifying providers during build
       void syncMetaState() {
-        final visibleFields = stateManager.value?.refColumns.map((c) => c.field).toList() ?? [];
+        final visibleFields =
+            stateManager.value?.refColumns.map((c) => c.field).toList() ?? [];
         notifier.updateMetaState(
           exportConfig!.entityType,
           meta.DataGridMetaState(
@@ -323,8 +306,9 @@ class VpitDataGrid<T> extends HookConsumerWidget {
       [columnConfigs],
     );
 
-    // ── Map ALL items to PlutoRows (for filter dialog autocomplete) ───────
-    final allPlutoRows = useMemoized(() {
+    // ── Lazy builder for ALL items to PlutoRows (for filter dialog autocomplete) ──
+    // Only computed when the filter dialog is actually opened (Issue 3.3).
+    List<PlutoRow> buildAllPlutoRows() {
       return items.map((item) {
         final cells = <String, PlutoCell>{};
         for (final config in columnConfigs) {
@@ -332,7 +316,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
         }
         return PlutoRow(cells: cells);
       }).toList();
-    }, [items, columnConfigs]);
+    }
 
     // ── Map filtered/sorted items to PlutoRows (for display) ──────────────
     final filteredItems = ctrl.filteredSortedItems;
@@ -373,8 +357,9 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
           // Restore selection after PlutoGrid has processed the rows
           if (initialSelectedId != null) {
-            // Use Future.delayed to ensure PlutoGrid has finished laying out the rows
-            Future.delayed(const Duration(milliseconds: 50), () {
+            // Use addPostFrameCallback instead of Future.delayed for
+            // deterministic timing (Issue 3.4).
+            WidgetsBinding.instance.addPostFrameCallback((_) {
               // Check if state manager is still valid before accessing
               if (sm.rows.isEmpty) return;
               // Find the row with the matching ID
@@ -558,7 +543,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                   onPressed: () async {
                     final result = await FilterSettingsDialog.show(
                       context,
-                      allRows: allPlutoRows,
+                      allRows: buildAllPlutoRows(),
                       columns: plutoColumns,
                       initialFilters: Map.from(ctrl.activeFilters),
                     );

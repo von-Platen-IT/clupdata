@@ -9,9 +9,8 @@ import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../core/database/database.dart';
-import '../../leistungen/presentation/providers/leistungen_list_provider.dart';
-import '../../leistungen/domain/models/leistung_row_data.dart';
-import '../../leistungen/data/preise_repository.dart';
+import '../presentation/providers/members_list_provider.dart';
+import '../domain/models/leistung_dropdown_item.dart';
 import '../data/members_repository.dart';
 import '../../export/domain/export_config.dart';
 
@@ -64,11 +63,11 @@ class MemberEditDialog extends HookConsumerWidget {
     final preisAsync = useMemoized(() {
       final pId = memberSnapshot.data?.preisId;
       if (pId == null) return Future<PreisItem?>.value(null);
-      return ref.read(preiseRepositoryProvider).getPreisById(pId);
+      return ref.read(membersRepositoryProvider).getPreisById(pId);
     }, [memberSnapshot.data?.preisId]);
     final preisSnapshot = useFuture(preisAsync);
 
-    final leistungenAsync = ref.watch(leistungenGridRowsProvider);
+    final leistungenAsync = ref.watch(leistungenForDropdownProvider);
     final leistungen = leistungenAsync.value ?? [];
 
     final isLoadingConfig =
@@ -275,23 +274,22 @@ class MemberEditDialog extends HookConsumerWidget {
             .where((l) => l.name == ctrlLeistung.text)
             .firstOrNull;
 
-        // ── Handle Preis ─────────────────────────────────────────────────
-        final preiseRepo = ref.read(preiseRepositoryProvider);
+        // ── Handle Preis (via MembersRepository, Issue 4.2) ──────────────
         int? finalPreisId = memberSnapshot.data?.preisId;
         final inputBeitragStr = ctrlBeitrag.text.replaceAll(',', '.');
         final inputBeitrag = double.tryParse(inputBeitragStr);
 
         if (inputBeitrag != null) {
           if (finalPreisId != null) {
-            final existingPreis = await preiseRepo.getPreisById(finalPreisId);
+            final existingPreis = await repo.getPreisById(finalPreisId);
             if (existingPreis != null &&
                 existingPreis.bruttopreis != inputBeitrag) {
-              await preiseRepo.updatePreis(
+              await repo.updatePreis(
                 existingPreis.copyWith(bruttopreis: inputBeitrag),
               );
             }
           } else {
-            finalPreisId = await preiseRepo.addPreis(
+            finalPreisId = await repo.addPreis(
               PreisCompanion.insert(bruttopreis: inputBeitrag),
             );
           }
@@ -543,7 +541,7 @@ class MemberEditDialog extends HookConsumerWidget {
             children: [
               Expanded(
                 flex: 2,
-                child: AppDropdownField<LeistungRowData>(
+                child: AppDropdownField<LeistungDropdownItem>(
                   controller: ctrlLeistung,
                   label: 'Vertragsart',
                   focusNode: fnLeistung,
