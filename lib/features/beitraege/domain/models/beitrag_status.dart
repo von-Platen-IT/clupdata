@@ -84,10 +84,3 @@ enum BeitragStatus {
 extension BeitragStatusStringExtension on String {
   BeitragStatus toBeitragStatus() => BeitragStatus.fromString(this);
 }
-
-/// Extension on Color for alpha adjustments.
-extension ColorAlphaExtension on Color {
-  Color withOpacityPercent(double percent) {
-    return withAlpha((255 * percent).round());
-  }
-}

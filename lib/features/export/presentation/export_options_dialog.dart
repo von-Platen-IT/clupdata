@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/providers/export_context_provider.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
-
 
 /// Dialog for selecting export options before creating a PDF.
 ///
@@ -12,23 +13,17 @@ import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
 /// - Full export (with relations)
 ///
 /// It also shows a preview of what will be exported.
-class ExportOptionsDialog extends StatefulWidget {
+class ExportOptionsDialog extends HookConsumerWidget {
   /// The export context data.
   final ExportContextData contextData;
 
   const ExportOptionsDialog({super.key, required this.contextData});
 
   @override
-  State<ExportOptionsDialog> createState() => _ExportOptionsDialogState();
-}
-
-class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
-  ExportOption _selectedOption = ExportOption.currentView;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedOption = useState(ExportOption.currentView);
     final theme = Theme.of(context);
-    final isDetail = widget.contextData.isDetail;
+    final isDetail = contextData.isDetail;
 
     return AlertDialog(
       title: Row(
@@ -40,21 +35,27 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
       ),
       content: SizedBox(
         width: 400,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Context info
-            _buildContextInfo(theme),
-            const SizedBox(height: 24),
-            // Export options
-            Text(
-              'Was möchten Sie exportieren?',
-              style: theme.textTheme.titleSmall,
-            ),
-            const SizedBox(height: 12),
-            ..._buildExportOptions(isDetail),
-          ],
+        child: RadioGroup<ExportOption>(
+          groupValue: selectedOption.value,
+          onChanged: (ExportOption? value) {
+            if (value != null) selectedOption.value = value;
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Context info
+              _buildContextInfo(theme),
+              const SizedBox(height: 24),
+              // Export options
+              Text(
+                'Was möchten Sie exportieren?',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 12),
+              ..._buildExportOptions(isDetail),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -63,7 +64,7 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
           child: const Text('Abbrechen'),
         ),
         FilledButton.icon(
-          onPressed: _handleExport,
+          onPressed: () => _handleExport(context, selectedOption.value),
           icon: const Icon(Icons.arrow_forward),
           label: const Text('Weiter'),
         ),
@@ -73,7 +74,7 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
 
   /// Builds the context information section.
   Widget _buildContextInfo(ThemeData theme) {
-    final ctx = widget.contextData;
+    final ctx = contextData;
     final isDetail = ctx.isDetail;
 
     return Container(
@@ -142,8 +143,6 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
             : 'Nur die im Grid sichtbaren Spalten',
         icon: isDetail ? Icons.article_outlined : Icons.table_rows_outlined,
         value: ExportOption.currentView,
-        groupValue: _selectedOption,
-        onChanged: (value) => setState(() => _selectedOption = value!),
       ),
     );
 
@@ -156,8 +155,6 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
             : 'Alle verfügbaren Spalten für alle Datensätze',
         icon: Icons.description_outlined,
         value: ExportOption.allDetails,
-        groupValue: _selectedOption,
-        onChanged: (value) => setState(() => _selectedOption = value!),
       ),
     );
 
@@ -169,8 +166,6 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
           subtitle: 'Inklusive verknüpfter Daten (Rechnungen, Beiträge, etc.)',
           icon: Icons.folder_copy_outlined,
           value: ExportOption.fullExport,
-          groupValue: _selectedOption,
-          onChanged: (value) => setState(() => _selectedOption = value!),
         ),
       );
     }
@@ -179,27 +174,27 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
   }
 
   /// Handles the export based on selected option.
-  void _handleExport() {
+  void _handleExport(BuildContext context, ExportOption selectedOption) {
     try {
       final exporter = PdfExporter();
       PdfExportData exportData;
 
-      switch (_selectedOption) {
+      switch (selectedOption) {
         case ExportOption.currentView:
-          exportData = exporter.prepareExport(widget.contextData, useFullTable: false);
+          exportData = exporter.prepareExport(contextData, useFullTable: false);
           break;
         case ExportOption.allDetails:
         case ExportOption.fullExport:
-          exportData = exporter.prepareExport(widget.contextData, useFullTable: true);
+          exportData = exporter.prepareExport(contextData, useFullTable: true);
           break;
       }
 
       Navigator.of(context).pop(exportData);
     } catch (e) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Export: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler beim Export: $e')));
     }
   }
 }
@@ -213,22 +208,19 @@ class _ExportOptionTile extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final ExportOption value;
-  final ExportOption groupValue;
-  final ValueChanged<ExportOption?> onChanged;
 
   const _ExportOptionTile({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.value,
-    required this.groupValue,
-    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isSelected = value == groupValue;
+    final isSelected =
+        RadioGroup.maybeOf<ExportOption>(context)?.groupValue == value;
 
     return RadioListTile<ExportOption>(
       title: Text(title),
@@ -243,8 +235,6 @@ class _ExportOptionTile extends StatelessWidget {
         color: isSelected ? theme.colorScheme.primary : null,
       ),
       value: value,
-      groupValue: groupValue,
-      onChanged: onChanged,
       contentPadding: EdgeInsets.zero,
       dense: true,
     );

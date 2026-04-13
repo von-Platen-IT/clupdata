@@ -1,20 +1,16 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../core/database/database.dart';
-import '../../../core/providers/database_provider.dart';
+import 'package:clupdata/core/database/database.dart';
+import 'package:clupdata/core/data/bemerkung_repository.dart';
+import 'package:clupdata/core/providers/database_provider.dart';
+import 'package:clupdata/features/waren/domain/models/waren_detail.dart';
 
 part 'waren_repository.g.dart';
 
-class WarenDetail {
-  final WarenItem ware;
-  final BemerkungData? bemerkung;
-
-  WarenDetail(this.ware, this.bemerkung);
-}
-
 class WarenRepository {
   final AppDatabase _db;
-  WarenRepository(this._db);
+  final BemerkungRepository _bemerkungRepo;
+  WarenRepository(this._db, this._bemerkungRepo);
 
   Stream<List<WarenDetail>> watchWarenDetails() {
     final query = _db.select(_db.waren).join([
@@ -27,8 +23,8 @@ class WarenRepository {
     return query.watch().map((rows) {
       return rows.map((row) {
         return WarenDetail(
-          row.readTable(_db.waren),
-          row.readTableOrNull(_db.bemerkung),
+          ware: row.readTable(_db.waren),
+          bemerkung: row.readTableOrNull(_db.bemerkung),
         );
       }).toList();
     });
@@ -45,33 +41,6 @@ class WarenRepository {
     return query.watchSingleOrNull().map(
       (row) => row?.readTableOrNull(_db.bemerkung),
     );
-  }
-
-  Future<int> _saveBemerkungBaseLogic(
-    int? existingId,
-    String titel,
-    String text,
-  ) async {
-    if (existingId != null) {
-      await (_db.update(
-        _db.bemerkung,
-      )..where((b) => b.id.equals(existingId))).write(
-        BemerkungCompanion(
-          titel: drift.Value(titel),
-          textValue: drift.Value(text),
-        ),
-      );
-      return existingId;
-    } else {
-      return _db
-          .into(_db.bemerkung)
-          .insert(
-            BemerkungCompanion.insert(
-              titel: titel,
-              textValue: drift.Value(text),
-            ),
-          );
-    }
   }
 
   Future<void> saveWareFull({
@@ -100,7 +69,7 @@ class WarenRepository {
     // 1. Save Bemerkung
     int? bemerkungId = existingBemerkungId;
     if (bemerkungTitel.isNotEmpty || bemerkungText.isNotEmpty) {
-      bemerkungId = await _saveBemerkungBaseLogic(
+      bemerkungId = await _bemerkungRepo.saveBemerkung(
         existingBemerkungId,
         bemerkungTitel,
         bemerkungText,
@@ -145,7 +114,7 @@ class WarenRepository {
     String titel,
     String text,
   ) async {
-    final bemerkungId = await _saveBemerkungBaseLogic(
+    final bemerkungId = await _bemerkungRepo.saveBemerkung(
       existingBemerkungId,
       titel,
       text,
@@ -184,5 +153,8 @@ class WarenRepository {
 
 @riverpod
 WarenRepository warenRepository(Ref ref) {
-  return WarenRepository(ref.watch(appDatabaseProvider));
+  return WarenRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(bemerkungRepositoryProvider),
+  );
 }

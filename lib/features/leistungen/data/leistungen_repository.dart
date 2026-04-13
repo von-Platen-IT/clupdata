@@ -1,21 +1,16 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../core/database/database.dart';
-import '../../../core/providers/database_provider.dart';
+import 'package:clupdata/core/database/database.dart';
+import 'package:clupdata/core/data/bemerkung_repository.dart';
+import 'package:clupdata/core/providers/database_provider.dart';
+import 'package:clupdata/features/leistungen/domain/models/leistungs_detail.dart';
 
 part 'leistungen_repository.g.dart';
 
-class LeistungsDetail {
-  final LeistungItem leistung;
-  final PreisItem preis;
-  final BemerkungData? bemerkung;
-
-  LeistungsDetail(this.leistung, this.preis, this.bemerkung);
-}
-
 class LeistungenRepository {
   final AppDatabase _db;
-  LeistungenRepository(this._db);
+  final BemerkungRepository _bemerkungRepo;
+  LeistungenRepository(this._db, this._bemerkungRepo);
 
   Stream<List<LeistungItem>> watchLeistungen() {
     return _db.select(_db.leistung).watch();
@@ -33,9 +28,9 @@ class LeistungenRepository {
     return query.watch().map((rows) {
       return rows.map((row) {
         return LeistungsDetail(
-          row.readTable(_db.leistung),
-          row.readTable(_db.preis),
-          row.readTableOrNull(_db.bemerkung),
+          leistung: row.readTable(_db.leistung),
+          preis: row.readTable(_db.preis),
+          bemerkung: row.readTableOrNull(_db.bemerkung),
         );
       }).toList();
     });
@@ -54,33 +49,6 @@ class LeistungenRepository {
     );
   }
 
-  Future<int> _saveBemerkungBaseLogic(
-    int? existingId,
-    String titel,
-    String text,
-  ) async {
-    if (existingId != null) {
-      await (_db.update(
-        _db.bemerkung,
-      )..where((b) => b.id.equals(existingId))).write(
-        BemerkungCompanion(
-          titel: drift.Value(titel),
-          textValue: drift.Value(text),
-        ),
-      );
-      return existingId;
-    } else {
-      return _db
-          .into(_db.bemerkung)
-          .insert(
-            BemerkungCompanion.insert(
-              titel: titel,
-              textValue: drift.Value(text),
-            ),
-          );
-    }
-  }
-
   Future<void> saveLeistungFull({
     int? leistungId,
     required String name,
@@ -94,7 +62,7 @@ class LeistungenRepository {
     // 1. Save Bemerkung
     int? bemerkungId = existingBemerkungId;
     if (bemerkungTitel.isNotEmpty || bemerkungText.isNotEmpty) {
-      bemerkungId = await _saveBemerkungBaseLogic(
+      bemerkungId = await _bemerkungRepo.saveBemerkung(
         existingBemerkungId,
         bemerkungTitel,
         bemerkungText,
@@ -146,7 +114,7 @@ class LeistungenRepository {
     String titel,
     String text,
   ) async {
-    final bemerkungId = await _saveBemerkungBaseLogic(
+    final bemerkungId = await _bemerkungRepo.saveBemerkung(
       existingBemerkungId,
       titel,
       text,
@@ -166,7 +134,7 @@ class LeistungenRepository {
     return _db.update(_db.leistung).replace(service);
   }
 
-  Future<int> deleteLeistung(int id) async {
+  Future<int> deleteLeistung(int id) {
     return (_db.delete(_db.leistung)..where((l) => l.id.equals(id))).go();
   }
 
@@ -184,9 +152,9 @@ class LeistungenRepository {
     return rows
         .map(
           (row) => LeistungsDetail(
-            row.readTable(_db.leistung),
-            row.readTable(_db.preis),
-            row.readTableOrNull(_db.bemerkung),
+            leistung: row.readTable(_db.leistung),
+            preis: row.readTable(_db.preis),
+            bemerkung: row.readTableOrNull(_db.bemerkung),
           ),
         )
         .toList();
@@ -217,9 +185,9 @@ class LeistungenRepository {
     return rows
         .map(
           (row) => LeistungsDetail(
-            row.readTable(_db.leistung),
-            row.readTable(_db.preis),
-            row.readTableOrNull(_db.bemerkung),
+            leistung: row.readTable(_db.leistung),
+            preis: row.readTable(_db.preis),
+            bemerkung: row.readTableOrNull(_db.bemerkung),
           ),
         )
         .toList();
@@ -238,14 +206,17 @@ class LeistungenRepository {
     final row = await query.getSingleOrNull();
     if (row == null) return null;
     return LeistungsDetail(
-      row.readTable(_db.leistung),
-      row.readTable(_db.preis),
-      row.readTableOrNull(_db.bemerkung),
+      leistung: row.readTable(_db.leistung),
+      preis: row.readTable(_db.preis),
+      bemerkung: row.readTableOrNull(_db.bemerkung),
     );
   }
 }
 
 @riverpod
 LeistungenRepository leistungenRepository(Ref ref) {
-  return LeistungenRepository(ref.watch(appDatabaseProvider));
+  return LeistungenRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(bemerkungRepositoryProvider),
+  );
 }

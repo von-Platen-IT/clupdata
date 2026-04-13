@@ -10,9 +10,12 @@ import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
+import '../../../../core/data/bemerkung_repository.dart';
 import '../../../../core/database/database.dart';
+import '../../../../core/utils/color_extensions.dart';
 import '../../domain/models/beitrag_status.dart';
-import '../../providers/beitraege_repository.dart';
+import '../../data/beitraege_repository.dart';
+import '../../presentation/providers/beitraege_list_provider.dart';
 import '../widgets/status_history_list.dart';
 import '../../../export/domain/export_config.dart';
 
@@ -145,7 +148,8 @@ class BeitragEditDialog extends HookConsumerWidget {
         int? bemerkungId = existing?.beitrag.bemerkungId;
         if (ctrlBemerkungTitel.text.isNotEmpty ||
             ctrlBemerkungText.text.isNotEmpty) {
-          bemerkungId = await repo.saveBemerkung(
+          final bemerkungRepo = ref.read(bemerkungRepositoryProvider);
+          bemerkungId = await bemerkungRepo.saveBemerkung(
             bemerkungId,
             ctrlBemerkungTitel.text,
             ctrlBemerkungText.text,

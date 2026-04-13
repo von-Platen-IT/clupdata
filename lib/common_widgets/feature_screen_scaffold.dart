@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 
 /// Standardisierter Scaffold für alle tabellarischen Datenpflege-Ansichten
@@ -10,7 +9,7 @@ import 'package:gap/gap.dart';
 /// 2. Einem "Neu" Button oben rechts (sofern [onCreateNew] übergeben wird).
 /// 3. Einem "Löschen" Button, der nur klickbar ist, wenn eine Zeile selektiert wurde
 ///    (sofern [onDeleteSelection] übergeben wird).
-class FeatureScreenScaffold extends HookWidget {
+class FeatureScreenScaffold extends StatelessWidget {
   /// Der Titel des Screens (z.B. 'Mitglieder').
   final String title;
 
@@ -54,12 +53,14 @@ class FeatureScreenScaffold extends HookWidget {
             FilledButton.icon(
               // Button is visually muted if nothing is selected
               style: FilledButton.styleFrom(
-                backgroundColor: hasSelection 
-                  ? Theme.of(context).colorScheme.error 
-                  : Theme.of(context).colorScheme.surfaceContainerHighest,
-                foregroundColor: hasSelection 
-                  ? Theme.of(context).colorScheme.onError 
-                  : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                backgroundColor: hasSelection
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                foregroundColor: hasSelection
+                    ? Theme.of(context).colorScheme.onError
+                    : Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               onPressed: hasSelection ? onDeleteSelection : null,
               icon: const Icon(Icons.delete),

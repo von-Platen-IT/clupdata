@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:clupdata/core/database/database.dart';
+import '../../common_widgets/app_dialog_delete_action.dart';
 import '../../common_widgets/bemerkung_detail_view.dart';
 import '../../common_widgets/feature_screen_scaffold.dart';
 import 'widgets/member_data_grid.dart';
@@ -44,29 +45,11 @@ class MembersScreen extends HookConsumerWidget {
       onCreateNew: () => MemberEditDialog.show(context),
       onDeleteSelection: () async {
         if (selectedRowId.value == null) return;
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Wirklich löschen?'),
-            content: const Text(
-              'Möchten Sie den ausgewählten Datensatz unwiderruflich löschen?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Löschen'),
-              ),
-            ],
-          ),
+        final confirm = await AppDialogDeleteAction.showDeleteConfirmation(
+          context,
+          entityName: 'den ausgewählten Datensatz',
         );
-        if (confirm == true && context.mounted) {
+        if (confirm && context.mounted) {
           try {
             await ref
                 .read(membersRepositoryProvider)

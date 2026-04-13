@@ -27,30 +27,49 @@ class AppDialogDeleteAction extends StatelessWidget {
       icon: const Icon(Icons.delete_outline, color: Colors.red),
       label: const Text('Löschen', style: TextStyle(color: Colors.red)),
       onPressed: () async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Wirklich löschen?'),
-            content: Text(
-              'Möchten Sie ${'diesen' /* grammatically generic */} $entityLabel unwiderruflich löschen?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Löschen'),
-              ),
-            ],
-          ),
+        final confirmed = await showDeleteConfirmation(
+          context,
+          entityName: entityLabel,
         );
-        if (confirmed == true) {
+        if (confirmed) {
           await onConfirmed();
         }
       },
     );
+  }
+
+  /// Shows a standardized delete confirmation dialog and returns `true`
+  /// if the user confirmed, `false` otherwise.
+  ///
+  /// Use this in screen-level delete buttons instead of manually building
+  /// the same [AlertDialog] each time.
+  ///
+  /// [entityName] is the human-readable name shown in the dialog text
+  /// (e.g., 'Beitrag', 'Rechnung'). Defaults to 'Datensatz'.
+  static Future<bool> showDeleteConfirmation(
+    BuildContext context, {
+    String entityName = 'Datensatz',
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wirklich löschen?'),
+        content: Text('Möchten Sie $entityName unwiderruflich löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 }

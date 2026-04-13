@@ -1,13 +1,15 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clupdata/core/database/database.dart';
+import 'package:clupdata/core/data/bemerkung_repository.dart';
 import 'package:clupdata/core/providers/database_provider.dart';
 
 part 'members_repository.g.dart';
 
 class MembersRepository {
   final AppDatabase _db;
-  MembersRepository(this._db);
+  final BemerkungRepository _bemerkungRepo;
+  MembersRepository(this._db, this._bemerkungRepo);
 
   Stream<List<Mitglied>> watchMembers() {
     return _db.select(_db.mitglieds).watch();
@@ -33,32 +35,7 @@ class MembersRepository {
   }
 
   Future<BemerkungData?> getBemerkungById(int id) {
-    return (_db.select(
-      _db.bemerkung,
-    )..where((b) => b.id.equals(id))).getSingleOrNull();
-  }
-
-  Future<int> saveBemerkung(int? existingId, String titel, String text) async {
-    if (existingId != null) {
-      await (_db.update(
-        _db.bemerkung,
-      )..where((b) => b.id.equals(existingId))).write(
-        BemerkungCompanion(
-          titel: drift.Value(titel),
-          textValue: drift.Value(text),
-        ),
-      );
-      return existingId;
-    } else {
-      return _db
-          .into(_db.bemerkung)
-          .insert(
-            BemerkungCompanion.insert(
-              titel: titel,
-              textValue: drift.Value(text),
-            ),
-          );
-    }
+    return _bemerkungRepo.getBemerkungById(id);
   }
 
   Future<void> saveMemberRemark(
@@ -67,7 +44,11 @@ class MembersRepository {
     String titel,
     String text,
   ) async {
-    final bemerkungId = await saveBemerkung(existingBemerkungId, titel, text);
+    final bemerkungId = await _bemerkungRepo.saveBemerkung(
+      existingBemerkungId,
+      titel,
+      text,
+    );
 
     // Update the member with the new FK if it was newly created
     if (existingBemerkungId == null) {
@@ -125,5 +106,8 @@ class MembersRepository {
 
 @riverpod
 MembersRepository membersRepository(Ref ref) {
-  return MembersRepository(ref.watch(appDatabaseProvider));
+  return MembersRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(bemerkungRepositoryProvider),
+  );
 }

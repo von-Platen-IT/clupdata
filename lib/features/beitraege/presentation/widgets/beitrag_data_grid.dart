@@ -6,8 +6,8 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
-import '../../domain/models/beitrag_status.dart';
-import '../../providers/beitraege_repository.dart';
+import '../../domain/models/beitrag_row_data.dart';
+import '../../presentation/providers/beitraege_list_provider.dart';
 import '../dialogs/beitrag_edit_dialog.dart';
 import 'status_badge.dart';
 import '../../../export/domain/export_config.dart';
@@ -66,7 +66,8 @@ class BeitragDataGrid extends HookConsumerWidget {
         DataGridColumnConfig<BeitragRowData>(
           field: 'status_datum',
           title: 'Statusdatum',
-          valueExtractor: (row) => dateFormatter.format(row.beitrag.statusDatum),
+          valueExtractor: (row) =>
+              dateFormatter.format(row.beitrag.statusDatum),
           type: PlutoColumnType.text(),
         ),
       ];
@@ -108,4 +109,3 @@ class BeitragDataGrid extends HookConsumerWidget {
     );
   }
 }
-

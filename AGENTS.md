@@ -102,7 +102,7 @@ lib/
 │   ├── beitraege/                      # Beitragsverwaltung
 │   ├── calendar/                       # Kalender-Modul
 │   ├── dashboard/                      # Dashboard-Übersicht
-│   ├── export/                         # Export-Funktionalität
+│   ├── export/                         # Export-Feature (UI + Konfiguration, siehe §3.1)
 │   ├── leistungen/                     # Leistungskatalog
 │   ├── master_data/                    # Stammdaten-Dialoge
 │   ├── members/                        # Mitgliederverwaltung
@@ -136,15 +136,32 @@ Jedes Feature folgt diesem Muster:
 features/<feature_name>/
 ├── <feature_name>_screen.dart          # Haupt-Screen
 ├── domain/
-│   └── models/                         # Domain-Models
+│   └── models/                         # Domain-Models (RowData, Detail-Wrapper)
 ├── data/
-│   └── <feature>_repository.dart       # Repository (Riverpod Provider)
+│   └── <feature>_repository.dart       # Repository-Klasse + Repository-Provider
 ├── presentation/
 │   ├── dialogs/                        # Edit/Create Dialoge
-│   ├── providers/                      # UI-State Provider
+│   ├── providers/                      # UI-State Provider (List-Streams, Detail-Provider)
 │   └── widgets/                        # Feature-spezifische Widgets
 └── utils/                              # Hilfsfunktionen
 ```
+
+**Wichtige Konventionen:**
+
+- **`data/<feature>_repository.dart`**: Enthält NUR die Repository-Klasse und den zugehörigen `@riverpod` Repository-Provider. Keine Domain-Modelle, keine UI-Provider.
+- **`domain/models/`**: Alle Domain-Modelle (RowData für DataGrid-Anzeige, Detail-Wrapper für zusammengesetzte Daten). Modelle werden NICHT inline im Repository definiert.
+- **`presentation/providers/`**: UI-Level Provider (z.B. List-Stream-Provider, Detail-Provider), die das Repository konsumieren. Getrennt vom Repository für klare Zuständigkeiten.
+
+### §3.1 Export-Feature: Architektur-Aufteilung
+
+Das Export-Feature ist bewusst auf zwei Verzeichnisse aufgeteilt:
+
+| Verzeichnis | Verantwortlichkeit | Inhalt |
+|-------------|-------------------|--------|
+| `lib/features/export/` | **Feature-spezifisch** (UI + Konfiguration) | `domain/export_config.dart`, `presentation/dialog_export_button.dart`, `presentation/export_options_dialog.dart`, `presentation/list_export_menu_button.dart` |
+| `lib/widgets/data_grid_v2/export/` | **Generische Export-Infrastruktur** (wiederverwendbar) | `csv_exporter.dart`, `export_data_table.dart`, `pdf/` (PDF-Exporter, Templates, Preview) |
+
+**Begründung**: Die generische Export-Infrastruktur in `widgets/data_grid_v2/export/` ist unabhängig von jedem Feature und kann von jedem DataGrid genutzt werden. Das `features/export/`-Modul enthält hingegen die Feature-spezifische UI (Dialoge, Buttons) und die Export-Konfiguration (`ExportConfig`), die pro DataGrid individuell ist.
 
 ---
 

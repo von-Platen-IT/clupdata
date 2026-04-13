@@ -180,10 +180,12 @@ class VpitDataGrid<T> extends HookConsumerWidget {
       // 1. Snapshot of Visible View (respecting user's column order and visibility)
       final visibleConfigs = <DataGridColumnConfig<T>>[];
       for (final plutoCol in sm.refColumns) {
-         final config = columnConfigs.where((c) => c.field == plutoCol.field).firstOrNull;
-         if (config != null) {
-           visibleConfigs.add(config);
-         }
+        final config = columnConfigs
+            .where((c) => c.field == plutoCol.field)
+            .firstOrNull;
+        if (config != null) {
+          visibleConfigs.add(config);
+        }
       }
 
       final visibleHeaders = visibleConfigs.map((c) => c.title).toList();
@@ -221,7 +223,10 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
       final activeSortStrings = ctrl.sortConfigs
           .where((s) => s.enabled)
-          .map((s) => '${columnConfigs.firstWhere((c) => c.field == s.field).title} (${s.ascending ? "aufsteigend" : "absteigend"})')
+          .map(
+            (s) =>
+                '${columnConfigs.firstWhere((c) => c.field == s.field).title} (${s.ascending ? "aufsteigend" : "absteigend"})',
+          )
           .toList();
 
       return ExportContextData(
@@ -237,12 +242,15 @@ class VpitDataGrid<T> extends HookConsumerWidget {
     }
 
     // A stable reference to always point to the latest generator closure.
-    final latestGenerator = useRef<ExportContextData? Function()?>(generateExportSnapshot);
+    final latestGenerator = useRef<ExportContextData? Function()?>(
+      generateExportSnapshot,
+    );
     latestGenerator.value = generateExportSnapshot;
 
     // A single, stable proxy function that we register globally.
     final proxyGenerator = useMemoized<ExportContextData? Function()>(
-      () => () => latestGenerator.value?.call(),
+      () =>
+          () => latestGenerator.value?.call(),
     );
 
     // Register our proxy to the global LIFO stack.
@@ -254,7 +262,9 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
       return () {
         Future(() {
-          ref.read(exportCacheProvider.notifier).removeGenerator(proxyGenerator);
+          ref
+              .read(exportCacheProvider.notifier)
+              .removeGenerator(proxyGenerator);
         });
       };
     }, []);
@@ -472,8 +482,10 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
     // ── Row color resolver ────────────────────────────────────────────────
     // Capture theme color early to avoid context access during callback
-    final primaryContainerColor = Theme.of(context).colorScheme.primaryContainer;
-    PlutoRowColorCallback rowColorCallback = (PlutoRowColorContext ctx) {
+    final primaryContainerColor = Theme.of(
+      context,
+    ).colorScheme.primaryContainer;
+    Color rowColorCallback(PlutoRowColorContext ctx) {
       final item = rowItemMap.value[ctx.row.key];
       if (item != null) {
         // 1. Force highlight for logically selected row
@@ -491,7 +503,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
         }
       }
       return Colors.transparent;
-    };
+    }
 
     // ── Build ─────────────────────────────────────────────────────────────
     return Column(
@@ -591,11 +603,11 @@ class VpitDataGrid<T> extends HookConsumerWidget {
                           final active = result.firstWhere((c) => c.enabled);
                           for (final col in sm.columns) {
                             if (col.field == active.field) {
-                               col.sort = active.ascending
-                                   ? PlutoColumnSort.ascending
-                                   : PlutoColumnSort.descending;
+                              col.sort = active.ascending
+                                  ? PlutoColumnSort.ascending
+                                  : PlutoColumnSort.descending;
                             } else {
-                               col.sort = PlutoColumnSort.none;
+                              col.sort = PlutoColumnSort.none;
                             }
                           }
                         }
@@ -609,9 +621,7 @@ class VpitDataGrid<T> extends HookConsumerWidget {
               // Export button
               if (exportConfig != null) ...[
                 const Gap(8),
-                ListExportMenuButton<T>(
-                  config: exportConfig!,
-                ),
+                ListExportMenuButton<T>(config: exportConfig!),
               ],
             ],
           ),

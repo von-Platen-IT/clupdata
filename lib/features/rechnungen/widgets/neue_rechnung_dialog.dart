@@ -10,7 +10,6 @@ import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
-import '../../../../core/providers/database_provider.dart';
 import '../../members/data/members_repository.dart';
 import '../../waren/data/waren_repository.dart';
 import '../data/rechnungen_repository.dart';

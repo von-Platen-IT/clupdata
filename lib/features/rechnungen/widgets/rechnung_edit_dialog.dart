@@ -11,6 +11,7 @@ import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../data/rechnungen_repository.dart';
+import '../presentation/providers/rechnungen_list_provider.dart';
 import '../utils/rechnung_status_colors.dart';
 import '../../export/domain/export_config.dart';
 

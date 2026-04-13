@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../models/leistung_row_data.dart';
+import '../../domain/models/leistung_row_data.dart';
+import '../../domain/models/leistungs_detail.dart';
 import '../../data/leistungen_repository.dart';
 import '../../../stammdaten/data/stammdaten_repository.dart';
 
@@ -12,7 +13,9 @@ Stream<List<LeistungsDetail>> watchLeistungenDetails(Ref ref) {
 
 @riverpod
 Stream<Map<String, String>> stammdatenSettingsMap(Ref ref) {
-  return ref.watch(stammdatenRepositoryProvider).watchSettings().map((settings) {
+  return ref.watch(stammdatenRepositoryProvider).watchSettings().map((
+    settings,
+  ) {
     return {for (var s in settings) s.schluessel: s.wert ?? ''};
   });
 }

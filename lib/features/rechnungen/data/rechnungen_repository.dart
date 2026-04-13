@@ -1,62 +1,19 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clupdata/core/database/database.dart';
+import 'package:clupdata/core/data/bemerkung_repository.dart';
 import 'package:clupdata/core/providers/database_provider.dart';
+import 'package:clupdata/features/rechnungen/domain/models/rechnung_row_data.dart';
+import 'package:clupdata/features/rechnungen/domain/models/rechnung_with_positionen.dart';
+import 'package:clupdata/features/rechnungen/domain/models/rechnung_with_details.dart';
 
 part 'rechnungen_repository.g.dart';
-
-/// Data class holding a joined Rechnung with its related names for display.
-class RechnungRowData {
-  final Rechnung rechnung;
-  final String kundeName; // Mitglied-Name oder kundeName
-
-  const RechnungRowData({required this.rechnung, required this.kundeName});
-
-  Map<String, dynamic> toJson() => {
-        'rechnung': rechnung.toJson(),
-        'kundeName': kundeName,
-      };
-
-  factory RechnungRowData.fromJson(Map<String, dynamic> json) {
-    return RechnungRowData(
-      rechnung: Rechnung.fromJson(json['rechnung'] as Map<String, dynamic>),
-      kundeName: json['kundeName'] as String,
-    );
-  }
-}
-
-/// Data class holding a complete Rechnung with all its positions.
-class RechnungWithPositionen {
-  final Rechnung rechnung;
-  final List<RechnungPosition> positionen;
-  final String kundeName;
-
-  const RechnungWithPositionen({
-    required this.rechnung,
-    required this.positionen,
-    required this.kundeName,
-  });
-}
-
-/// Data class holding complete Rechnung details including positions and bemerkung.
-class RechnungWithDetails {
-  final Rechnung rechnung;
-  final List<RechnungPosition> positionen;
-  final String kundeName;
-  final BemerkungData? bemerkung;
-
-  const RechnungWithDetails({
-    required this.rechnung,
-    required this.positionen,
-    required this.kundeName,
-    this.bemerkung,
-  });
-}
 
 /// Repository for all database operations on the [Rechnungen] table.
 class RechnungenRepository {
   final AppDatabase _db;
-  RechnungenRepository(this._db);
+  final BemerkungRepository _bemerkungRepo;
+  RechnungenRepository(this._db, this._bemerkungRepo);
 
   // ── Bemerkung ─────────────────────────────────────────────────────────────
 
@@ -200,28 +157,18 @@ class RechnungenRepository {
           (bemerkungText != null && bemerkungText.isNotEmpty)) {
         if (bemerkungId != null) {
           // Update existing bemerkung
-          await (_db.update(
-            _db.bemerkung,
-          )..where((b) => b.id.equals(bemerkungId))).write(
-            BemerkungCompanion(
-              titel: bemerkungTitel != null
-                  ? Value(bemerkungTitel)
-                  : const Value.absent(),
-              textValue: bemerkungText != null
-                  ? Value(bemerkungText)
-                  : const Value.absent(),
-            ),
+          newBemerkungId = await _bemerkungRepo.saveBemerkung(
+            bemerkungId,
+            bemerkungTitel ?? '',
+            bemerkungText ?? '',
           );
         } else {
           // Create new bemerkung
-          newBemerkungId = await _db
-              .into(_db.bemerkung)
-              .insert(
-                BemerkungCompanion.insert(
-                  titel: bemerkungTitel ?? '',
-                  textValue: Value(bemerkungText ?? ''),
-                ),
-              );
+          newBemerkungId = await _bemerkungRepo.saveBemerkung(
+            null,
+            bemerkungTitel ?? '',
+            bemerkungText ?? '',
+          );
         }
       }
 
@@ -237,24 +184,6 @@ class RechnungenRepository {
         ),
       );
     });
-  }
-
-  /// Saves a [BemerkungData] and returns the ID.
-  Future<int> saveBemerkung(int? existingId, String titel, String text) async {
-    if (existingId != null) {
-      await (_db.update(
-        _db.bemerkung,
-      )..where((b) => b.id.equals(existingId))).write(
-        BemerkungCompanion(titel: Value(titel), textValue: Value(text)),
-      );
-      return existingId;
-    } else {
-      return await _db
-          .into(_db.bemerkung)
-          .insert(
-            BemerkungCompanion.insert(titel: titel, textValue: Value(text)),
-          );
-    }
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -392,20 +321,8 @@ class RechnungenRepository {
 /// Riverpod provider for [RechnungenRepository].
 @riverpod
 RechnungenRepository rechnungenRepository(Ref ref) {
-  return RechnungenRepository(ref.watch(appDatabaseProvider));
-}
-
-/// Stream provider exposing the joined Rechnungen list.
-@riverpod
-Stream<List<RechnungRowData>> rechnungenList(Ref ref) {
-  return ref.watch(rechnungenRepositoryProvider).watchRechnungen();
-}
-
-/// Future provider for a single Rechnung with all details.
-/// Uses a family to enable caching per rechnungId.
-@riverpod
-Future<RechnungWithDetails?> rechnungWithDetails(Ref ref, int rechnungId) {
-  return ref
-      .watch(rechnungenRepositoryProvider)
-      .getRechnungWithDetails(rechnungId);
+  return RechnungenRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(bemerkungRepositoryProvider),
+  );
 }

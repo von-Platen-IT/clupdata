@@ -7,6 +7,7 @@ import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/leistungen_repository.dart';
+import '../domain/models/leistungs_detail.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
 import '../../export/domain/export_config.dart';
 

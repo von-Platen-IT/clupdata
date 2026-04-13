@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'data_grid_column_config.dart';
-import 'export/export_data_table.dart';
 import 'json_payload.dart';
 import 'sort_column_config.dart';
 
@@ -63,10 +62,10 @@ class DataGridController<T> extends ChangeNotifier {
     this.onItemCreated,
     this.onItemUpdated,
     this.onItemDeleted,
-  })  : _columnConfigs = List.from(columnConfigs),
-        _toJson = toJson,
-        _fromJson = fromJson,
-        _toSearchString = toSearchString {
+  }) : _columnConfigs = List.from(columnConfigs),
+       _toJson = toJson,
+       _fromJson = fromJson,
+       _toSearchString = toSearchString {
     _sortConfigs = columnConfigs
         .where((c) => c.sortable)
         .map((c) => SortColumnConfig(field: c.field, label: c.title))
@@ -141,8 +140,9 @@ class DataGridController<T> extends ChangeNotifier {
         for (final entry in _activeFilters.entries) {
           if (entry.value.isEmpty) continue;
           final filterValue = entry.value.toLowerCase();
-          final config =
-              _columnConfigs.where((c) => c.field == entry.key).firstOrNull;
+          final config = _columnConfigs
+              .where((c) => c.field == entry.key)
+              .firstOrNull;
           if (config == null) continue;
           final cellValue =
               config.valueExtractor(item)?.toString().toLowerCase() ?? '';
@@ -167,8 +167,9 @@ class DataGridController<T> extends ChangeNotifier {
     if (sortChain.isNotEmpty) {
       result.sort((a, b) {
         for (final col in sortChain) {
-          final config =
-              _columnConfigs.where((c) => c.field == col.field).firstOrNull;
+          final config = _columnConfigs
+              .where((c) => c.field == col.field)
+              .firstOrNull;
           if (config == null) continue;
           final valA = config.valueExtractor(a);
           final valB = config.valueExtractor(b);
@@ -231,8 +232,7 @@ class DataGridController<T> extends ChangeNotifier {
     for (final s in sortEntries) {
       final field = s['field'] as String?;
       if (field == null) continue;
-      final config =
-          _sortConfigs.where((c) => c.field == field).firstOrNull;
+      final config = _sortConfigs.where((c) => c.field == field).firstOrNull;
       if (config != null) {
         config.enabled = s['enabled'] as bool? ?? false;
         config.ascending = s['ascending'] as bool? ?? true;

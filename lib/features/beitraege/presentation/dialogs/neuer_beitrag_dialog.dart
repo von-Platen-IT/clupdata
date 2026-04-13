@@ -2,21 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
-import '../../../../common_widgets/forms/app_entity_autocomplete.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/providers/database_provider.dart';
+import '../../../../core/utils/color_extensions.dart';
 import '../../../leistungen/data/leistungen_repository.dart';
+import '../../../leistungen/domain/models/leistungs_detail.dart';
 import '../../../members/data/members_repository.dart';
 import '../../domain/models/beitrag_status.dart';
-import '../../providers/beitraege_repository.dart';
-import '../widgets/status_badge.dart';
+import '../../data/beitraege_repository.dart';
 
 /// Dialog for creating a new Beitrag (invoice/contribution).
 /// Features:
@@ -39,7 +38,6 @@ class NeuerBeitragDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateFormatter = DateFormat('dd.MM.yyyy');
     final db = ref.watch(appDatabaseProvider);
 
     // ── State ───────────────────────────────────────────────────────────────

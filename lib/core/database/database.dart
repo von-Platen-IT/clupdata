@@ -73,18 +73,18 @@ class AppDatabase extends _$AppDatabase {
       } else if (from == 7) {
         await migrator.addColumn(mitglieds, mitglieds.preisId);
         if (to > 8) {
-          await migrator.issueCustomQuery(
+          await customStatement(
             "UPDATE stammdaten SET typ = 'float' WHERE typ = 'number' AND schluessel != 'db_version'",
           );
-          await migrator.issueCustomQuery(
+          await customStatement(
             "UPDATE stammdaten SET typ = 'integer' WHERE typ = 'number' AND schluessel == 'db_version'",
           );
         }
       } else if (from == 8) {
-        await migrator.issueCustomQuery(
+        await customStatement(
           "UPDATE stammdaten SET typ = 'float' WHERE typ = 'number' AND schluessel != 'db_version'",
         );
-        await migrator.issueCustomQuery(
+        await customStatement(
           "UPDATE stammdaten SET typ = 'integer' WHERE typ = 'number' AND schluessel == 'db_version'",
         );
         if (to > 9) {

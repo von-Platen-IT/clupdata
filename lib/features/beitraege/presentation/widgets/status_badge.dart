@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/utils/color_extensions.dart';
 import '../../domain/models/beitrag_status.dart';
 
 /// A reusable badge widget for displaying BeitragStatus.

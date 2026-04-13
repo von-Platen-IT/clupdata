@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:clupdata/core/database/database.dart';
+import '../../common_widgets/app_dialog_delete_action.dart';
 import '../../common_widgets/bemerkung_detail_view.dart';
 import '../../common_widgets/feature_screen_scaffold.dart';
 import 'widgets/waren_data_grid.dart';
@@ -19,7 +20,9 @@ class WarenScreen extends HookConsumerWidget {
 
     final bemerkungStream = useMemoized(
       () => selectedRowId.value != null
-          ? ref.read(warenRepositoryProvider).watchBemerkungForWare(selectedRowId.value!)
+          ? ref
+                .read(warenRepositoryProvider)
+                .watchBemerkungForWare(selectedRowId.value!)
           : const Stream<BemerkungData?>.empty(),
       [selectedRowId.value],
     );
@@ -30,36 +33,33 @@ class WarenScreen extends HookConsumerWidget {
       hasSelection: selectedRowId.value != null,
       onCreateNew: () => WarenEditDialog.show(context),
       onDeleteSelection: () async {
-              if (selectedRowId.value == null) return;
-              final confirm = await showDialog<bool>(
-                 context: context,
-                 builder: (ctx) => AlertDialog(
-                   title: const Text('Wirklich löschen?'),
-                   content: const Text('Möchten Sie den ausgewählten Datensatz unwiderruflich löschen?'),
-                   actions: [
-                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
-                     FilledButton(
-                       style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-                       onPressed: () => Navigator.of(ctx).pop(true), 
-                       child: const Text('Löschen'),
-                     ),
-                   ]
-                 )
-               );
-               if (confirm == true && context.mounted) {
-                  try {
-                    await ref.read(warenRepositoryProvider).deleteWare(selectedRowId.value!);
-                    selectedRowId.value = null; // Clear selection
-                  } catch (e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
-                  }
-             }
-            },
+        if (selectedRowId.value == null) return;
+        final confirm = await AppDialogDeleteAction.showDeleteConfirmation(
+          context,
+          entityName: 'den ausgewählten Datensatz',
+        );
+        if (confirm && context.mounted) {
+          try {
+            await ref
+                .read(warenRepositoryProvider)
+                .deleteWare(selectedRowId.value!);
+            selectedRowId.value = null; // Clear selection
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Fehler beim Löschen: $e')),
+              );
+            }
+          }
+        }
+      },
       bottomPanel: selectedRowId.value != null
           ? BemerkungDetailView(
               bemerkung: bemerkungAsync.data,
               entityName: 'Ware',
-              onSave: (titel, text) => ref.read(warenRepositoryProvider).saveWareRemark(
+              onSave: (titel, text) => ref
+                  .read(warenRepositoryProvider)
+                  .saveWareRemark(
                     selectedRowId.value!,
                     bemerkungAsync.data?.id,
                     titel,
