@@ -10,5 +10,7 @@ part 'database_provider.g.dart';
 /// connection from closing unexpectedly when UI components are disposed.
 @Riverpod(keepAlive: true)
 AppDatabase appDatabase(Ref ref) {
-  return AppDatabase();
+  final db = AppDatabase();
+  ref.onDispose(() => db.close());
+  return db;
 }

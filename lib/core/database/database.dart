@@ -38,9 +38,17 @@ class AppDatabase extends _$AppDatabase {
   /// Initializes the database with a lazily opened connection.
   AppDatabase() : super(_openConnection());
 
+  /// Gibt den Pfad der Datenbankdatei zurück.
+  static String get dbFilePath => _resolveDbPath();
+
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
   int get schemaVersion => 15;
+
+  /// Schreibt den WAL-Cache in die Hauptdatei (für konsistente Backups).
+  Future<void> checkpoint() async {
+    await customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,20 +128,16 @@ class AppDatabase extends _$AppDatabase {
   );
 }
 
+String _resolveDbPath() {
+  if (kDebugMode) {
+    return 'clup_data_dev.sqlite';
+  }
+  final executableDir = File(Platform.resolvedExecutable).parent;
+  return p.join(executableDir.path, 'clup_data.sqlite');
+}
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    File file;
-    if (kDebugMode) {
-      // In der Entwicklung (flutter run) wird der build-Ordner oft gelöscht.
-      // Wir speichern die DB für die Entwicklung stattdessen direkt im Projektordner.
-      file = File('clup_data_dev.sqlite');
-    } else {
-      // Im produktiven Einsatz (Release-Build) soll die App portabel (z.B. USB-Stick) sein,
-      // daher speichern wir die DB direkt neben der ausführenden Datei (.exe / ELF-Binary).
-      final executableDir = File(Platform.resolvedExecutable).parent;
-      file = File(p.join(executableDir.path, 'clup_data.sqlite'));
-    }
-
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(File(_resolveDbPath()));
   });
 }

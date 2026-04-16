@@ -2,14 +2,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../core/providers/active_menu_item_provider.dart';
 import '../core/providers/create_action_provider.dart';
-import '../core/providers/data_grid_meta_state_provider.dart';
-import '../core/providers/database_provider.dart';
-import '../core/providers/export_data_repository_provider.dart';
-import '../features/export/domain/batch_export_config.dart';
-import '../features/export/presentation/batch_export_config_dialog.dart';
-import '../features/export/services/batch_export_service.dart';
+import 'csv_import_dialog.dart';
+import 'database_backup_dialog.dart';
 
+/// Einfache Hauptmenüleiste mit Menüpunkten.
+///
+/// Jedes Menü-Item setzt den aktiven Menüpunkt im [activeMenuItemProvider],
+/// der dann im Hauptbereich angezeigt wird.
 class MainMenuBar extends ConsumerWidget {
   const MainMenuBar({super.key});
 
@@ -32,14 +33,14 @@ class MainMenuBar extends ConsumerWidget {
           _MenuButton(
             title: 'Datei',
             items: [
-              PopupMenuItem(child: const Text('Einstellungen'), onTap: () {}),
-              const PopupMenuDivider(),
               PopupMenuItem(
-                child: const Text('Beenden'),
-                onTap: () {
-                  exit(0);
-                },
+                child: const Text('Einstellungen'),
+                onTap: () => ref
+                    .read(activeMenuItemProvider.notifier)
+                    .setActiveItem('Datei > Einstellungen'),
               ),
+              const PopupMenuDivider(),
+              PopupMenuItem(child: const Text('Beenden'), onTap: () => exit(0)),
             ],
           ),
           _MenuButton(
@@ -48,42 +49,75 @@ class MainMenuBar extends ConsumerWidget {
               for (final entry in ref.watch(createActionRegistryProvider))
                 PopupMenuItem(
                   child: Text(entry.label),
-                  onTap: () => entry.action(context),
+                  onTap: () => ref
+                      .read(activeMenuItemProvider.notifier)
+                      .setActiveItem('Erstellen > ${entry.label}'),
                 ),
             ],
           ),
           _MenuButton(
-            title: 'Exportieren',
+            title: 'Datenübertragung',
             items: [
-              PopupMenuItem(
-                child: const Text('Mitglieder exportieren...'),
-                onTap: () {
-                  _handleBatchExport(context, ref, 'mitglied', 'Mitglieder');
-                },
+              // Import Submenü
+              const PopupMenuItem(
+                enabled: false,
+                height: 32,
+                child: Text(
+                  'Import',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
               PopupMenuItem(
-                child: const Text('Rechnungen exportieren...'),
-                onTap: () {
-                  _handleBatchExport(context, ref, 'rechnung', 'Rechnungen');
-                },
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('CSV Import'),
+                onTap: () => showCsvImportDialog(context, ref),
               ),
               PopupMenuItem(
-                child: const Text('Beiträge exportieren...'),
-                onTap: () {
-                  _handleBatchExport(context, ref, 'beitrag', 'Beiträge');
-                },
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('Datenbank-Restore'),
+                onTap: () => showRestoreDialog(context, ref),
+              ),
+              const PopupMenuDivider(),
+              // Export Submenü
+              const PopupMenuItem(
+                enabled: false,
+                height: 32,
+                child: Text(
+                  'Export',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
               PopupMenuItem(
-                child: const Text('Leistungen exportieren...'),
-                onTap: () {
-                  _handleBatchExport(context, ref, 'leistung', 'Leistungen');
-                },
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('CSV Export'),
+                onTap: () => ref
+                    .read(activeMenuItemProvider.notifier)
+                    .setActiveItem('Datenübertragung > Export > CSV Export'),
               ),
               PopupMenuItem(
-                child: const Text('Waren exportieren...'),
-                onTap: () {
-                  _handleBatchExport(context, ref, 'ware', 'Waren');
-                },
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('PDF erstellen'),
+                onTap: () => ref
+                    .read(activeMenuItemProvider.notifier)
+                    .setActiveItem('Datenübertragung > Export > PDF erstellen'),
+              ),
+              PopupMenuItem(
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('Ausdrucken'),
+                onTap: () => ref
+                    .read(activeMenuItemProvider.notifier)
+                    .setActiveItem('Datenübertragung > Export > Ausdrucken'),
+              ),
+              PopupMenuItem(
+                height: 32,
+                padding: const EdgeInsets.only(left: 32),
+                child: const Text('Datenbank-Backup'),
+                onTap: () => showBackupDialog(context, ref),
               ),
             ],
           ),
@@ -92,159 +126,14 @@ class MainMenuBar extends ConsumerWidget {
             items: [
               PopupMenuItem(
                 child: const Text('Über die App'),
-                onTap: () {
-                  showAboutDialog(
-                    context: context,
-                    applicationName: 'ClupData',
-                    applicationVersion: '1.0.0',
-                  );
-                },
+                onTap: () => ref
+                    .read(activeMenuItemProvider.notifier)
+                    .setActiveItem('Hilfe > Über die App'),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _handleBatchExport(
-    BuildContext context,
-    WidgetRef ref,
-    String entityType,
-    String entityDisplayName,
-  ) async {
-    final metaStateMap = ref.read(dataGridMetaStateProvider);
-    final metaState = metaStateMap[entityType];
-
-    if (metaState == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Keine Daten für "$entityDisplayName" verfügbar. '
-              'Bitte öffnen Sie zuerst die entsprechende Ansicht.',
-            ),
-          ),
-        );
-      }
-      return;
-    }
-
-    final estimatedCount = metaState.allColumns.isNotEmpty ? 100 : 0;
-
-    final config = await BatchExportConfigDialog.show(
-      context,
-      entityType: entityType,
-      entityDisplayName: entityDisplayName,
-      metaState: metaState,
-      estimatedItemCount: estimatedCount,
-    );
-
-    if (config != null && context.mounted) {
-      final repository = ref.read(exportDataRepositoryProvider);
-      final database = ref.read(appDatabaseProvider);
-      final exportService = BatchExportService(
-        repository: repository,
-        db: database,
-      );
-
-      await _showExportProgressDialog(
-        context,
-        exportService,
-        config,
-        entityDisplayName,
-      );
-    }
-  }
-
-  Future<void> _showExportProgressDialog(
-    BuildContext context,
-    BatchExportService exportService,
-    BatchExportConfig config,
-    String entityDisplayName,
-  ) async {
-    int progress = 0;
-    int total = 0;
-    bool isComplete = false;
-    String? errorMessage;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            if (total == 0 && !isComplete && errorMessage == null) {
-              total = 1;
-
-              Future.microtask(() async {
-                try {
-                  final result = await exportService.execute(
-                    config: config,
-                    onProgress: (current, totalItems) {
-                      setDialogState(() {
-                        progress = current;
-                        total = totalItems;
-                      });
-                    },
-                  );
-
-                  setDialogState(() {
-                    isComplete = true;
-                    if (result.hasErrors) {
-                      errorMessage = '${result.errorCount} Fehler aufgetreten';
-                    }
-                  });
-                } catch (e) {
-                  setDialogState(() {
-                    isComplete = true;
-                    errorMessage = e.toString();
-                  });
-                }
-              });
-            }
-
-            return AlertDialog(
-              title: Text(
-                isComplete ? 'Export abgeschlossen' : 'Export läuft...',
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Exportiere $entityDisplayName...'),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: total > 0 ? progress / total : null,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('$progress / $total'),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      errorMessage!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  if (isComplete) ...[
-                    const SizedBox(height: 8),
-                    const Text('Export erfolgreich abgeschlossen.'),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isComplete
-                      ? () => Navigator.pop(dialogContext)
-                      : null,
-                  child: const Text('Schließen'),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }
@@ -267,7 +156,7 @@ class _MenuButton extends StatelessWidget {
         tooltip: '',
         itemBuilder: (context) => items,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
             title,
             style: Theme.of(
