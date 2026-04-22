@@ -5,12 +5,11 @@ This file provides guidance to agents when working with code in this repository.
 ## Non-Obvious Project-Specific Rules
 
 ### Critical: Single Source of Truth
-**File `lib/assets/data/structur.md` MUST be updated BEFORE any database or UI changes.**
-- This file defines the complete schema, indexes, relations, and UI configuration
-- All table definitions, migrations, and UI screens must stay in sync with structur.md
-- Schema version is currently **15** (see `lib/core/database/database.dart`)
+**File [`lib/assets/data/structur.md`](lib/assets/data/structur.md:1) MUST be updated BEFORE any database or UI changes.**
+- Defines complete schema, indexes, relations, and UI configuration
+- Schema version is currently **15** (see [`lib/core/database/database.dart:46`](lib/core/database/database.dart:46))
 
-### Code Generation Requirements
+### Code Generation (MANDATORY)
 After changes to `@riverpod`, `@DriftDatabase`, `@freezed`, or `@JsonSerializable`:
 ```bash
 flutter pub run build_runner build -d
@@ -40,7 +39,7 @@ flutter pub run build_runner build -d
 | `storniert` | `#EEEEEE` |
 | `inkasso` | `#F8BBD0` |
 
-Source: `lib/features/beitraege/utils/beitrag_status_colors.dart`
+Source: [`lib/features/beitraege/utils/beitrag_status_colors.dart`](lib/features/beitraege/utils/beitrag_status_colors.dart:1)
 
 ### Import Order (Enforced by Project Convention)
 ```dart
@@ -53,20 +52,22 @@ import '../../../core/...';      // Core layer
 import '../models/...';          // Feature-local imports
 ```
 
-### Widget Patterns Specific to This Project
-- Use `ConsumerWidget` for simple screens
-- Use `HookConsumerWidget` when using `useTextController()`, `useScrollController()`, etc.
+### Widget Patterns
+- `ConsumerWidget` for simple screens
+- `HookConsumerWidget` when using `useTextController()`, `useScrollController()`, etc.
 - Avoid `StatefulWidget` - use hooks instead
-- Dialogs use `AppEditDialogScaffold` from `common_widgets/`
+- Dialogs use [`AppEditDialogScaffold`](lib/common_widgets/app_edit_dialog_scaffold.dart:35) from `common_widgets/`
+- Delete buttons use [`AppDialogDeleteAction`](lib/common_widgets/app_dialog_delete_action.dart:8) with built-in confirmation
 
-### Repository Pattern Rules
-- Repository files go in `features/<name>/data/<name>_repository.dart`
+### Repository Pattern
+- Repository files: `features/<name>/data/<name>_repository.dart`
 - Repository contains ONLY the class and `@riverpod` provider
-- Domain models go in `features/<name>/domain/models/`
-- UI providers go in `features/<name>/presentation/providers/`
+- Domain models: `features/<name>/domain/models/`
+- UI providers: `features/<name>/presentation/providers/`
+- Bemerkung operations centralized in [`lib/core/data/bemerkung_repository.dart`](lib/core/data/bemerkung_repository.dart:1)
 
 ### Status History Requirement
-Every status change on `beitrag` MUST create an entry in `beitrag_status_verlauf` with a **mandatory** comment explaining the change.
+Every status change on `beitrag` MUST create an entry in `beitrag_status_verlauf` with a **mandatory** comment. The [`BeitraegeRepository.updateBeitrag()`](lib/features/beitraege/data/beitraege_repository.dart:134) method handles this automatically.
 
 ### Export Feature Split Architecture
 - `lib/features/export/` - Feature-specific UI and config
@@ -74,27 +75,17 @@ Every status change on `beitrag` MUST create an entry in `beitrag_status_verlauf
 
 ### Testing
 ```bash
-# Run all tests
-flutter test
-
-# Run single test
-flutter test test/widget_test.dart
+flutter test                    # Run all tests
+flutter test test/widget_test.dart  # Run single test
 ```
 Current test coverage is minimal - only template test exists.
 
 ### Build Commands
 ```bash
-# Code generation (REQUIRED after annotations change)
-flutter pub run build_runner build -d
-
-# Static analysis
-flutter analyze
-
-# Format check
-dart format --output=none --set-exit-if-changed .
-
-# Run app (Desktop only)
-flutter run -d macos|windows|linux
+flutter pub run build_runner build -d   # Code generation (REQUIRED after annotations change)
+flutter analyze                          # Static analysis
+dart format --output=none --set-exit-if-changed .  # Format check
+flutter run -d macos|windows|linux       # Run app (Desktop only)
 ```
 
 ### Security Rules
@@ -108,3 +99,24 @@ flutter run -d macos|windows|linux
 - Number format: German (1.234,56)
 - Currency: `123,45 €` (symbol after amount)
 - All UI text in German
+
+### Key Dependencies
+- **State Management**: Riverpod (hooks_riverpod ^3.3.1) with code generation
+- **Database**: Drift (^2.31.0) SQLite
+- **Data Grid**: Pluto Grid (^8.0.0)
+- **Routing**: go_router (^17.1.0)
+- **PDF**: pdf (^3.10.0) + printing (^5.11.0)
+- **Freezed**: freezed (^3.2.5) for immutable state
+
+### Routes (StatefulShellRoute)
+| Path | Screen |
+|------|--------|
+| `/` | DashboardScreen |
+| `/members` | MembersScreen |
+| `/leistungen` | LeistungenScreen |
+| `/beitraege` | BeitraegeScreen |
+| `/waren` | WarenScreen |
+| `/rechnungen` | RechnungenScreen |
+| `/pos` | PosScreen |
+| `/calendar` | CalendarScreen |
+| `/master-data` | StammdatenScreen |

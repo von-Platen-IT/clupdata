@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/providers/active_menu_item_provider.dart';
@@ -124,6 +125,11 @@ class MainMenuBar extends ConsumerWidget {
           _MenuButton(
             title: 'Hilfe',
             items: [
+              PopupMenuItem(
+                child: const Text('Hilfe & Dokumentation'),
+                onTap: () => context.push('/documentation'),
+              ),
+              const PopupMenuDivider(),
               PopupMenuItem(
                 child: const Text('Über die App'),
                 onTap: () => ref

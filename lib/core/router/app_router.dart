@@ -10,6 +10,7 @@ import '../../features/pos/pos_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/stammdaten/presentation/screens/stammdaten_screen.dart';
 import '../../features/rechnungen/rechnungen_screen.dart';
+import '../../features/documentation/documentation_screen.dart';
 import '../../common_widgets/app_shell.dart';
 
 /// The global routing configuration for the ClupData application.
@@ -22,6 +23,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
+      GoRoute(
+        path: '/documentation',
+        builder: (context, state) => const DocumentationScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShell(navigationShell: navigationShell);
