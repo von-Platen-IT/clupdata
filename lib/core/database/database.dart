@@ -43,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   /// Schreibt den WAL-Cache in die Hauptdatei (für konsistente Backups).
   Future<void> checkpoint() async {
@@ -120,6 +120,14 @@ class AppDatabase extends _$AppDatabase {
       } else if (from == 14) {
         // v15: Neue Spalte abrechnungsZeitraum in beitraege
         await migrator.addColumn(beitraege, beitraege.abrechnungsZeitraum);
+      } else if (from == 15) {
+        // v16: Tabellennamen an structur.md anpassen (Singular statt Plural)
+        await customStatement('ALTER TABLE mitglieds RENAME TO mitglied');
+        await customStatement('ALTER TABLE beitraege RENAME TO beitrag');
+        await customStatement('ALTER TABLE rechnungen RENAME TO rechnung');
+        await customStatement(
+          'ALTER TABLE rechnung_positionen RENAME TO rechnung_position',
+        );
       }
     },
     beforeOpen: (details) async {

@@ -9,7 +9,7 @@ This file provides guidance to agents when working with code in this repository.
 - **Bemerkung (notes)** are not per-feature — all centralized via [`bemerkung_repository.dart`](lib/core/data/bemerkung_repository.dart) with FK from any entity
 - **Status history** on `beitrag` is auto-logged — [`updateBeitrag()`](lib/features/beitraege/data/beitraege_repository.dart:134) detects changes and creates `beitrag_status_verlauf` entries; comment is mandatory
 - **Export architecture is split**: Feature-specific UI in `lib/features/export/`, reusable PDF/CSV infrastructure in `lib/widgets/data_grid_v2/export/`
-- **Drift table class names** use German pluralization: `Mitglieds`, `Beitraege`, `Rechnungen`, `RechnungPositionen`
+- **Drift table class names** use German pluralization: `Mitglieds`, `Beitraege`, `Rechnungen`, `RechnungPositionen` — but SQLite table names are singular
 - **CSV export** uses UTF-8 with BOM (not plain UTF-8) for Excel compatibility
 - **`gap` package** replaces `SizedBox` for spacing throughout the project
 - **Status colors** source: [`beitrag_status_colors.dart`](lib/features/beitraege/utils/beitrag_status_colors.dart) — never hardcode hex values

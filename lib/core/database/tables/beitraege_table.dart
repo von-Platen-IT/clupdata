@@ -7,6 +7,9 @@ import 'preis_table.dart';
 
 @DataClassName('Beitrag')
 class Beitraege extends Table {
+  @override
+  String get tableName => 'beitrag';
+
   IntColumn get id => integer().autoIncrement()();
   IntColumn get mitgliedId =>
       integer().references(Mitglieds, #id, onDelete: KeyAction.restrict)();

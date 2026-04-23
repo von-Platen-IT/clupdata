@@ -5,6 +5,9 @@ import 'mitglied_table.dart';
 
 @DataClassName('Rechnung')
 class Rechnungen extends Table {
+  @override
+  String get tableName => 'rechnung';
+
   IntColumn get id => integer().autoIncrement()();
 
   // Rechnungsnummer: R-YYYY-XXXXX

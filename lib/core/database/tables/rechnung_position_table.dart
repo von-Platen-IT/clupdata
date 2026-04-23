@@ -5,6 +5,9 @@ import 'waren_table.dart';
 
 @DataClassName('RechnungPosition')
 class RechnungPositionen extends Table {
+  @override
+  String get tableName => 'rechnung_position';
+
   IntColumn get id => integer().autoIncrement()();
 
   // Zugehörige Rechnung

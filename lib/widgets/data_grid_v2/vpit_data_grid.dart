@@ -242,7 +242,9 @@ class VpitDataGrid<T> extends HookConsumerWidget {
     useEffect(() {
       final notifier = ref.read(activeDataGridControllerProvider.notifier);
       Future(() {
-        notifier.register(ctrl, exportGenerator: proxyGenerator);
+        if (context.mounted) {
+          notifier.register(ctrl, exportGenerator: proxyGenerator);
+        }
       });
       return () {
         Future(() {
@@ -261,23 +263,33 @@ class VpitDataGrid<T> extends HookConsumerWidget {
 
       // Sync meta state after the frame is built to avoid modifying providers during build
       void syncMetaState() {
-        final visibleFields =
-            stateManager.value?.refColumns.map((c) => c.field).toList() ?? [];
-        notifier.updateMetaState(
-          exportConfig!.entityType,
-          meta.DataGridMetaState(
-            entityType: exportConfig!.entityType,
-            activeFilters: ctrl.activeFilters,
-            activeSorts: ctrl.sortConfigs,
-            visibleColumns: visibleFields,
-            allColumns: columnConfigs,
-            searchText: ctrl.searchText,
-          ),
-        );
+        // Guard: Provider bereits disposed → kein State-Update mehr
+        if (!context.mounted) return;
+
+        // Verzögere Provider-Update, um Modifikation während des Builds zu vermeiden
+        Future.microtask(() {
+          if (!context.mounted) return;
+
+          final visibleFields =
+              stateManager.value?.refColumns.map((c) => c.field).toList() ?? [];
+          notifier.updateMetaState(
+            exportConfig!.entityType,
+            meta.DataGridMetaState(
+              entityType: exportConfig!.entityType,
+              activeFilters: ctrl.activeFilters,
+              activeSorts: ctrl.sortConfigs,
+              visibleColumns: visibleFields,
+              allColumns: columnConfigs,
+              searchText: ctrl.searchText,
+            ),
+          );
+        });
       }
 
       // Defer initial sync to after the frame is built
-      WidgetsBinding.instance.addPostFrameCallback((_) => syncMetaState());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) syncMetaState();
+      });
 
       // Listen to controller changes
       ctrl.addListener(syncMetaState);

@@ -7,8 +7,12 @@ import 'preis_table.dart';
 /// Main member entity.
 @DataClassName('Mitglied')
 class Mitglieds extends Table {
+  @override
+  String get tableName => 'mitglied';
+
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get anrede => text().nullable()(); // enum: Herr, Frau, Divers, Keine
+  TextColumn get anrede =>
+      text().nullable()(); // enum: Herr, Frau, Divers, Keine
   TextColumn get name => text().withLength(max: 100)();
   TextColumn get vorname => text().withLength(max: 100)();
   TextColumn get plz => text().nullable().withLength(max: 10)();
@@ -19,13 +23,26 @@ class Mitglieds extends Table {
   TextColumn get telefon2 => text().nullable().withLength(max: 50)();
   TextColumn get email => text().nullable().withLength(max: 200)();
   DateTimeColumn get geboren => dateTime().nullable()();
-  TextColumn get geschlecht => text().nullable()(); // Enum:[maennlich, weiblich, divers]
-  IntColumn get leistungId => integer().nullable().references(Leistung, #id, onDelete: KeyAction.setNull)();
+  TextColumn get geschlecht =>
+      text().nullable()(); // Enum:[maennlich, weiblich, divers]
+  IntColumn get leistungId => integer().nullable().references(
+    Leistung,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
   DateTimeColumn get vertragKontierung => dateTime().nullable()();
   DateTimeColumn get vertragLaufzeitVon => dateTime().nullable()();
   DateTimeColumn get vertragLaufzeitBis => dateTime().nullable()();
-  IntColumn get preisId => integer().nullable().references(Preis, #id, onDelete: KeyAction.setNull)();
-  IntColumn get bemerkungId => integer().nullable().references(Bemerkung, #id, onDelete: KeyAction.setNull)();
+  IntColumn get preisId => integer().nullable().references(
+    Preis,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+  IntColumn get bemerkungId => integer().nullable().references(
+    Bemerkung,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
 
   // drift indexes are defined in AppDatabase or using @TableIndex but we configure them centrally in the Database class definition to conform with the structured setup.
 }

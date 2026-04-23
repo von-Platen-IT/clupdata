@@ -291,7 +291,7 @@ class RechnungenRepository {
     final result = await _db
         .customSelect(
           "SELECT MAX(CAST(substr(rechnungsnummer, 9) AS INTEGER)) as max_num "
-          "FROM rechnungen WHERE substr(rechnungsnummer, 3, 4) = ?",
+          "FROM rechnung WHERE substr(rechnungsnummer, 3, 4) = ?",
           variables: [Variable<String>(year.toString())],
         )
         .getSingle();

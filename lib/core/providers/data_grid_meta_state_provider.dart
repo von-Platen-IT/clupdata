@@ -21,7 +21,7 @@ part 'data_grid_meta_state_provider.g.dart';
 /// // Read state for export
 /// final metaState = ref.read(dataGridMetaStateProvider)['mitglied'];
 /// ```
-@riverpod
+@Riverpod(keepAlive: true)
 class DataGridMetaStateNotifier extends _$DataGridMetaStateNotifier {
   @override
   Map<String, DataGridMetaState> build() => {};
@@ -35,10 +35,7 @@ class DataGridMetaStateNotifier extends _$DataGridMetaStateNotifier {
   void updateFilters(String entityType, Map<String, String> filters) {
     final current = state[entityType];
     if (current != null) {
-      state = {
-        ...state,
-        entityType: current.copyWith(activeFilters: filters),
-      };
+      state = {...state, entityType: current.copyWith(activeFilters: filters)};
     }
   }
 
@@ -46,10 +43,7 @@ class DataGridMetaStateNotifier extends _$DataGridMetaStateNotifier {
   void updateSorts(String entityType, List<SortColumnConfig> sorts) {
     final current = state[entityType];
     if (current != null) {
-      state = {
-        ...state,
-        entityType: current.copyWith(activeSorts: sorts),
-      };
+      state = {...state, entityType: current.copyWith(activeSorts: sorts)};
     }
   }
 
@@ -57,10 +51,7 @@ class DataGridMetaStateNotifier extends _$DataGridMetaStateNotifier {
   void updateVisibleColumns(String entityType, List<String> columns) {
     final current = state[entityType];
     if (current != null) {
-      state = {
-        ...state,
-        entityType: current.copyWith(visibleColumns: columns),
-      };
+      state = {...state, entityType: current.copyWith(visibleColumns: columns)};
     }
   }
 
@@ -68,10 +59,7 @@ class DataGridMetaStateNotifier extends _$DataGridMetaStateNotifier {
   void updateSearchText(String entityType, String searchText) {
     final current = state[entityType];
     if (current != null) {
-      state = {
-        ...state,
-        entityType: current.copyWith(searchText: searchText),
-      };
+      state = {...state, entityType: current.copyWith(searchText: searchText)};
     }
   }
 
