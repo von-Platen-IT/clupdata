@@ -365,8 +365,8 @@ class CsvDataConverter {
 // ---------------------------------------------------------------------------
 
 /// Zentraler Service für CSV-Import mit Streaming, Batching und Fehler-Resilienz.
-class CsvImportService {
-  CsvImportService._();
+class CsvImportServiceV2 {
+  CsvImportServiceV2._();
 
   /// Anzeigenamen für Tabellen.
   static const _tableDisplayNames = <String, String>{
@@ -615,15 +615,13 @@ class CsvImportService {
     final logger = ImportLogger();
 
     try {
-      // Initialisierung
       logger.info(
         phase: ImportPhase.initialization,
-        message: 'CSV Import gestartet',
+        message: 'CSV Import gestartet (V2)',
         context: {
           'filePath': filePath,
           'tableName': schema.sqlTableName,
           'mode': mode.toString(),
-          'batchSize': batchSize,
         },
       );
 
@@ -638,9 +636,8 @@ class CsvImportService {
         message: 'Datei analysiert',
         context: {
           'delimiter': delimiter,
-          'headerCount': headers.length,
+          'headers': headers.length,
           'estimatedRows': estimatedRows,
-          'fileSize': analysis['fileSize'],
         },
       );
 
@@ -649,53 +646,12 @@ class CsvImportService {
       if (columnMapping.isEmpty) {
         logger.critical(
           phase: ImportPhase.schemaMapping,
-          message: 'Keine übereinstimmenden Spalten gefunden',
-          context: {
-            'csvHeaders': headers,
-            'expectedColumns': schema.importableColumnNames,
-          },
+          message: 'Keine übereinstimmenden Spalten',
         );
         return CsvImportResult(
           success: false,
           errorMessage: 'Keine übereinstimmenden Spalten gefunden',
           logger: logger,
-        );
-      }
-
-      // Detaillierte Mapping-Informationen loggen
-      final mappedHeaders = <String>[];
-      final unmappedHeaders = <String>[];
-
-      for (var i = 0; i < headers.length; i++) {
-        if (columnMapping.containsKey(i)) {
-          mappedHeaders.add('${headers[i]} → ${columnMapping[i]!.name}');
-        } else {
-          unmappedHeaders.add(headers[i]);
-        }
-      }
-
-      logger.info(
-        phase: ImportPhase.schemaMapping,
-        message: 'Spalten-Mapping erstellt',
-        context: {
-          'mappedColumns': columnMapping.length,
-          'totalHeaders': headers.length,
-          'mappedDetails': mappedHeaders,
-          'unmappedHeaders': unmappedHeaders,
-          'requiredColumns': schema.requiredColumnNames,
-        },
-      );
-
-      // Warnung wenn Pflichtfelder nicht gemapped wurden
-      final missingRequired = schema.requiredColumnNames
-          .where((req) => !columnMapping.values.any((c) => c.name == req))
-          .toList();
-
-      if (missingRequired.isNotEmpty) {
-        logger.warning(
-          phase: ImportPhase.schemaMapping,
-          message: 'Pflichtfelder fehlen in CSV',
-          context: {'missingRequired': missingRequired},
         );
       }
 
@@ -705,10 +661,6 @@ class CsvImportService {
       // Bei Überschreiben: Daten löschen
       if (mode == ImportMode.overwrite) {
         await db.customStatement('DELETE FROM ${schema.sqlTableName}');
-        logger.warning(
-          phase: ImportPhase.dataImport,
-          message: 'Vorhandene Daten gelöscht (Overwrite-Modus)',
-        );
       }
 
       var importedCount = 0;
@@ -718,8 +670,6 @@ class CsvImportService {
 
       var isFirstRow = true;
       var rowIndex = 0;
-
-      logger.info(phase: ImportPhase.dataImport, message: 'Starte Datenimport');
 
       await for (final row in parser.parseFile(filePath)) {
         if (isFirstRow) {
@@ -764,7 +714,7 @@ class CsvImportService {
           logger.error(
             phase: ImportPhase.dataValidation,
             message: 'Zeile konnte nicht konvertiert werden',
-            context: {'rowIndex': rowIndex, 'csvRow': row},
+            context: {'rowIndex': rowIndex},
             error: e,
           );
 
@@ -783,18 +733,6 @@ class CsvImportService {
           importedCount += batchResult.successCount;
           failedCount += batchResult.failureCount;
           currentBatch = [];
-
-          logger.info(
-            phase: ImportPhase.dataImport,
-            message: 'Batch verarbeitet',
-            context: {
-              'imported': importedCount,
-              'failed': failedCount,
-              'progress': estimatedRows > 0
-                  ? '${(importedCount / estimatedRows * 100).toStringAsFixed(1)}%'
-                  : 'unbekannt',
-            },
-          );
 
           onProgress?.call(importedCount, estimatedRows);
         }
@@ -815,22 +753,18 @@ class CsvImportService {
 
       stopwatch.stop();
 
-      final success = failedCount == 0 || importedCount > 0;
       logger.info(
         phase: ImportPhase.completion,
         message: 'Import abgeschlossen',
         context: {
           'duration': '${stopwatch.elapsed.inSeconds}s',
-          'totalRows': rowIndex,
           'imported': importedCount,
           'failed': failedCount,
-          'successRate':
-              '${rowIndex > 0 ? (importedCount / rowIndex * 100).toStringAsFixed(2) : 0}%',
         },
       );
 
       return CsvImportResult(
-        success: success,
+        success: failedCount == 0 || importedCount > 0,
         importedRows: importedCount,
         failedRows: failedCount,
         rowResults: rowResults,
@@ -1117,6 +1051,15 @@ class CsvImportService {
         }
         return Variable<DateTime>(value);
     }
+  }
+
+  /// Sanitisiert Header-Namen für SQL-Kompatibilität.
+  static String _sanitizeHeader(String name) {
+    return name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
   }
 
   /// Menschenlesbarer Name.

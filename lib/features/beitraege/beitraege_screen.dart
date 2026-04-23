@@ -32,11 +32,8 @@ class BeitraegeScreen extends HookConsumerWidget {
               ),
             );
       });
-      return () => Future(() {
-        ref
-            .read(createActionRegistryProvider.notifier)
-            .unregister('Rechnungslegung');
-      });
+      final notifier = ref.read(createActionRegistryProvider.notifier);
+      return () => notifier.unregister('Rechnungslegung');
     }, []);
 
     final selectedRowId = useState<int?>(null);

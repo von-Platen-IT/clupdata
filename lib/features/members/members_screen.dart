@@ -31,9 +31,8 @@ class MembersScreen extends HookConsumerWidget {
               ),
             );
       });
-      return () => Future(() {
-        ref.read(createActionRegistryProvider.notifier).unregister('Mitglied');
-      });
+      final notifier = ref.read(createActionRegistryProvider.notifier);
+      return () => notifier.unregister('Mitglied');
     }, []);
 
     // Get the persisted selected member ID from the provider

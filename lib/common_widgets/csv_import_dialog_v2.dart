@@ -5,24 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../core/data/csv_import_service.dart';
+import '../core/data/csv_import_service_v2.dart';
 import '../core/providers/database_provider.dart';
 import 'database_backup_dialog.dart';
 
-export '../core/data/csv_import_service.dart'
-    show ImportMode, TableSchema, CsvImportResult;
-
-/// Zeigt den CSV-Import-Dialog an.
-Future<void> showCsvImportDialog(BuildContext context, WidgetRef ref) async {
+/// Zeigt den CSV-Import-Dialog (V2) an.
+Future<void> showCsvImportDialogV2(BuildContext context, WidgetRef ref) async {
   await showDialog<void>(
     context: context,
-    builder: (context) => const _CsvImportDialog(),
+    builder: (context) => const _CsvImportDialogV2(),
   );
 }
 
 /// CSV Import Dialog mit Progress-Anzeige und Streaming.
-class _CsvImportDialog extends HookConsumerWidget {
-  const _CsvImportDialog();
+class _CsvImportDialogV2 extends HookConsumerWidget {
+  const _CsvImportDialogV2();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,7 +27,7 @@ class _CsvImportDialog extends HookConsumerWidget {
 
     // State
     final tablesFuture = useMemoized(
-      () => CsvImportService.getImportableTables(db),
+      () => CsvImportServiceV2.getImportableTables(db),
     );
     final tablesSnapshot = useFuture(tablesFuture);
 
@@ -48,9 +45,15 @@ class _CsvImportDialog extends HookConsumerWidget {
     final importResult = useState<CsvImportResult?>(null);
     final validationErrors = useState<List<String>>([]);
 
-    // Cancel token - verwende eine lokale Variable statt useState
-    // um setState-Probleme beim Widget-Dispose zu vermeiden
-    bool isCancelled = false;
+    // Cancel token
+    final cancelToken = useState<bool>(false);
+
+    // Cleanup
+    useEffect(() {
+      return () {
+        cancelToken.value = true;
+      };
+    }, []);
 
     Future<void> pickFile() async {
       final result = await FilePicker.platform.pickFiles(
@@ -61,64 +64,25 @@ class _CsvImportDialog extends HookConsumerWidget {
 
       if (result != null && result.files.single.path != null) {
         selectedFile.value = result.files.single;
-        importResult.value = null;
-        validationErrors.value = [];
 
         // Datei analysieren
         try {
-          final analysis = await CsvImportService.analyzeFile(
+          final analysis = await CsvImportServiceV2.analyzeFile(
             result.files.single.path!,
           );
           fileAnalysis.value = analysis;
           totalRows.value = analysis['estimatedRows'] as int;
         } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Fehler beim Lesen der Datei: $e')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Fehler beim Lesen der Datei: $e')),
+          );
         }
       }
     }
 
     Future<void> startImport() async {
-      debugPrint('=== CSV Import gestartet ===');
-      debugPrint('Datei: ${selectedFile.value?.path}');
-      debugPrint('Tabelle: ${selectedTable.value?.displayName}');
-      debugPrint('Modus: ${importMode.value}');
-
-      if (selectedFile.value?.path == null) {
-        debugPrint('FEHLER: Keine Datei ausgewählt');
+      if (selectedFile.value?.path == null || selectedTable.value == null) {
         return;
-      }
-      if (selectedTable.value == null) {
-        debugPrint('FEHLER: Keine Tabelle ausgewählt');
-        return;
-      }
-
-      // Bestätigung bei Überschreiben
-      if (importMode.value == ImportMode.overwrite) {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Daten überschreiben?'),
-            content: Text(
-              'Alle vorhandenen Daten in der Tabelle '
-              '"${selectedTable.value!.displayName}" werden gelöscht.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Überschreiben'),
-              ),
-            ],
-          ),
-        );
-        if (confirmed != true) return;
       }
 
       isImporting.value = true;
@@ -126,106 +90,44 @@ class _CsvImportDialog extends HookConsumerWidget {
       importedRows.value = 0;
       failedRows.value = 0;
       validationErrors.value = [];
-      isCancelled = false;
+      cancelToken.value = false;
 
       try {
-        debugPrint('Starte CsvImportService.importFile...');
-        final result = await CsvImportService.importFile(
+        final result = await CsvImportServiceV2.importFile(
           selectedFile.value!.path!,
           selectedTable.value!,
           importMode.value,
           db,
           batchSize: 100,
           onProgress: (processed, total) {
-            debugPrint('Progress: $processed / $total Zeilen');
-            if (!isCancelled) {
-              // Verwende addPostFrameCallback um setState-Probleme zu vermeiden
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!isCancelled) {
-                  importedRows.value = processed;
-                  importProgress.value = total > 0 ? processed / total : 0;
-                }
-              });
+            if (!cancelToken.value) {
+              importedRows.value = processed;
+              importProgress.value = total > 0 ? processed / total : 0;
             }
           },
           onRowError: (rowIndex, error) {
-            debugPrint('FEHLER Zeile $rowIndex: $error');
-            if (!isCancelled) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!isCancelled && validationErrors.value.length < 10) {
-                  failedRows.value++;
-                  validationErrors.value = [
-                    ...validationErrors.value,
-                    'Zeile $rowIndex: $error',
-                  ];
-                }
-              });
+            failedRows.value++;
+            if (validationErrors.value.length < 10) {
+              validationErrors.value = [
+                ...validationErrors.value,
+                'Zeile $rowIndex: $error',
+              ];
             }
           },
         );
 
-        debugPrint('=== Import Ergebnis ===');
-        debugPrint('success: ${result.success}');
-        debugPrint('importedRows: ${result.importedRows}');
-        debugPrint('failedRows: ${result.failedRows}');
-        debugPrint('errors: ${result.errors}');
-        debugPrint('errorMessage: ${result.errorMessage}');
-        debugPrint('rowResults count: ${result.rowResults.length}');
-        if (result.rowResults.isNotEmpty) {
-          for (final rowResult in result.rowResults.take(5)) {
-            debugPrint(
-              '  Zeile ${rowResult.rowIndex}: ${rowResult.success ? 'OK' : rowResult.errorMessage}',
-            );
-          }
-        }
-
-        if (!isCancelled) {
-          importResult.value = result;
-
-          if (context.mounted) {
-            if (result.success) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${result.importedRows} Zeilen importiert'),
-                ),
-              );
-            } else {
-              // Zeige Fehler-Dialog wenn Import fehlgeschlagen
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Import fehlgeschlagen: ${result.errorMessage ?? '${result.failedRows} Zeilen fehlerhaft'}',
-                  ),
-                  duration: const Duration(seconds: 5),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-              );
-            }
-          }
-        }
-      } catch (e, stackTrace) {
-        debugPrint('=== Import Exception ===');
-        debugPrint('Fehler: $e');
-        debugPrint('StackTrace: $stackTrace');
-        if (!isCancelled && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Import fehlgeschlagen: $e'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
+        importResult.value = result;
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import fehlgeschlagen: $e')));
       } finally {
-        if (!isCancelled) {
-          isImporting.value = false;
-          debugPrint('=== Import abgeschlossen ===');
-        }
+        isImporting.value = false;
       }
     }
 
     void cancelImport() {
-      isCancelled = true;
+      cancelToken.value = true;
       isImporting.value = false;
     }
 
@@ -262,10 +164,7 @@ class _CsvImportDialog extends HookConsumerWidget {
                 _TableDropdown(
                   tablesSnapshot: tablesSnapshot,
                   selectedTable: selectedTable,
-                  onChanged: (table) {
-                    selectedTable.value = table;
-                    importResult.value = null;
-                  },
+                  onChanged: (table) => selectedTable.value = table,
                 ),
 
               const SizedBox(height: 12),
@@ -340,9 +239,7 @@ class _BackupWarning extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.errorContainer.withValues(alpha: 0.3),
+        color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
@@ -360,7 +257,6 @@ class _BackupWarning extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          const SizedBox(width: 8),
           FilledButton.tonal(
             onPressed: tablesSnapshot.hasData
                 ? () => showBackupDialog(context, ref)
@@ -591,7 +487,7 @@ class _ImportProgressSection extends StatelessWidget {
         child: Column(
           children: [
             LinearProgressIndicator(
-              value: progress > 0 ? progress : null,
+              value: progress,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
             ),
             const SizedBox(height: 12),
@@ -629,9 +525,7 @@ class _ErrorList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Theme.of(
-        context,
-      ).colorScheme.errorContainer.withValues(alpha: 0.3),
+      color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -672,8 +566,8 @@ class _ImportResultCard extends StatelessWidget {
 
     return Card(
       color: success
-          ? Colors.green.withValues(alpha: 0.1)
-          : theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+          ? Colors.green.withOpacity(0.1)
+          : theme.colorScheme.errorContainer.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

@@ -29,9 +29,8 @@ class LeistungenScreen extends HookConsumerWidget {
               ),
             );
       });
-      return () => Future(() {
-        ref.read(createActionRegistryProvider.notifier).unregister('Leistung');
-      });
+      final notifier = ref.read(createActionRegistryProvider.notifier);
+      return () => notifier.unregister('Leistung');
     }, []);
 
     // State to hold the currently selected row ID for the delete button

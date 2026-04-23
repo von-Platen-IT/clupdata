@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/providers/active_menu_item_provider.dart';
 import '../core/providers/create_action_provider.dart';
+import 'csv_export_dialog.dart';
 import 'csv_import_dialog.dart';
 import 'database_backup_dialog.dart';
 
@@ -94,9 +95,7 @@ class MainMenuBar extends ConsumerWidget {
                 height: 32,
                 padding: const EdgeInsets.only(left: 32),
                 child: const Text('CSV Export'),
-                onTap: () => ref
-                    .read(activeMenuItemProvider.notifier)
-                    .setActiveItem('Datenübertragung > Export > CSV Export'),
+                onTap: () => showCsvExportDialog(context, ref),
               ),
               PopupMenuItem(
                 height: 32,

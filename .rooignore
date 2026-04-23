@@ -1,0 +1,44 @@
+# Flutter Build-Artefakte
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Abhängigkeiten
+.pub-cache/
+.pub/
+
+# IDE-Konfiguration (nicht vom Agenten zu modifizieren)
+.idea/
+.vscode/settings.json
+
+# Sensitive Konfigurationen
+*.env
+*.env.local
+google-services.json
+GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Generated Files (nur lesen, nicht bearbeiten)
+*.g.dart
+*.freezed.dart
+*.gr.dart
+
+# Datenbank-Dateien (niemals modifizieren)
+*.sqlite
+*.sqlite3
+*.db
+
+# Backup-Verzeichnis
+.git_backup/
+
+# Platform-spezifische Build-Artefakte
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+
+# Drift Schema-Versionen (nur lesen)
+drift_schemas/

@@ -29,9 +29,8 @@ class WarenScreen extends HookConsumerWidget {
               ),
             );
       });
-      return () => Future(() {
-        ref.read(createActionRegistryProvider.notifier).unregister('Ware');
-      });
+      final notifier = ref.read(createActionRegistryProvider.notifier);
+      return () => notifier.unregister('Ware');
     }, []);
 
     // State to hold the currently selected row ID for the delete button
