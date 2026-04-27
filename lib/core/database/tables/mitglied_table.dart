@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../../utils/uuid_helper.dart';
 import 'bemerkung_table.dart';
 import 'leistung_table.dart';
 import 'preis_table.dart';
@@ -6,11 +7,20 @@ import 'preis_table.dart';
 /// Defines the structure for the `mitglied` table.
 /// Main member entity.
 @DataClassName('Mitglied')
+@TableIndex(name: 'idx_mitglied_name', columns: {#name, #vorname})
+@TableIndex(name: 'idx_mitglied_plz_ort', columns: {#plz, #ort})
+@TableIndex(name: 'idx_mitglied_leistung', columns: {#leistungId})
+@TableIndex(name: 'idx_mitglied_vertrag_von', columns: {#vertragLaufzeitVon})
+@TableIndex(name: 'idx_mitglied_vertrag_bis', columns: {#vertragLaufzeitBis})
+@TableIndex(name: 'idx_mitglied_geboren', columns: {#geboren})
+@TableIndex(name: 'idx_mitglied_uuid', columns: {#uuid}, unique: true)
 class Mitglieds extends Table {
   @override
   String get tableName => 'mitglied';
 
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid =>
+      text().unique().nullable().clientDefault(() => generateUuid())();
   TextColumn get anrede =>
       text().nullable()(); // enum: Herr, Frau, Divers, Keine
   TextColumn get name => text().withLength(max: 100)();

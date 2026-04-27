@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
+import '../utils/uuid_helper.dart';
 import 'tables/bemerkung_table.dart';
 import 'tables/stammdaten_table.dart';
 import 'tables/preis_table.dart';
@@ -43,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   /// Schreibt den WAL-Cache in die Hauptdatei (für konsistente Backups).
   Future<void> checkpoint() async {
@@ -128,6 +129,38 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE rechnung_positionen RENAME TO rechnung_position',
         );
+      } else if (from == 16) {
+        // v17: UUID-Spalten für CSV-Export/Import hinzufügen
+        // Jede Tabelle erhält eine uuid TEXT UNIQUE Spalte
+        // Da SQLite keine Funktions-basierten Defaults unterstützt,
+        // fügen wir die Spalte als nullable hinzu und setzen UUIDs per UPDATE.
+        final tables = [
+          'bemerkung',
+          'stammdaten',
+          'preis',
+          'leistung',
+          'mitglied',
+          'waren',
+          'beitrag',
+          'beitrag_status_verlauf',
+          'rechnung',
+          'rechnung_position',
+        ];
+        for (final table in tables) {
+          await customStatement('ALTER TABLE $table ADD COLUMN uuid TEXT');
+          // Bestehenden Zeilen eine UUID geben
+          await customStatement(
+            "UPDATE $table SET uuid = lower(hex(randomblob(4)) || '-' || "
+            "hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || "
+            "substr('89ab',abs(random())%4+1,1) || substr(hex(randomblob(2)),2) || '-' || "
+            "hex(randomblob(6))) WHERE uuid IS NULL",
+          );
+          // NOT NULL constraint setzen (SQLite erlaubt ALTER COLUMN nicht,
+          // daher via recreate für die uuid-Spalte)
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_uuid ON $table(uuid)',
+          );
+        }
       }
     },
     beforeOpen: (details) async {

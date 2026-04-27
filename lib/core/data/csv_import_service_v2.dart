@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
 import 'import_logger.dart';
@@ -112,7 +114,7 @@ class CsvImportResult {
 class BatchImportResult {
   final int successCount;
   final int failureCount;
-  final Map<int, String> failedRows; // Index -> Error Message
+  final Map<int, String> failedRows;
 
   const BatchImportResult({
     required this.successCount,
@@ -123,15 +125,8 @@ class BatchImportResult {
 
 /// Konvertierungsoptionen für CSV-Daten.
 class CsvConversionOptions {
-  /// NULL-Platzhalter die als SQL NULL interpretiert werden.
-  /// WICHTIG: Leerer String '' ist NICHT in der Liste, damit NOT NULL Spalten
-  /// bei leeren Strings fehlschlagen statt NULL zu akzeptieren.
   final List<String> nullPlaceholders;
-
-  /// Datumsformate die erkannt werden sollen (in Reihenfolge der Prüfung).
   final List<String> dateFormats;
-
-  /// Dezimal-Trennzeichen für europäische Zahlen.
   final bool europeanNumberFormat;
 
   const CsvConversionOptions({
@@ -162,8 +157,6 @@ typedef ValidationProgressCallback = void Function(int processedRows);
 // ---------------------------------------------------------------------------
 
 /// Streaming CSV Parser für große Dateien.
-///
-/// Liest die Datei in Chunks und parsed zeilenweise, um Memory-Spikes zu vermeiden.
 class CsvStreamingParser {
   final String fieldDelimiter;
   final String? rowDelimiter;
@@ -188,8 +181,6 @@ class CsvStreamingParser {
   }
 
   /// Parst eine CSV-Datei als Stream von Zeilen.
-  ///
-  /// [onProgress] wird nach jeder gelesenen Zeile aufgerufen.
   Stream<List<String>> parseFile(
     String filePath, {
     void Function(int lineCount)? onProgress,
@@ -201,10 +192,9 @@ class CsvStreamingParser {
 
     final csvCodec = Csv(fieldDelimiter: fieldDelimiter);
 
-    // Datei einlesen (für große Dateien später: chunked reading)
     var content = await file.readAsString();
 
-    // UTF-8 BOM entfernen (alle gängigen Encodings)
+    // UTF-8 BOM entfernen
     if (content.startsWith('\ufeff')) {
       content = content.substring(1);
     } else if (content.startsWith('ï»¿')) {
@@ -221,10 +211,8 @@ class CsvStreamingParser {
 
     for (final row in rows) {
       lineCount++;
-      // Trim + BOM aus jedem Field entfernen
       final cleaned = row.map((cell) {
         var str = cell.toString().trim();
-        // BOM aus erstem Feld entfernen falls noch vorhanden
         str = str.replaceFirst(RegExp(r'^[\ufeffï»¿]+'), '');
         return str;
       }).toList();
@@ -234,23 +222,27 @@ class CsvStreamingParser {
   }
 
   /// Parst nur den Header einer CSV-Datei.
+  ///
+  /// Entfernt zuverlässig UTF-8 BOM (0xEF, 0xBB, 0xBF) aus dem Dateianfang,
+  /// bevor der CSV-Parser den Header interpretiert.
   Future<List<String>?> parseHeader(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) return null;
 
-    // Nur die ersten paar KB lesen für den Header
     final raf = await file.open();
-    final buffer = await raf.read(4096); // 4KB sollten für den Header reichen
+    final buffer = await raf.read(4096);
     await raf.close();
 
-    var content = String.fromCharCodes(buffer);
+    // UTF-8 Dekodierung mit BOM-Entfernung
+    var content = utf8.decode(buffer, allowMalformed: true);
 
-    // UTF-8 BOM entfernen
-    if (content.startsWith('\ufeff')) {
+    // BOM auf allen Ebenen entfernen
+    if (content.startsWith('\uFEFF')) {
+      content = content.substring(1);
+    } else if (content.startsWith('\ufeff')) {
       content = content.substring(1);
     }
 
-    // Erste Zeile extrahieren
     final firstNewline = content.indexOf('\n');
     final headerLine = firstNewline > 0
         ? content.substring(0, firstNewline)
@@ -274,13 +266,11 @@ class CsvDataConverter {
 
   const CsvDataConverter([this.options = CsvConversionOptions.defaultOptions]);
 
-  /// Prüft ob ein Wert als NULL interpretiert werden soll.
   bool isNullValue(String? value) {
     if (value == null) return true;
     return options.nullPlaceholders.contains(value.trim());
   }
 
-  /// Konvertiert einen String-Wert basierend auf dem Ziel-Datentyp.
   dynamic convert(String? value, ColumnDataType targetType) {
     if (isNullValue(value)) return null;
 
@@ -301,33 +291,24 @@ class CsvDataConverter {
     }
   }
 
-  /// Parst einen Integer-Wert.
   int? _parseInteger(String value) {
-    // Entferne Tausender-Trennzeichen
     final cleaned = value.replaceAll('.', '').replaceAll(',', '');
     return int.tryParse(cleaned);
   }
 
-  /// Parst einen Double-Wert (unterstützt europäisches Format).
   double? _parseReal(String value) {
     if (options.europeanNumberFormat) {
-      // Europäisch: 1.234,56 -> 1234.56
-      // Oder: 1234,56 -> 1234.56
       if (value.contains(',') && value.contains('.')) {
-        // Beide vorhanden: 1.234,56
         final cleaned = value.replaceAll('.', '').replaceAll(',', '.');
         return double.tryParse(cleaned);
       } else if (value.contains(',')) {
-        // Nur Komma: 1234,56
         final cleaned = value.replaceAll(',', '.');
         return double.tryParse(cleaned);
       }
     }
-    // Standard: 1234.56
     return double.tryParse(value);
   }
 
-  /// Parst einen Boolean-Wert.
   bool? _parseBoolean(String value) {
     final lower = value.toLowerCase().trim();
     if (['1', 'true', 'yes', 'ja', 'wahr'].contains(lower)) return true;
@@ -335,25 +316,18 @@ class CsvDataConverter {
     return null;
   }
 
-  /// Parst ein Datum (versucht mehrere Formate).
   DateTime? _parseDateTime(String value) {
     for (final format in options.dateFormats) {
       try {
         return DateFormat(format).parseStrict(value);
-      } catch (_) {
-        // Nächstes Format probieren
-      }
+      } catch (_) {}
     }
-
-    // ISO 8601 als Fallback
     try {
       return DateTime.parse(value);
     } catch (_) {}
-
     return null;
   }
 
-  /// Validiert ob ein Wert zum Zieltyp passt.
   bool isValid(String? value, ColumnDataType targetType) {
     if (isNullValue(value)) return true;
     return convert(value, targetType) != null;
@@ -361,10 +335,80 @@ class CsvDataConverter {
 }
 
 // ---------------------------------------------------------------------------
+// UUID-Mapping für FK-Auflösung
+// ---------------------------------------------------------------------------
+
+/// Verwaltet das Mapping von UUID → lokaler ID für alle Tabellen.
+/// Wird vor dem Import befüllt, um performante FK-Auflösung zu ermöglichen.
+class UuidMapping {
+  final Map<String, Map<String, int>> _uuidToId = {};
+  final Map<String, Map<int, String>> _idToUuid = {};
+
+  /// Lädt alle UUID→ID Mappings aus der Datenbank.
+  Future<void> loadFromDatabase(AppDatabase db) async {
+    final tables = [
+      'bemerkung',
+      'stammdaten',
+      'preis',
+      'leistung',
+      'mitglied',
+      'waren',
+      'beitrag',
+      'beitrag_status_verlauf',
+      'rechnung',
+      'rechnung_position',
+    ];
+
+    for (final table in tables) {
+      try {
+        final rows = await db.customSelect('SELECT id, uuid FROM $table').get();
+        _uuidToId[table] = {
+          for (final row in rows) row.read<String>('uuid'): row.read<int>('id'),
+        };
+        _idToUuid[table] = {
+          for (final row in rows) row.read<int>('id'): row.read<String>('uuid'),
+        };
+      } catch (_) {
+        // Tabelle existiert noch nicht (bei erstmaligem Import)
+        _uuidToId[table] = {};
+        _idToUuid[table] = {};
+      }
+    }
+  }
+
+  /// Gibt die lokale ID für eine UUID zurück, oder null.
+  int? getLocalId(String tableName, String uuid) {
+    return _uuidToId[tableName]?[uuid];
+  }
+
+  /// Gibt die UUID für eine lokale ID zurück, oder null.
+  String? getUuid(String tableName, int id) {
+    return _idToUuid[tableName]?[id];
+  }
+
+  /// Fügt ein neues Mapping hinzu (nach erfolgreichem Insert).
+  void addMapping(String tableName, String uuid, int localId) {
+    _uuidToId.putIfAbsent(tableName, () => {})[uuid] = localId;
+    _idToUuid.putIfAbsent(tableName, () => {})[localId] = uuid;
+  }
+
+  /// Prüft ob eine UUID bereits in der Datenbank existiert.
+  bool hasUuid(String tableName, String uuid) {
+    return _uuidToId[tableName]?.containsKey(uuid) ?? false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main Service
 // ---------------------------------------------------------------------------
 
-/// Zentraler Service für CSV-Import mit Streaming, Batching und Fehler-Resilienz.
+/// Zentraler Service für CSV-Import mit UUID-basiertem Upsert.
+///
+/// Features:
+/// - UUID-basiertes Upsert (INSERT ... ON CONFLICT(uuid) DO UPDATE)
+/// - FK-Auflösung über UUID-Mapping im RAM
+/// - Korrekte Import-Reihenfolge (FK-Abhängigkeiten)
+/// - Streaming, Batching und Fehler-Resilienz
 class CsvImportServiceV2 {
   CsvImportServiceV2._();
 
@@ -382,35 +426,50 @@ class CsvImportServiceV2 {
     'rechnung_position': 'Rechnungspositionen',
   };
 
+  /// Import-Reihenfolge (FK-Abhängigkeiten).
+  static const _importOrder = [
+    'bemerkung',
+    'stammdaten',
+    'preis',
+    'leistung',
+    'mitglied',
+    'waren',
+    'beitrag',
+    'beitrag_status_verlauf',
+    'rechnung',
+    'rechnung_position',
+  ];
+
+  /// Mapping: CSV-Header-Name (z.B. "mitglied_uuid") → Ziel-Tabellenname
+  static const _fkUuidMapping = <String, String>{
+    'bemerkung_uuid': 'bemerkung',
+    'preis_uuid': 'preis',
+    'leistung_uuid': 'leistung',
+    'mitglied_uuid': 'mitglied',
+    'waren_uuid': 'waren',
+    'beitrag_uuid': 'beitrag',
+    'rechnung_uuid': 'rechnung',
+  };
+
   /// DateTime-Spalten pro Tabelle.
   static const _dateTimeColumnsByTable = <String, List<String>>{
+    'bemerkung': ['datum_erstellt'],
     'mitglied': [
       'geboren',
       'vertrag_kontierung',
       'vertrag_laufzeit_von',
       'vertrag_laufzeit_bis',
     ],
-    'beitrag': [
-      'rechnungsdatum',
-      'faelligkeitsdatum',
-      'bezahlt_am',
-      'erstellt_am',
-    ],
+    'beitrag': ['kontiert_am', 'status_datum', 'abrechnungs_zeitraum'],
     'beitrag_status_verlauf': ['geaendert_am'],
     'rechnung': [
-      'rechnungsdatum',
-      'faelligkeitsdatum',
+      'datum',
+      'faellig_am',
       'bezahlt_am',
       'erstellt_am',
+      'aktualisiert_am',
     ],
-    'rechnung_position': ['erstellt_am'],
-    'waren': ['gueltig_von', 'gueltig_bis'],
-    'preis': ['gueltig_ab', 'gueltig_bis'],
-  };
-
-  /// Boolean-Spalten pro Tabelle.
-  static const _booleanColumnsByTable = <String, List<String>>{
-    'stammdaten': ['mwst_pflicht'],
+    'waren': ['erstellt_am', 'aktualisiert_am'],
   };
 
   // -------------------------------------------------------------------------
@@ -454,7 +513,6 @@ class CsvImportServiceV2 {
         .get();
 
     final dateTimeCols = _dateTimeColumnsByTable[tableName] ?? [];
-    final boolCols = _booleanColumnsByTable[tableName] ?? [];
 
     return rows.map((row) {
       final name = row.read<String>('name');
@@ -463,7 +521,7 @@ class CsvImportServiceV2 {
       final pk = row.read<int>('pk') > 0;
       final defaultValue = row.read<String?>('dflt_value');
 
-      final dataType = _determineDataType(name, type, dateTimeCols, boolCols);
+      final dataType = _determineDataType(name, type, dateTimeCols);
 
       return ColumnSchema(
         name: name,
@@ -480,10 +538,8 @@ class CsvImportServiceV2 {
     String columnName,
     String sqlType,
     List<String> dateTimeCols,
-    List<String> boolCols,
   ) {
     if (dateTimeCols.contains(columnName)) return ColumnDataType.datetime;
-    if (boolCols.contains(columnName)) return ColumnDataType.boolean;
 
     final upper = sqlType.toUpperCase();
     if (upper == 'INTEGER') return ColumnDataType.integer;
@@ -496,35 +552,32 @@ class CsvImportServiceV2 {
   // -------------------------------------------------------------------------
 
   /// Analysiert eine CSV-Datei ohne Import.
-  ///
-  /// Liefert Informationen über Header, Zeilenanzahl, erkanntes Trennzeichen.
   static Future<Map<String, dynamic>> analyzeFile(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) {
       throw FileSystemException('Datei nicht gefunden', filePath);
     }
 
-    // Erste 4KB lesen für Header-Analyse
     final raf = await file.open();
     final buffer = await raf.read(4096);
     await raf.close();
 
-    var sample = String.fromCharCodes(buffer);
-    if (sample.startsWith('\ufeff')) {
+    // UTF-8 Dekodierung mit BOM-Entfernung
+    var sample = utf8.decode(buffer, allowMalformed: true);
+    if (sample.startsWith('\uFEFF')) {
+      sample = sample.substring(1);
+    } else if (sample.startsWith('\ufeff')) {
       sample = sample.substring(1);
     }
 
     final delimiter = CsvStreamingParser.detectDelimiter(sample);
 
-    // Gesamtzeilen zählen (approximativ für große Dateien)
     final totalBytes = await file.length();
     final lines = sample.split('\n').length;
-    // Vermeide Division durch Null bei leeren Buffern
     final estimatedTotalLines = buffer.isNotEmpty
         ? (totalBytes / buffer.length * lines).round()
         : lines;
 
-    // Header parsen
     final parser = CsvStreamingParser(fieldDelimiter: delimiter);
     final headers = await parser.parseHeader(filePath) ?? [];
 
@@ -538,8 +591,6 @@ class CsvImportServiceV2 {
   }
 
   /// Validiert eine CSV-Datei gegen das Tabellen-Schema.
-  ///
-  /// Liefert eine Liste von Validierungsfehlern pro Zeile.
   static Stream<ValidationResult> validateFile(
     String filePath,
     TableSchema schema, {
@@ -550,7 +601,6 @@ class CsvImportServiceV2 {
     final delimiter = analysis['delimiter'] as String;
     final headers = (analysis['headers'] as List).cast<String>();
 
-    // Column Mapping erstellen
     final columnMapping = _buildColumnMapping(headers, schema);
 
     final parser = CsvStreamingParser(fieldDelimiter: delimiter);
@@ -562,7 +612,7 @@ class CsvImportServiceV2 {
     await for (final row in parser.parseFile(filePath)) {
       if (isFirstRow) {
         isFirstRow = false;
-        continue; // Header überspringen
+        continue;
       }
 
       rowIndex++;
@@ -596,7 +646,7 @@ class CsvImportServiceV2 {
   // Import
   // -------------------------------------------------------------------------
 
-  /// Importiert eine CSV-Datei mit Batching und Fehler-Resilienz.
+  /// Importiert eine CSV-Datei mit Upsert (UUID-basiert).
   ///
   /// [batchSize]: Anzahl der Zeilen pro Batch (Default: 100)
   /// [onProgress]: Callback mit (importedRows, totalRows)
@@ -617,7 +667,7 @@ class CsvImportServiceV2 {
     try {
       logger.info(
         phase: ImportPhase.initialization,
-        message: 'CSV Import gestartet (V2)',
+        message: 'CSV Import gestartet (V2 - UUID-basiert)',
         context: {
           'filePath': filePath,
           'tableName': schema.sqlTableName,
@@ -655,12 +705,18 @@ class CsvImportServiceV2 {
         );
       }
 
+      // UUID-Mapping für FK-Auflösung laden
+      final uuidMapping = UuidMapping();
+      await uuidMapping.loadFromDatabase(db);
+
       final parser = CsvStreamingParser(fieldDelimiter: delimiter);
       final converter = CsvDataConverter(options);
 
       // Bei Überschreiben: Daten löschen
       if (mode == ImportMode.overwrite) {
         await db.customStatement('DELETE FROM ${schema.sqlTableName}');
+        // Mapping nach Löschen zurücksetzen
+        await uuidMapping.loadFromDatabase(db);
       }
 
       var importedCount = 0;
@@ -689,6 +745,29 @@ class CsvImportServiceV2 {
             final column = entry.value;
 
             final value = colIndex < row.length ? row[colIndex] : null;
+
+            // FK-UUID-Spalten auflösen (z.B. mitglied_uuid → mitglied_id)
+            if (_fkUuidMapping.containsKey(column.name)) {
+              final fkTableName = _fkUuidMapping[column.name]!;
+              final uuidValue =
+                  converter.convert(value, ColumnDataType.text) as String?;
+
+              if (uuidValue != null && uuidValue.isNotEmpty) {
+                final localId = uuidMapping.getLocalId(fkTableName, uuidValue);
+                if (localId != null) {
+                  // FK-Spalte: mitglied_uuid → mitglied_id (lokale ID)
+                  final fkColumnName = '${fkTableName}_id';
+                  rowData[fkColumnName] = localId;
+                } else {
+                  throw Exception(
+                    'FK-Referenz nicht gefunden: $fkTableName mit UUID "$uuidValue"',
+                  );
+                }
+              }
+              continue;
+            }
+
+            // Normale Spalten konvertieren
             final converted = converter.convert(value, column.dataType);
 
             if (converted != null || column.isNullable) {
@@ -728,6 +807,7 @@ class CsvImportServiceV2 {
             schema.sqlTableName,
             columnMapping.values.toList(),
             currentBatch,
+            uuidMapping,
             logger,
           );
           importedCount += batchResult.successCount;
@@ -745,6 +825,7 @@ class CsvImportServiceV2 {
           schema.sqlTableName,
           columnMapping.values.toList(),
           currentBatch,
+          uuidMapping,
           logger,
         );
         importedCount += batchResult.successCount;
@@ -789,15 +870,16 @@ class CsvImportServiceV2 {
     }
   }
 
-  /// Führt einen Batch von Insert-Operationen fehler-resilient aus.
+  /// Führt einen Batch von Upsert-Operationen aus.
   ///
-  /// Jede Zeile wird einzeln in einer eigenen Transaktion verarbeitet.
-  /// Fehlerhafte Zeilen werden übersprungen, der Import läuft weiter.
+  /// Verwendet `INSERT ... ON CONFLICT(uuid) DO UPDATE` für Idempotenz.
+  /// Aktualisiert das UUID-Mapping nach jedem erfolgreichen Insert.
   static Future<BatchImportResult> _executeBatch(
     AppDatabase db,
     String tableName,
     List<ColumnSchema> columns,
     List<Map<String, dynamic>> rows,
+    UuidMapping uuidMapping,
     ImportLogger logger,
   ) async {
     var successCount = 0;
@@ -817,10 +899,17 @@ class CsvImportServiceV2 {
 
           insertColumns.add(colName);
 
-          final colSchema = columns.firstWhere((c) => c.name == colName);
+          final colSchema = columns.firstWhere(
+            (c) => c.name == colName,
+            orElse: () => ColumnSchema(
+              name: colName,
+              dataType: ColumnDataType.text,
+              isNullable: true,
+              isPrimaryKey: false,
+            ),
+          );
 
           try {
-            // Wert für SQLite konvertieren (Boolean -> int, etc.)
             final sqlValue = _toSqlValue(value, colSchema.dataType);
             values.add(sqlValue);
           } catch (e) {
@@ -843,21 +932,45 @@ class CsvImportServiceV2 {
           throw Exception('Keine Daten zum Importieren');
         }
 
+        // Upsert: INSERT ... ON CONFLICT(uuid) DO UPDATE
         final placeholders = insertColumns.map((_) => '?').join(', ');
-        final sql =
-            'INSERT INTO $tableName '
-            '(${insertColumns.join(', ')}) VALUES ($placeholders)';
+        final updateSet = insertColumns
+            .where((c) => c != 'uuid') // uuid nicht updaten
+            .map((c) => '$c = EXCLUDED.$c')
+            .join(', ');
 
-        // Jede Zeile in eigener Transaktion = atomare Operation
+        final sql = updateSet.isNotEmpty
+            ? 'INSERT INTO $tableName '
+                  '(${insertColumns.join(', ')}) VALUES ($placeholders) '
+                  'ON CONFLICT(uuid) DO UPDATE SET $updateSet'
+            : 'INSERT INTO $tableName '
+                  '(${insertColumns.join(', ')}) VALUES ($placeholders)';
+
         await db.transaction(() async {
           await db.customStatement(sql, values);
         });
+
+        // UUID-Mapping aktualisieren falls eine uuid vorhanden ist
+        if (row.containsKey('uuid') && row['uuid'] != null) {
+          final uuid = row['uuid'].toString();
+          // ID des neu eingefügten/geupdateten Datensatzes abfragen
+          final result = await db
+              .customSelect(
+                'SELECT id FROM $tableName WHERE uuid = ?',
+                variables: [Variable<String>(uuid)],
+              )
+              .getSingleOrNull();
+          if (result != null) {
+            final localId = result.data['id'] as int;
+            uuidMapping.addMapping(tableName, uuid, localId);
+          }
+        }
 
         successCount++;
 
         logger.debug(
           phase: ImportPhase.dataImport,
-          message: 'Zeile erfolgreich importiert',
+          message: 'Zeile erfolgreich importiert (Upsert)',
           context: {'batchIndex': i, 'columns': insertColumns.length},
         );
       } catch (e, stackTrace) {
@@ -872,7 +985,6 @@ class CsvImportServiceV2 {
           stackTrace: stackTrace,
         );
 
-        // Weiter mit nächster Zeile
         continue;
       }
     }
@@ -888,11 +1000,11 @@ class CsvImportServiceV2 {
   // Helpers
   // -------------------------------------------------------------------------
 
-  /// Erstellt das Mapping: CSV-Index -> ColumnSchema
+  /// Erstellt das Mapping: CSV-Index → ColumnSchema
   ///
-  /// Versucht intelligentes Matching:
-  /// 1. Exakte Übereinstimmung (case-insensitive)
-  /// 2. Normalisierung: "Brutto (€)" → "brutto", "Telefon 1" → "telefon1"
+  /// Unterstützt sowohl direkte Spaltennamen als auch UUID-FK-Spalten:
+  /// - "mitglied_id" → mitglied_id (Integer)
+  /// - "mitglied_uuid" → mitglied_uuid (wird später aufgelöst)
   static Map<int, ColumnSchema> _buildColumnMapping(
     List<String> headers,
     TableSchema schema,
@@ -903,7 +1015,6 @@ class CsvImportServiceV2 {
     for (var i = 0; i < headers.length; i++) {
       var header = headers[i];
 
-      // UTF-8 BOM aus erstem Header entfernen
       if (i == 0) {
         header = header.replaceFirst(RegExp(r'^[\ufeffï»¿]+'), '');
       }
@@ -918,29 +1029,36 @@ class CsvImportServiceV2 {
           break;
         }
       }
+
+      // Prüfen ob es eine UUID-FK-Spalte ist (z.B. "mitglied_uuid")
+      if (!mapping.containsKey(i)) {
+        final uuidNormalized = _normalizeColumnName(header);
+        for (final fkEntry in _fkUuidMapping.entries) {
+          if (_normalizeColumnName(fkEntry.key) == uuidNormalized) {
+            // Als Text-Spalte mit dem UUID-Namen registrieren
+            mapping[i] = ColumnSchema(
+              name: fkEntry.key, // z.B. "mitglied_uuid"
+              dataType: ColumnDataType.text,
+              isNullable: true,
+              isPrimaryKey: false,
+            );
+            break;
+          }
+        }
+      }
     }
 
     return mapping;
   }
 
   /// Normalisiert einen Spaltennamen für Matching.
-  ///
-  /// Beispiele:
-  /// - "Name" → "name"
-  /// - "Telefon 1" → "telefon1"
-  /// - "Brutto (€)" → "brutto"
-  /// - "E-Mail" → "email"
   static String _normalizeColumnName(String name) {
     return name
         .toLowerCase()
         .trim()
-        // Sonderzeichen entfernen
         .replaceAll(RegExp(r'[€$%\(\)\[\]\{\}<>]'), '')
-        // Bindestriche durch Unterstriche
         .replaceAll('-', '_')
-        // Leerzeichen entfernen
         .replaceAll(RegExp(r'\s+'), '')
-        // Umlaute normalisieren
         .replaceAll('ä', 'ae')
         .replaceAll('ö', 'oe')
         .replaceAll('ü', 'ue')
@@ -948,13 +1066,7 @@ class CsvImportServiceV2 {
   }
 
   /// Konvertiert einen Wert in ein SQLite-kompatibles Format.
-  ///
-  /// Gibt Rohwerte zurück (nicht Variable-Objekte), da customStatement()
-  /// direkte Werte erwartet.
-  ///
-  /// Wirft [Exception] wenn der Wert nicht zum erwarteten Typ passt.
   static dynamic _toSqlValue(dynamic value, ColumnDataType type) {
-    // NULL-Werte explizit behandeln
     if (value == null) {
       return null;
     }
@@ -980,7 +1092,6 @@ class CsvImportServiceV2 {
         return value.toString();
 
       case ColumnDataType.boolean:
-        // Boolean wird als Integer (0/1) in SQLite gespeichert
         if (value is bool) {
           return value ? 1 : 0;
         } else if (value is int) {
@@ -997,69 +1108,8 @@ class CsvImportServiceV2 {
             'Spalten-Typ-Fehler: Erwartet DateTime, erhalten ${value.runtimeType} ($value)',
           );
         }
-        // DateTime wird als Unix-Timestamp (Sekunden seit Epoch) gespeichert
         return value.millisecondsSinceEpoch ~/ 1000;
     }
-  }
-
-  /// Erstellt eine Drift-Variable aus einem Wert mit NULL-Safety.
-  ///
-  /// @deprecated Verwende stattdessen _toSqlValue() für customStatement().
-  /// Wirft [Exception] wenn der Wert nicht zum erwarteten Typ passt.
-  static Variable _toVariable(dynamic value, ColumnDataType type) {
-    // NULL-Werte explizit behandeln
-    if (value == null) {
-      return const Variable(null);
-    }
-
-    switch (type) {
-      case ColumnDataType.integer:
-        if (value is! int) {
-          throw Exception(
-            'Spalten-Typ-Fehler: Erwartet int, erhalten ${value.runtimeType} ($value)',
-          );
-        }
-        return Variable<int>(value);
-
-      case ColumnDataType.real:
-        if (value is! double) {
-          throw Exception(
-            'Spalten-Typ-Fehler: Erwartet double, erhalten ${value.runtimeType} ($value)',
-          );
-        }
-        return Variable<double>(value);
-
-      case ColumnDataType.text:
-        return Variable<String>(value.toString());
-
-      case ColumnDataType.boolean:
-        if (value is bool) {
-          return Variable<int>(value ? 1 : 0);
-        } else if (value is int) {
-          return Variable<int>(value);
-        } else {
-          throw Exception(
-            'Spalten-Typ-Fehler: Erwartet bool oder int, erhalten ${value.runtimeType} ($value)',
-          );
-        }
-
-      case ColumnDataType.datetime:
-        if (value is! DateTime) {
-          throw Exception(
-            'Spalten-Typ-Fehler: Erwartet DateTime, erhalten ${value.runtimeType} ($value)',
-          );
-        }
-        return Variable<DateTime>(value);
-    }
-  }
-
-  /// Sanitisiert Header-Namen für SQL-Kompatibilität.
-  static String _sanitizeHeader(String name) {
-    return name
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9_]'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
   }
 
   /// Menschenlesbarer Name.

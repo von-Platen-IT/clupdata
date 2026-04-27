@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/beitrag_status_colors.dart';
+
 /// Enum representing all possible states of a Beitrag (contribution/invoice).
 /// Replaces the string-based status handling with type-safe operations.
 enum BeitragStatus {
@@ -40,25 +42,16 @@ enum BeitragStatus {
   }
 
   /// Background color for status badges and row highlighting.
-  Color get backgroundColor {
-    switch (this) {
-      case BeitragStatus.kontiert:
-        return const Color(0xFFFFF9C4); // light yellow
-      case BeitragStatus.offen:
-        return const Color(0xFFFFE0B2); // light orange
-      case BeitragStatus.bezahlt:
-        return const Color(0xFFC8E6C9); // light green
-      case BeitragStatus.angemahnt:
-        return const Color(0xFFFFCDD2); // light red
-      case BeitragStatus.storniert:
-        return const Color(0xFFEEEEEE); // light grey
-      case BeitragStatus.inkasso:
-        return const Color(0xFFF8BBD0); // pink
-    }
-  }
+  ///
+  /// Delegates to the central [beitragStatusColor] function from
+  /// [beitrag_status_colors.dart] – the single source of truth.
+  Color get backgroundColor => beitragStatusColor(value);
 
   /// Foreground/text color (always dark for pastel backgrounds).
-  Color get textColor => Colors.black87;
+  ///
+  /// Delegates to the central [beitragStatusTextColor] function from
+  /// [beitrag_status_colors.dart].
+  Color get textColor => beitragStatusTextColor(value);
 
   /// Whether this status allows editing of the Beitrag.
   bool get isEditable =>

@@ -1,5 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/providers/export_context_provider.dart';
@@ -20,10 +22,7 @@ class ListExportMenuButton<T> extends ConsumerWidget {
   /// Configuration for the export (title, entity type).
   final ExportConfig config;
 
-  const ListExportMenuButton({
-    super.key,
-    required this.config,
-  });
+  const ListExportMenuButton({super.key, required this.config});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,13 +87,19 @@ class ListExportMenuButton<T> extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleSelection(BuildContext context, WidgetRef ref, String value) async {
+  Future<void> _handleSelection(
+    BuildContext context,
+    WidgetRef ref,
+    String value,
+  ) async {
     final snapshotGenerator = ref.read(exportCacheProvider);
 
     if (snapshotGenerator == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fehler: Export-Generator nicht gefunden.')),
+          const SnackBar(
+            content: Text('Fehler: Export-Generator nicht gefunden.'),
+          ),
         );
       }
       return;
@@ -105,7 +110,9 @@ class ListExportMenuButton<T> extends ConsumerWidget {
     if (exportContext == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Die Tabelle ist noch nicht bereit für den Export.')),
+          const SnackBar(
+            content: Text('Die Tabelle ist noch nicht bereit für den Export.'),
+          ),
         );
       }
       return;
@@ -133,12 +140,18 @@ class ListExportMenuButton<T> extends ConsumerWidget {
     }
   }
 
-  Future<void> _handlePrint(BuildContext context, ExportContextData exportContext) async {
+  Future<void> _handlePrint(
+    BuildContext context,
+    ExportContextData exportContext,
+  ) async {
     try {
       final exporter = PdfExporter(template: PdfTemplateRegistry.simple);
-      
+
       // Für schnellen Druck verwenden wir direkt die sichtbare Tabelle.
-      final pdfBytes = await exporter.export(exportContext, useFullTable: false);
+      final pdfBytes = await exporter.export(
+        exportContext,
+        useFullTable: false,
+      );
 
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
@@ -146,18 +159,45 @@ class ListExportMenuButton<T> extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Drucken: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler beim Drucken: $e')));
       }
     }
   }
 
-  Future<void> _handleCsv(BuildContext context, ExportContextData exportContext) async {
+  Future<void> _handleCsv(
+    BuildContext context,
+    ExportContextData exportContext,
+  ) async {
     try {
+      // Vorschlag für den Dateinamen
+      final sanitizedTitle = exportContext.title
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+          .replaceAll(RegExp(r'\s+'), '_')
+          .toLowerCase();
+      final timestamp = DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now());
+      final suggestedName = '${sanitizedTitle}_$timestamp.csv';
+
+      // FilePicker-Speicherort-Dialog anzeigen
+      final filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'CSV-Datei speichern',
+        fileName: suggestedName,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (filePath == null) {
+        // Benutzer hat abgebrochen
+        return;
+      }
+
       final exporter = CsvExporter();
-      // CSV exportiert die aktuell sichtbare Tabelle
-      final file = await exporter.export(exportContext.dataTable);
+      // CSV mit benutzerdefiniertem Pfad exportieren
+      final file = await exporter.export(
+        exportContext.dataTable,
+        filePath: filePath,
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

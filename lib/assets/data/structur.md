@@ -7,10 +7,48 @@
 
 | Eigenschaft | Wert |
 |---|---|
-| **version** | 1.0.0 |
+| **version** | 1.1.0 |
 | **created** | 2026-02-26 |
+| **updated** | 2026-04-27 |
 | **description** | Schema definition for database structure and UI configuration. Used by AI coding agent to generate database models and UI screens. |
 | **file** | lib/assets/data/structur.json |
+
+## UUID-Strategie für CSV-Export/Import
+
+Jede Tabelle erhält eine `uuid`-Spalte (TEXT, UNIQUE, NOT NULL, DEFAULT auto-generated). Diese UUID dient als **instanzunabhängige ID** für den CSV-Export/Import:
+
+- **Export**: Statt der lokalen `id` wird die `uuid` exportiert. Fremdschlüssel werden als `*_uuid` exportiert (z.B. `mitglied_uuid` statt `mitglied_id`).
+- **Import**: Beim Import wird ein **Upsert**-Verfahren verwendet (`INSERT ... ON CONFLICT(uuid) DO UPDATE`). Fremdschlüssel werden über eine UUID-Map im RAM aufgelöst (UUID → lokale ID).
+- **Vorteile**: CSV-Dateien sind instanzunabhängig, können zwischen verschiedenen Datenbanken ausgetauscht werden, und Importe sind idempotent.
+- **Paket**: `uuid` (^4.5.1) für die Generierung der UUIDs.
+
+### UUID-Spalten und FK-UUID-Mapping pro Tabelle
+
+| Tabelle | UUID-Spalte | FK-UUID-Spalten (im CSV) |
+|---------|-------------|--------------------------|
+| `bemerkung` | `uuid` | – |
+| `stammdaten` | `uuid` | – |
+| `preis` | `uuid` | `bemerkung_uuid` |
+| `leistung` | `uuid` | `preis_uuid`, `bemerkung_uuid` |
+| `mitglied` | `uuid` | `leistung_uuid`, `preis_uuid`, `bemerkung_uuid` |
+| `waren` | `uuid` | `bemerkung_uuid` |
+| `beitrag` | `uuid` | `mitglied_uuid`, `leistung_uuid`, `preis_uuid`, `bemerkung_uuid` |
+| `beitrag_status_verlauf` | `uuid` | `beitrag_uuid` |
+| `rechnung` | `uuid` | `mitglied_uuid`, `bemerkung_uuid` |
+| `rechnung_position` | `uuid` | `rechnung_uuid`, `waren_uuid` |
+
+### Import-Reihenfolge (FK-Abhängigkeiten auflösen)
+
+1. `bemerkung` (keine FKs)
+2. `stammdaten` (keine FKs)
+3. `preis` (FK → bemerkung)
+4. `leistung` (FK → preis, bemerkung)
+5. `mitglied` (FK → leistung, preis, bemerkung)
+6. `waren` (FK → bemerkung)
+7. `beitrag` (FK → mitglied, leistung, preis, bemerkung)
+8. `beitrag_status_verlauf` (FK → beitrag)
+9. `rechnung` (FK → mitglied, bemerkung)
+10. `rechnung_position` (FK → rechnung, waren)
 
 
 ## 1. Datenbank Tabellen
@@ -20,7 +58,8 @@ _Generic note/remark entity reused across all tables via FK._
 
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
-| `id` | INTEGER | PK, AutoIncrement |  |
+| `id` | INTEGER | PK, AutoIncrement | Lokale ID für interne Verknüpfungen |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `titel` | TEXT | NotNull, MaxLen:200, Unicode |  |
 | `text` | TEXT | MaxLen:10000, Unicode |  |
 | `datum_erstellt` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP |  |
@@ -30,7 +69,8 @@ _Key/value configuration store. Contains global settings like MwSt rate, file pa
 
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
-| `id` | INTEGER | PK, AutoIncrement |  |
+| `id` | INTEGER | PK, AutoIncrement | Lokale ID für interne Verknüpfungen |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `schluessel` | TEXT | NotNull, Unique, MaxLen:100 | Unique config key, e.g. 'mwst_standard', 'firma_name' |
 | `wert` | TEXT |  | Stored as text, parsed according to 'typ' |
 | `typ` | TEXT | NotNull, Enum:[string, integer, float, boolean, date] | Data type for correct parsing of 'wert' |
@@ -60,7 +100,8 @@ _Price entity. Nettopreis is always computed at runtime from bruttopreis and mws
 
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
-| `id` | INTEGER | PK, AutoIncrement |  |
+| `id` | INTEGER | PK, AutoIncrement | Lokale ID für interne Verknüpfungen |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `bruttopreis` | REAL | NotNull | Stored value. Always gross. |
 | `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) |  |
 
@@ -75,7 +116,8 @@ _Service or membership tier offered to members._
 
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
-| `id` | INTEGER | PK, AutoIncrement |  |
+| `id` | INTEGER | PK, AutoIncrement | Lokale ID für interne Verknüpfungen |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `name` | TEXT | NotNull, MaxLen:200, Unicode |  |
 | `preis_id` | INTEGER | NotNull, FK->preis.id(RESTRICT) |  |
 | `laufzeit` | TEXT | NotNull, Enum:[einmalig, monatlich, quartalsweise, jaehrlich] | Used to auto-calculate Vertrag_Laufzeit_bis when Vertrag_Laufzeit_von changes |
@@ -86,7 +128,8 @@ _Main member entity._
 
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
-| `id` | INTEGER | PK, AutoIncrement |  |
+| `id` | INTEGER | PK, AutoIncrement | Lokale ID für interne Verknüpfungen |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `anrede` | TEXT | Enum:[Herr, Frau, Divers, Keine] |  |
 | `name` | TEXT | NotNull, MaxLen:100, Unicode |  |
 | `vorname` | TEXT | NotNull, MaxLen:100, Unicode |  |
@@ -116,6 +159,7 @@ _Artikel, Bekleidung und Trainingsgeräte für den Verkauf._
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
 | `id` | INTEGER | PK, AutoIncrement | Eindeutige technische ID (Korrektur von waren_id). |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `bezeichnung` | TEXT | NotNull, MaxLen:200, Unicode | Name des Artikels, z.B. "Karate-Gi weiß" |
 | `beschreibung` | TEXT | MaxLen:2000, Unicode | Detaillierte Beschreibung, Materialeigenschaften, Pflegehinweise |
 | `kategorie` | TEXT | MaxLen:100 | Artikelgruppe, z.B. "Bekleidung", "Schutzausrüstung", "Gürtel" |
@@ -150,6 +194,7 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
 | `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `mitglied_id` | INTEGER | NotNull, FK->mitglied.id(RESTRICT) | Member who is billed |
 | `leistung_id` | INTEGER | NotNull, FK->leistung.id(RESTRICT) | Billed service/contract |
 | `preis_id` | INTEGER | FK->preis.id(SET NULL) | Snapshot of the price at billing |
@@ -170,6 +215,7 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
 | `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `beitrag_id` | INTEGER | NotNull, FK->beitrag.id(CASCADE) | Zugehöriger Beitrag — bei Löschung des Beitrags werden alle Verlaufseinträge mitgelöscht |
 | `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Der neue Status zum Zeitpunkt dieser Änderung |
 | `geaendert_am` | DATETIME | NotNull | Exakter Zeitstempel der Statusänderung |
@@ -187,6 +233,7 @@ _Rechnung für Warenverkäufe (POS). Jede Rechnung kann mehrere Positionen haben
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
 | `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "R-2026-0001" |
 | `mitglied_id` | INTEGER | FK->mitglied.id(SET NULL) | Optional - für Walk-ins kann NULL sein |
 | `kunde_name` | TEXT | MaxLen:200 | Name des Kunden (für nicht-Mitglieder) |
@@ -212,6 +259,7 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | Feld | Typ | Modifikatoren | Kommentar |
 |---|---|---|---|
 | `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `rechnung_id` | INTEGER | NotNull, FK->rechnung.id(CASCADE) | Zugehörige Rechnung |
 | `position_nr` | INTEGER | NotNull | Laufende Nummer 1, 2, 3... |
 | `waren_id` | INTEGER | FK->waren.id(SET NULL) | Verkaufter Artikel (NULL wenn gelöscht) |
@@ -254,6 +302,16 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | `rechnung` | `idx_rechnung_datum` | `datum` | Nein |  |
 | `rechnung_position` | `idx_rechnung_pos_rechnung` | `rechnung_id` | Nein |  |
 | `rechnung_position` | `idx_rechnung_pos_waren` | `waren_id` | Nein |  |
+| `bemerkung` | `idx_bemerkung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `stammdaten` | `idx_stammdaten_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `preis` | `idx_preis_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `leistung` | `idx_leistung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `mitglied` | `idx_mitglied_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `waren` | `idx_waren_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `beitrag` | `idx_beitrag_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `beitrag_status_verlauf` | `idx_beitrag_status_verlauf_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `rechnung` | `idx_rechnung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `rechnung_position` | `idx_rechnung_position_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
 
 
 ## 3. Relationen

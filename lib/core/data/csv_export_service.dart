@@ -6,20 +6,60 @@ import 'package:intl/intl.dart';
 
 import '../database/database.dart';
 
-/// Zentraler Service für CSV-Export.
+/// Zentraler Service für CSV-Export mit UUID-Unterstützung.
 ///
-/// Bietet:
-/// - UTF-8 BOM Support
+/// Exportiert Datenbank-Tabellen als CSV. Statt der lokalen `id` wird die
+/// `uuid`-Spalte exportiert. Fremdschlüssel (`*_id`) werden als `*_uuid`
+/// exportiert, damit CSV-Dateien instanzunabhängig sind.
+///
+/// Features:
+/// - UTF-8 BOM für Excel-Kompatibilität
+/// - UUID-basierter Export (keine lokalen IDs)
 /// - Konfigurierbare Trennzeichen
 /// - European Number Format (1.234,56)
-/// - ISO-8601 Datumsformat für DateTime-Spalten
+/// - Flexible Datumsformate
 class CsvExportService {
   CsvExportService._();
 
   /// Standard-Trennzeichen (Semicolon für Deutsch/Excel)
   static const String defaultDelimiter = ';';
 
-  /// Exportiert eine Tabelle als CSV mit Logging und Validierung.
+  /// Mapping: Tabellenname → Liste der FK-Spaltennamen (die als UUID exportiert werden)
+  static const Map<String, List<String>> _fkColumnsByTable = {
+    'bemerkung': [],
+    'stammdaten': [],
+    'preis': ['bemerkung_id'],
+    'leistung': ['preis_id', 'bemerkung_id'],
+    'mitglied': ['leistung_id', 'preis_id', 'bemerkung_id'],
+    'waren': ['bemerkung_id'],
+    'beitrag': ['mitglied_id', 'leistung_id', 'preis_id', 'bemerkung_id'],
+    'beitrag_status_verlauf': ['beitrag_id'],
+    'rechnung': ['mitglied_id', 'bemerkung_id'],
+    'rechnung_position': ['rechnung_id', 'waren_id'],
+  };
+
+  /// Mapping: Tabellenname → Liste der DateTime-Spaltennamen
+  static const Map<String, List<String>> _dateTimeColumnsByTable = {
+    'bemerkung': ['datum_erstellt'],
+    'mitglied': [
+      'geboren',
+      'vertrag_kontierung',
+      'vertrag_laufzeit_von',
+      'vertrag_laufzeit_bis',
+    ],
+    'beitrag': ['kontiert_am', 'status_datum', 'abrechnungs_zeitraum'],
+    'beitrag_status_verlauf': ['geaendert_am'],
+    'rechnung': [
+      'datum',
+      'faellig_am',
+      'bezahlt_am',
+      'erstellt_am',
+      'aktualisiert_am',
+    ],
+    'waren': ['erstellt_am', 'aktualisiert_am'],
+  };
+
+  /// Exportiert eine Tabelle als CSV.
   ///
   /// [tableName]: Name der SQL-Tabelle
   /// [useEuropeanFormat]: Zahlen als 1.234,56 formatieren
@@ -42,39 +82,70 @@ class CsvExportService {
       throw Exception('Tabelle "$tableName" hat keine Spalten');
     }
 
-    // Alle Daten laden (SELECT * = alle Spalten)
+    // Alle Daten laden
     final rows = await db.customSelect('SELECT * FROM $tableName').get();
     debugPrint('Datenzeilen geladen: ${rows.length}');
 
-    // Header (ALLE Spalten aus Schema)
-    final headers = schema.map((c) => c.name).toList();
-    debugPrint('Header: ${headers.join(', ')}');
+    // Header generieren: id wird durch uuid ersetzt, FK-Spalten werden als *_uuid exportiert
+    final headers = _buildExportHeaders(tableName, schema);
+    debugPrint('Export-Header: ${headers.join(', ')}');
 
-    // Daten konvertieren - ALLE Spalten müssen berücksichtigt werden
+    // Daten konvertieren
     final dataRows = <List<String>>[];
+    final fkColumns = _fkColumnsByTable[tableName] ?? [];
+    final fkUuidCache =
+        <String, Map<String, String>>{}; // Tabellenname → {id → uuid}
+
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
       final csvRow = <String>[];
 
       for (final col in schema) {
         try {
-          final value = row.read<dynamic>(col.name);
+          final rawValue = row.read<dynamic>(col.name);
+
+          // id-Spalte: überspringen (wird durch uuid ersetzt)
+          if (col.name == 'id') continue;
+
+          // uuid-Spalte: direkt übernehmen
+          if (col.name == 'uuid') {
+            csvRow.add(rawValue?.toString() ?? '');
+            continue;
+          }
+
+          // FK-Spalte: ID in UUID auflösen
+          if (fkColumns.contains(col.name)) {
+            final fkValue = rawValue;
+            if (fkValue == null) {
+              csvRow.add('<NULL>');
+            } else {
+              final fkTableName = _fkTableName(col.name);
+              final uuid = await _resolveFkToUuid(
+                db,
+                fkTableName,
+                fkValue as int,
+                fkUuidCache,
+              );
+              csvRow.add(uuid ?? '<NULL>');
+            }
+            continue;
+          }
+
+          // Normale Spalten formatieren
           final formatted = _formatValue(
-            value,
+            rawValue,
             col.dataType,
             useEuropeanFormat,
             dateFormat,
           );
           csvRow.add(formatted);
         } catch (e) {
-          debugPrint(
-            'WARNUNG Zeile $i, Spalte "${col.name}": Fehler beim Formatieren: $e',
-          );
-          csvRow.add(''); // Fallback: Leerer String
+          debugPrint('WARNUNG Zeile $i, Spalte "${col.name}": Fehler: $e');
+          csvRow.add('');
         }
       }
 
-      // Validierung: Jede Zeile muss gleich viele Werte wie Header haben
+      // Validierung
       if (csvRow.length != headers.length) {
         debugPrint(
           'FEHLER Zeile $i: ${csvRow.length} Werte, aber ${headers.length} Header erwartet',
@@ -122,17 +193,63 @@ class CsvExportService {
     return file;
   }
 
+  /// Baut die Export-Header: id wird durch uuid ersetzt, FK-Spalten als *_uuid.
+  static List<String> _buildExportHeaders(
+    String tableName,
+    List<_ColumnInfo> schema,
+  ) {
+    final fkColumns = _fkColumnsByTable[tableName] ?? [];
+    final headers = <String>[];
+
+    for (final col in schema) {
+      if (col.name == 'id') continue; // id überspringen
+
+      if (fkColumns.contains(col.name)) {
+        // FK-Spalte: mitglied_id → mitglied_uuid
+        final fkName = col.name.replaceFirst(RegExp(r'_id$'), '_uuid');
+        headers.add(fkName);
+      } else {
+        headers.add(col.name);
+      }
+    }
+
+    return headers;
+  }
+
+  /// Ermittelt den Tabellennamen aus einem FK-Spaltennamen.
+  /// z.B. "mitglied_id" → "mitglied", "bemerkung_id" → "bemerkung"
+  static String _fkTableName(String fkColumnName) {
+    return fkColumnName.replaceFirst(RegExp(r'_id$'), '');
+  }
+
+  /// Löst eine lokale ID in eine UUID auf, mit Caching.
+  static Future<String?> _resolveFkToUuid(
+    AppDatabase db,
+    String tableName,
+    int id,
+    Map<String, Map<String, String>> cache,
+  ) async {
+    // Cache füllen falls nötig
+    if (!cache.containsKey(tableName)) {
+      final rows = await db
+          .customSelect('SELECT id, uuid FROM $tableName')
+          .get();
+      cache[tableName] = {
+        for (final row in rows)
+          row.read<int>('id').toString(): row.read<String>('uuid'),
+      };
+    }
+
+    return cache[tableName]![id.toString()];
+  }
+
   /// Formatiert einen Wert für CSV-Export.
-  ///
-  /// NULL-Werte werden als '<NULL>' exportiert, damit sie beim Re-Import
-  /// von leeren Strings unterscheidbar sind.
   static String _formatValue(
     dynamic value,
     ColumnDataType type,
     bool useEuropeanFormat,
     String dateFormat,
   ) {
-    // NULL explizit markieren für Re-Import-Kompatibilität
     if (value == null) {
       return '<NULL>';
     }
@@ -147,7 +264,6 @@ class CsvExportService {
       case ColumnDataType.real:
         if (value is double) {
           if (useEuropeanFormat) {
-            // 1234.56 -> 1.234,56
             return _formatEuropeanNumber(value);
           }
           return value.toString();
@@ -165,13 +281,12 @@ class CsvExportService {
     }
   }
 
-  /// Formatiert eine Zahl im europäischen Format.
+  /// Formatiert eine Zahl im europäischen Format (1.234,56).
   static String _formatEuropeanNumber(double value) {
     final parts = value.toStringAsFixed(2).split('.');
     final intPart = parts[0];
     final decPart = parts[1];
 
-    // Tausender-Trennzeichen
     final buffer = StringBuffer();
     var count = 0;
     for (var i = intPart.length - 1; i >= 0; i--) {
@@ -187,15 +302,13 @@ class CsvExportService {
     return '$formatted,$decPart';
   }
 
-  /// Lädt das Schema einer Tabelle.
+  /// Lädt das Schema einer Tabelle via PRAGMA table_info.
   static Future<List<_ColumnInfo>> _getTableSchema(
     AppDatabase db,
     String tableName,
   ) async {
     final rows = await db.customSelect('PRAGMA table_info($tableName)').get();
-
-    // DateTime-Spalten aus der Mapping-Liste
-    final dateTimeCols = _getDateTimeColumns(tableName);
+    final dateTimeCols = _dateTimeColumnsByTable[tableName] ?? [];
 
     return rows.map((row) {
       final name = row.read<String>('name');
@@ -214,31 +327,6 @@ class CsvExportService {
 
       return _ColumnInfo(name: name, dataType: dataType);
     }).toList();
-  }
-
-  /// Gibt die DateTime-Spalten für eine Tabelle zurück.
-  static List<String> _getDateTimeColumns(String tableName) {
-    final mapping = <String, List<String>>{
-      'mitglied': [
-        'geboren',
-        'vertrag_kontierung',
-        'vertrag_laufzeit_von',
-        'vertrag_laufzeit_bis',
-      ],
-      'beitrag': [
-        'rechnungsdatum',
-        'faelligkeitsdatum',
-        'bezahlt_am',
-        'erstellt_am',
-      ],
-      'rechnung': [
-        'rechnungsdatum',
-        'faelligkeitsdatum',
-        'bezahlt_am',
-        'erstellt_am',
-      ],
-    };
-    return mapping[tableName] ?? [];
   }
 }
 

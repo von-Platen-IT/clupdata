@@ -11,9 +11,6 @@ import 'export_data_table.dart';
 /// Excel DE) and prepends a UTF-8 BOM so that programs like Excel and
 /// LibreOffice Calc correctly interpret German umlauts and special characters.
 ///
-/// Files are saved automatically into an `exports/` subdirectory next to the
-/// application executable. No user path prompt is required.
-///
 /// Usage:
 /// ```dart
 /// final exporter = CsvExporter();
@@ -22,28 +19,37 @@ import 'export_data_table.dart';
 class CsvExporter {
   /// Exports the given [data] as a semicolon-separated CSV file.
   ///
-  /// The file is named `{title}_{yyyy-MM-dd_HHmmss}.csv` and stored in the
-  /// `exports/` directory relative to the running executable.
+  /// If [filePath] is provided, the CSV is written directly to that path.
+  /// Otherwise, the file is named `{title}_{yyyy-MM-dd_HHmmss}.csv` and
+  /// stored in the `exports/` directory relative to the running executable.
   ///
   /// Returns the created [File] for further processing (e.g. showing a
   /// success notification with the path).
-  Future<File> export(ExportDataTable data, {String? title}) async {
+  Future<File> export(
+    ExportDataTable data, {
+    String? title,
+    String? filePath,
+  }) async {
     final effectiveTitle = title ?? data.title;
     final sanitizedTitle = _sanitizeFileName(
       effectiveTitle.isNotEmpty ? effectiveTitle : 'export',
     );
 
     // Build the CSV content using csv v8 CsvEncoder API
-    final allRows = <List<dynamic>>[
-      data.headers,
-      ...data.rows,
-    ];
+    final allRows = <List<dynamic>>[data.headers, ...data.rows];
 
     // CsvEncoder with semicolon delimiter for German Excel and UTF-8 BOM
     const encoder = CsvEncoder(fieldDelimiter: ';', addBom: true);
     final csvString = encoder.convert(allRows);
 
-    // Determine the output directory next to the executable
+    if (filePath != null) {
+      // Write directly to the user-selected path
+      final file = File(filePath);
+      await file.writeAsString(csvString);
+      return file;
+    }
+
+    // Fallback: Determine the output directory next to the executable
     final exportDir = await _ensureExportDirectory();
 
     // Generate timestamped filename

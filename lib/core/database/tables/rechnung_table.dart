@@ -1,14 +1,21 @@
 import 'package:drift/drift.dart';
+import '../../utils/uuid_helper.dart';
 
 import 'bemerkung_table.dart';
 import 'mitglied_table.dart';
 
 @DataClassName('Rechnung')
+@TableIndex(name: 'idx_rechnung_mitglied', columns: {#mitgliedId})
+@TableIndex(name: 'idx_rechnung_status', columns: {#status})
+@TableIndex(name: 'idx_rechnung_datum', columns: {#datum})
+@TableIndex(name: 'idx_rechnung_uuid', columns: {#uuid}, unique: true)
 class Rechnungen extends Table {
   @override
   String get tableName => 'rechnung';
 
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid =>
+      text().unique().nullable().clientDefault(() => generateUuid())();
 
   // Rechnungsnummer: R-YYYY-XXXXX
   TextColumn get rechnungsnummer =>
