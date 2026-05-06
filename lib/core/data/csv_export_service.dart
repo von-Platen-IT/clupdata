@@ -102,7 +102,7 @@ class CsvExportService {
 
       for (final col in schema) {
         try {
-          final rawValue = row.read<dynamic>(col.name);
+          final rawValue = row.data[col.name];
 
           // id-Spalte: überspringen (wird durch uuid ersetzt)
           if (col.name == 'id') continue;
@@ -328,6 +328,109 @@ class CsvExportService {
       return _ColumnInfo(name: name, dataType: dataType);
     }).toList();
   }
+
+  // -------------------------------------------------------------------------
+  // Bulk Export
+  // -------------------------------------------------------------------------
+
+  /// Exportiert mehrere Tabellen als CSV-Dateien in einen Ordner.
+  ///
+  /// [tableNames]: Liste der zu exportierenden Tabellen
+  /// [outputDir]: Zielordner (muss existieren)
+  /// [delimiter]: CSV-Trennzeichen
+  ///
+  /// Erzeugt Dateien im Format: {tabellenname}.csv
+  static Future<BulkExportResult> exportMultipleTables(
+    AppDatabase db,
+    List<String> tableNames,
+    String outputDir, {
+    String delimiter = defaultDelimiter,
+    bool useEuropeanFormat = true,
+    String dateFormat = 'dd.MM.yyyy',
+    void Function({
+      required String currentTable,
+      required int tableIndex,
+      required int totalTables,
+      required double tableProgress,
+      required int tableExportedRows,
+      required int tableTotalRows,
+    })?
+    onProgress,
+  }) async {
+    final tableResults = <BulkExportTableResult>[];
+    var totalExported = 0;
+
+    for (var i = 0; i < tableNames.length; i++) {
+      final tableName = tableNames[i];
+      final fileName = '$tableName.csv';
+      final filePath = '${outputDir}${Platform.pathSeparator}$fileName';
+
+      try {
+        final csv = await exportTable(
+          db,
+          tableName,
+          delimiter: delimiter,
+          useEuropeanFormat: useEuropeanFormat,
+          dateFormat: dateFormat,
+        );
+
+        final file = File(filePath);
+        await file.writeAsString(csv);
+
+        // Zeilen zählen (Header abziehen)
+        final lineCount = csv.split('\n').length - 1;
+
+        tableResults.add(
+          BulkExportTableResult(
+            tableName: tableName,
+            fileName: fileName,
+            success: true,
+            exportedRows: lineCount,
+          ),
+        );
+
+        totalExported += lineCount;
+
+        onProgress?.call(
+          currentTable: tableName,
+          tableIndex: i,
+          totalTables: tableNames.length,
+          tableProgress: 1.0,
+          tableExportedRows: lineCount,
+          tableTotalRows: lineCount,
+        );
+      } catch (e) {
+        tableResults.add(
+          BulkExportTableResult(
+            tableName: tableName,
+            fileName: fileName,
+            success: false,
+            errorMessage: e.toString(),
+          ),
+        );
+
+        onProgress?.call(
+          currentTable: tableName,
+          tableIndex: i,
+          totalTables: tableNames.length,
+          tableProgress: 0.0,
+          tableExportedRows: 0,
+          tableTotalRows: 0,
+        );
+      }
+    }
+
+    final failedCount = tableResults.where((r) => !r.success).length;
+
+    return BulkExportResult(
+      success: failedCount == 0,
+      tableResults: tableResults,
+      totalExportedRows: totalExported,
+      errorMessage: failedCount > 0
+          ? '$failedCount Tabellen konnten nicht exportiert werden'
+          : null,
+    );
+  }
 }
 
 /// Interne Column-Info.
@@ -340,3 +443,39 @@ class _ColumnInfo {
 
 /// Datentypen für Export.
 enum ColumnDataType { integer, real, text, boolean, datetime }
+
+// ---------------------------------------------------------------------------
+// Bulk Export Result Classes
+// ---------------------------------------------------------------------------
+
+/// Ergebnis eines einzelnen Tabellen-Exports innerhalb eines Bulk-Exports.
+class BulkExportTableResult {
+  final String tableName;
+  final String fileName;
+  final bool success;
+  final int exportedRows;
+  final String? errorMessage;
+
+  const BulkExportTableResult({
+    required this.tableName,
+    required this.fileName,
+    required this.success,
+    this.exportedRows = 0,
+    this.errorMessage,
+  });
+}
+
+/// Ergebnis eines Bulk-Exports (mehrere Tabellen).
+class BulkExportResult {
+  final bool success;
+  final List<BulkExportTableResult> tableResults;
+  final int totalExportedRows;
+  final String? errorMessage;
+
+  const BulkExportResult({
+    required this.success,
+    required this.tableResults,
+    this.totalExportedRows = 0,
+    this.errorMessage,
+  });
+}

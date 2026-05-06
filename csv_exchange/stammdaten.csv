@@ -1,0 +1,101 @@
+﻿schluessel;wert;typ;kategorie;bezeichnung;beschreibung;aenderbar;system_pflicht;uuid
+test_sync_interval_0;Testwert_0;integer;system;Sync-Intervall (Test 0);Intervall für Datensynchronisation;1;0;f7c929d7-d575-498e-8f1a-6345c5c47204
+test_max_mitglieder_1;Testwert_1;integer;system;Max. Mitglieder (Test 1);Maximale Anzahl Mitglieder;1;0;d9787435-33e2-44e8-be50-119a14b85701
+test_club_name_2;Testwert_2;text;stammdaten;Vereinsname (Test 2);Name des Vereins;1;0;7f5ed08f-1446-4dd1-be69-a0843833f033
+test_club_street_3;Testwert_3;text;stammdaten;Straße (Test 3);Straße des Vereins;1;0;1273f5e2-c292-4039-abf3-f030411a0d75
+test_club_city_4;Testwert_4;text;stammdaten;Ort (Test 4);Ort des Vereins;1;0;81adb15b-4597-43f6-843b-2cb750644faa
+test_club_zip_5;Testwert_5;text;stammdaten;PLZ (Test 5);Postleitzahl des Vereins;1;0;70d55492-1534-43c4-80e0-147dfcc8551f
+test_club_phone_6;Testwert_6;text;stammdaten;Telefon (Test 6);Telefonnummer des Vereins;1;0;52fa6428-72c9-4b93-8a44-ddb6283bbb94
+test_club_email_7;Testwert_7;text;stammdaten;E-Mail (Test 7);E-Mail des Vereins;1;0;58c63452-240d-452f-9119-3aff84ee4986
+test_training_start_8;Testwert_8;text;training;Trainingsbeginn (Test 8);Beginn der Trainingseinheit;1;0;55501ad3-f47e-4adc-8408-3d8d7d5c8a9f
+test_training_end_9;Testwert_9;text;training;Trainingsende (Test 9);Ende der Trainingseinheit;1;0;3ef0cad9-2f87-4cca-86de-b075eda6d91f
+test_sync_interval_10;Testwert_10;integer;system;Sync-Intervall (Test 10);Intervall für Datensynchronisation;1;0;a3acf41a-cb7d-4b11-b240-f53cf9008d46
+test_max_mitglieder_11;Testwert_11;integer;system;Max. Mitglieder (Test 11);Maximale Anzahl Mitglieder;1;0;4dac670a-e0f5-414e-8553-38b4bdfae599
+test_club_name_12;Testwert_12;text;stammdaten;Vereinsname (Test 12);Name des Vereins;1;0;64b02d25-6e96-4b01-b3be-f2c8faf13cdd
+test_club_street_13;Testwert_13;text;stammdaten;Straße (Test 13);Straße des Vereins;1;0;b59e7cb2-7c5f-484e-b690-1a376e9d4fbc
+test_club_city_14;Testwert_14;text;stammdaten;Ort (Test 14);Ort des Vereins;1;0;7ef0a630-2ffc-4b77-bbe7-8aa1e690d43b
+test_club_zip_15;Testwert_15;text;stammdaten;PLZ (Test 15);Postleitzahl des Vereins;1;0;b75b07be-6fd1-4db9-8e24-3551a3cfccc3
+test_club_phone_16;Testwert_16;text;stammdaten;Telefon (Test 16);Telefonnummer des Vereins;1;0;236b350e-4285-4dcf-b356-4ef81ab78810
+test_club_email_17;Testwert_17;text;stammdaten;E-Mail (Test 17);E-Mail des Vereins;1;0;30974b44-30fd-44be-b5c7-b74b74167665
+test_training_start_18;Testwert_18;text;training;Trainingsbeginn (Test 18);Beginn der Trainingseinheit;1;0;0f9f98f7-62ec-45fe-bffb-d8f1243bb34b
+test_training_end_19;Testwert_19;text;training;Trainingsende (Test 19);Ende der Trainingseinheit;1;0;f1725817-710a-4fe9-a5b8-45254b176d68
+test_sync_interval_20;Testwert_20;integer;system;Sync-Intervall (Test 20);Intervall für Datensynchronisation;1;0;ec91f119-8be5-48a7-9bda-7dd43c90a76e
+test_max_mitglieder_21;Testwert_21;integer;system;Max. Mitglieder (Test 21);Maximale Anzahl Mitglieder;1;0;9d30e857-7edb-438c-8248-b0de04f1dc8d
+test_club_name_22;Testwert_22;text;stammdaten;Vereinsname (Test 22);Name des Vereins;1;0;e3639fca-4326-4c32-8383-5b5a2d2bdfd9
+test_club_street_23;Testwert_23;text;stammdaten;Straße (Test 23);Straße des Vereins;1;0;c882d947-146d-4b50-8fe0-4ced0d93ccd7
+test_club_city_24;Testwert_24;text;stammdaten;Ort (Test 24);Ort des Vereins;1;0;36835a98-d497-4be2-afff-9b197d693f0b
+test_club_zip_25;Testwert_25;text;stammdaten;PLZ (Test 25);Postleitzahl des Vereins;1;0;1b1d8e0e-0997-424d-bab3-ab1a0e330b08
+test_club_phone_26;Testwert_26;text;stammdaten;Telefon (Test 26);Telefonnummer des Vereins;1;0;9e11b6ee-4760-4f70-a663-30bc16e6d1f0
+test_club_email_27;Testwert_27;text;stammdaten;E-Mail (Test 27);E-Mail des Vereins;1;0;292b32c0-893a-44be-aa5f-323e887a2da5
+test_training_start_28;Testwert_28;text;training;Trainingsbeginn (Test 28);Beginn der Trainingseinheit;1;0;4f802a1d-6995-43c0-876e-b68ab2bb96f3
+test_training_end_29;Testwert_29;text;training;Trainingsende (Test 29);Ende der Trainingseinheit;1;0;d6bdb2c9-c47f-4dfb-943f-07a3afaecdf0
+test_sync_interval_30;Testwert_30;integer;system;Sync-Intervall (Test 30);Intervall für Datensynchronisation;1;0;948f1b58-c76e-46fe-918d-dc000ec465ac
+test_max_mitglieder_31;Testwert_31;integer;system;Max. Mitglieder (Test 31);Maximale Anzahl Mitglieder;1;0;31a584c7-448a-4d96-a202-ca9dc05b3003
+test_club_name_32;Testwert_32;text;stammdaten;Vereinsname (Test 32);Name des Vereins;1;0;b277d441-6ba7-48f0-9774-8a6b2f952cca
+test_club_street_33;Testwert_33;text;stammdaten;Straße (Test 33);Straße des Vereins;1;0;fbfa388b-7edd-4db7-bb12-22f875aaaa6d
+test_club_city_34;Testwert_34;text;stammdaten;Ort (Test 34);Ort des Vereins;1;0;23fff87f-7779-4b20-a55a-7197c77edbc5
+test_club_zip_35;Testwert_35;text;stammdaten;PLZ (Test 35);Postleitzahl des Vereins;1;0;60b07f1f-0530-4c41-8d34-ac041ef0bd06
+test_club_phone_36;Testwert_36;text;stammdaten;Telefon (Test 36);Telefonnummer des Vereins;1;0;b8936209-0463-4798-9b8e-98cb31b26f01
+test_club_email_37;Testwert_37;text;stammdaten;E-Mail (Test 37);E-Mail des Vereins;1;0;fd03e20a-3635-4f65-9dd5-2e20c0dcaf9a
+test_training_start_38;Testwert_38;text;training;Trainingsbeginn (Test 38);Beginn der Trainingseinheit;1;0;cc88bfff-7420-4b6c-ae6c-671ce2332abe
+test_training_end_39;Testwert_39;text;training;Trainingsende (Test 39);Ende der Trainingseinheit;1;0;65e0d1d2-cf12-4254-9ab2-131435996749
+test_sync_interval_40;Testwert_40;integer;system;Sync-Intervall (Test 40);Intervall für Datensynchronisation;1;0;95d1441d-675a-482a-8742-cd773658a26c
+test_max_mitglieder_41;Testwert_41;integer;system;Max. Mitglieder (Test 41);Maximale Anzahl Mitglieder;1;0;df3e9ad8-9cae-4dfb-8942-75d9dde2d06c
+test_club_name_42;Testwert_42;text;stammdaten;Vereinsname (Test 42);Name des Vereins;1;0;a2410d39-b253-441f-bcf9-5259e9c83ca7
+test_club_street_43;Testwert_43;text;stammdaten;Straße (Test 43);Straße des Vereins;1;0;27b7fdd4-7aa1-460a-9369-9eb78fb94050
+test_club_city_44;Testwert_44;text;stammdaten;Ort (Test 44);Ort des Vereins;1;0;1f26fde0-84e8-4aef-b2ac-c7a40c8d8e43
+test_club_zip_45;Testwert_45;text;stammdaten;PLZ (Test 45);Postleitzahl des Vereins;1;0;9c441dba-fbff-469d-8855-d61bdefd7c00
+test_club_phone_46;Testwert_46;text;stammdaten;Telefon (Test 46);Telefonnummer des Vereins;1;0;077504a4-9761-42ec-9572-7ae0ca30a8a7
+test_club_email_47;Testwert_47;text;stammdaten;E-Mail (Test 47);E-Mail des Vereins;1;0;dc05e1b4-755f-4630-891b-f60b95bae9aa
+test_training_start_48;Testwert_48;text;training;Trainingsbeginn (Test 48);Beginn der Trainingseinheit;1;0;f5ef23c1-9bb5-4bc8-8636-7487706b87a8
+test_training_end_49;Testwert_49;text;training;Trainingsende (Test 49);Ende der Trainingseinheit;1;0;8dfbe9cc-ac6e-4257-9817-018f7c2d5111
+test_sync_interval_50;Testwert_50;integer;system;Sync-Intervall (Test 50);Intervall für Datensynchronisation;1;0;65073a0e-ce0d-4ac4-9e8d-088647d78e37
+test_max_mitglieder_51;Testwert_51;integer;system;Max. Mitglieder (Test 51);Maximale Anzahl Mitglieder;1;0;696b169d-4711-4060-bba3-4303046e3aaa
+test_club_name_52;Testwert_52;text;stammdaten;Vereinsname (Test 52);Name des Vereins;1;0;36d33084-a8ef-46c2-86dc-3c11cc6b5863
+test_club_street_53;Testwert_53;text;stammdaten;Straße (Test 53);Straße des Vereins;1;0;cae65255-62ea-427f-ad3a-091f7150cd37
+test_club_city_54;Testwert_54;text;stammdaten;Ort (Test 54);Ort des Vereins;1;0;975c4e89-44b7-454b-8e79-f255ec737390
+test_club_zip_55;Testwert_55;text;stammdaten;PLZ (Test 55);Postleitzahl des Vereins;1;0;c837364a-985c-4b12-b58b-07e735b7572e
+test_club_phone_56;Testwert_56;text;stammdaten;Telefon (Test 56);Telefonnummer des Vereins;1;0;41e664e9-bdc0-474e-acae-cb2a5af01293
+test_club_email_57;Testwert_57;text;stammdaten;E-Mail (Test 57);E-Mail des Vereins;1;0;32057adf-43b5-4225-9fc9-721dac14a76e
+test_training_start_58;Testwert_58;text;training;Trainingsbeginn (Test 58);Beginn der Trainingseinheit;1;0;f847743b-0e80-489c-9541-504b9a94f27e
+test_training_end_59;Testwert_59;text;training;Trainingsende (Test 59);Ende der Trainingseinheit;1;0;2a0af0ca-2b6a-4158-bc5d-f41b41e7358e
+test_sync_interval_60;Testwert_60;integer;system;Sync-Intervall (Test 60);Intervall für Datensynchronisation;1;0;0b359aa4-4e2b-4479-ac7f-8651f52f2779
+test_max_mitglieder_61;Testwert_61;integer;system;Max. Mitglieder (Test 61);Maximale Anzahl Mitglieder;1;0;bf71f0cd-ecd3-4f4d-ab75-168be024f243
+test_club_name_62;Testwert_62;text;stammdaten;Vereinsname (Test 62);Name des Vereins;1;0;0d73d06d-2529-4efc-b658-169832327f6b
+test_club_street_63;Testwert_63;text;stammdaten;Straße (Test 63);Straße des Vereins;1;0;0abc4005-fb32-4eb5-8691-4a1b9bd6e017
+test_club_city_64;Testwert_64;text;stammdaten;Ort (Test 64);Ort des Vereins;1;0;74e2e836-6c82-4be5-8010-8489c226d886
+test_club_zip_65;Testwert_65;text;stammdaten;PLZ (Test 65);Postleitzahl des Vereins;1;0;004bce7b-44b9-4020-b306-4eaf584b8e63
+test_club_phone_66;Testwert_66;text;stammdaten;Telefon (Test 66);Telefonnummer des Vereins;1;0;730ac047-ee20-443f-971d-3108a08f1753
+test_club_email_67;Testwert_67;text;stammdaten;E-Mail (Test 67);E-Mail des Vereins;1;0;ba73115b-3119-4d7a-b8a5-e19bf136a983
+test_training_start_68;Testwert_68;text;training;Trainingsbeginn (Test 68);Beginn der Trainingseinheit;1;0;a67331d6-8a5c-4cbd-b541-fda5d0500455
+test_training_end_69;Testwert_69;text;training;Trainingsende (Test 69);Ende der Trainingseinheit;1;0;4a3edc63-5bb6-4c2a-982e-8dbd0af7900e
+test_sync_interval_70;Testwert_70;integer;system;Sync-Intervall (Test 70);Intervall für Datensynchronisation;1;0;fad4df0a-748c-46da-a6eb-461d356944b2
+test_max_mitglieder_71;Testwert_71;integer;system;Max. Mitglieder (Test 71);Maximale Anzahl Mitglieder;1;0;138962ab-e474-4e37-bb6b-c8c31370d330
+test_club_name_72;Testwert_72;text;stammdaten;Vereinsname (Test 72);Name des Vereins;1;0;08fa242c-7d62-4217-8785-2ff4cd2c19ec
+test_club_street_73;Testwert_73;text;stammdaten;Straße (Test 73);Straße des Vereins;1;0;fa2a6fd4-0db7-42ee-82b4-18fa06e239c7
+test_club_city_74;Testwert_74;text;stammdaten;Ort (Test 74);Ort des Vereins;1;0;02234414-bb84-43f5-aac8-88541657d1f6
+test_club_zip_75;Testwert_75;text;stammdaten;PLZ (Test 75);Postleitzahl des Vereins;1;0;04eaf1e5-bef2-4257-8cb8-da2d4eb4355b
+test_club_phone_76;Testwert_76;text;stammdaten;Telefon (Test 76);Telefonnummer des Vereins;1;0;c9e71300-72ef-4a3e-9093-1fe438a491f2
+test_club_email_77;Testwert_77;text;stammdaten;E-Mail (Test 77);E-Mail des Vereins;1;0;e26f0b60-d57d-43a0-8cc3-2ac60f664c95
+test_training_start_78;Testwert_78;text;training;Trainingsbeginn (Test 78);Beginn der Trainingseinheit;1;0;73146908-cb5d-46cb-9b3d-cd704116d596
+test_training_end_79;Testwert_79;text;training;Trainingsende (Test 79);Ende der Trainingseinheit;1;0;a319d6a3-8d27-40e7-82bd-a446f4eb41af
+test_sync_interval_80;Testwert_80;integer;system;Sync-Intervall (Test 80);Intervall für Datensynchronisation;1;0;681f8f27-e598-4fac-8f19-0b0eb1bdbe0e
+test_max_mitglieder_81;Testwert_81;integer;system;Max. Mitglieder (Test 81);Maximale Anzahl Mitglieder;1;0;cf65323f-0d8a-43a7-b162-3963bcd5a2b4
+test_club_name_82;Testwert_82;text;stammdaten;Vereinsname (Test 82);Name des Vereins;1;0;e802b1fa-e17b-44eb-ae36-5dc587003797
+test_club_street_83;Testwert_83;text;stammdaten;Straße (Test 83);Straße des Vereins;1;0;5ff5b118-f0c7-4347-8b73-11228efdd64b
+test_club_city_84;Testwert_84;text;stammdaten;Ort (Test 84);Ort des Vereins;1;0;4c4aa49e-c68c-4152-8f38-0ee2f17a1a2a
+test_club_zip_85;Testwert_85;text;stammdaten;PLZ (Test 85);Postleitzahl des Vereins;1;0;758acffb-3b6c-48fb-9e66-79d018607f90
+test_club_phone_86;Testwert_86;text;stammdaten;Telefon (Test 86);Telefonnummer des Vereins;1;0;d87970b6-b7f8-4a0a-ba13-905445bee10a
+test_club_email_87;Testwert_87;text;stammdaten;E-Mail (Test 87);E-Mail des Vereins;1;0;54e7c47a-7562-4490-b702-1bfd52c3f359
+test_training_start_88;Testwert_88;text;training;Trainingsbeginn (Test 88);Beginn der Trainingseinheit;1;0;fd80e2fd-0b3f-4071-bab7-b29ec8f703a1
+test_training_end_89;Testwert_89;text;training;Trainingsende (Test 89);Ende der Trainingseinheit;1;0;d955e607-1b13-40fe-9abb-28236536f715
+test_sync_interval_90;Testwert_90;integer;system;Sync-Intervall (Test 90);Intervall für Datensynchronisation;1;0;95577750-e830-4311-8aa3-adf0368c2dd8
+test_max_mitglieder_91;Testwert_91;integer;system;Max. Mitglieder (Test 91);Maximale Anzahl Mitglieder;1;0;6c584fd5-6ab7-46ee-aec5-b80c1c862d22
+test_club_name_92;Testwert_92;text;stammdaten;Vereinsname (Test 92);Name des Vereins;1;0;4c68567d-ddbf-45e9-bf57-d173a34ffdbe
+test_club_street_93;Testwert_93;text;stammdaten;Straße (Test 93);Straße des Vereins;1;0;3459114a-0be3-43f0-8673-88d8581b5bc6
+test_club_city_94;Testwert_94;text;stammdaten;Ort (Test 94);Ort des Vereins;1;0;8999eed6-333e-4e70-9e3b-532538a6e5f1
+test_club_zip_95;Testwert_95;text;stammdaten;PLZ (Test 95);Postleitzahl des Vereins;1;0;13689956-cd68-4d89-911a-1e11f15ed9fa
+test_club_phone_96;Testwert_96;text;stammdaten;Telefon (Test 96);Telefonnummer des Vereins;1;0;0b0cb5ee-690d-4f02-9155-ccfb3de284e7
+test_club_email_97;Testwert_97;text;stammdaten;E-Mail (Test 97);E-Mail des Vereins;1;0;761b8996-51a9-4ebc-bdd0-509a7f3c6b01
+test_training_start_98;Testwert_98;text;training;Trainingsbeginn (Test 98);Beginn der Trainingseinheit;1;0;7c079296-4aef-441a-9b84-d47653384fb3
+test_training_end_99;Testwert_99;text;training;Trainingsende (Test 99);Ende der Trainingseinheit;1;0;bf4e6530-c0bb-4d5d-9bd3-f42c4d7f4455

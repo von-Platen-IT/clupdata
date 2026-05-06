@@ -83,16 +83,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/pos',
-                builder: (context, state) => const PosScreen(),
+                path: '/calendar',
+                builder: (context, state) => const CalendarScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/calendar',
-                builder: (context, state) => const CalendarScreen(),
+                path: '/pos',
+                builder: (context, state) => const PosScreen(),
               ),
               GoRoute(
                 path: '/master-data',

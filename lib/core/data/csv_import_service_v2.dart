@@ -1135,6 +1135,207 @@ class CsvImportServiceV2 {
         return 'Datum/Zeit';
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Bulk Import (Multi-File)
+  // -------------------------------------------------------------------------
+
+  /// Prüft, ob für einen Bulk-Import alle benötigten Tabellen (laut
+  /// [_importOrder]) mit CSV-Dateien abgedeckt sind.
+  ///
+  /// Gibt eine Liste der fehlenden Tabellen zurück (leer = vollständig).
+  static List<String> findMissingTables(
+    Map<String, String> tableFiles, {
+    List<String>? requiredTables,
+  }) {
+    final required = requiredTables ?? _importOrder;
+    final missing = <String>[];
+    for (final table in required) {
+      if (!tableFiles.containsKey(table)) {
+        missing.add(table);
+      }
+    }
+    return missing;
+  }
+
+  /// Importiert mehrere CSV-Dateien in der korrekten Reihenfolge.
+  ///
+  /// [tableFiles]: Map<Tabellenname, Dateipfad>
+  /// [mode]: Import-Modus (overwrite oder append)
+  /// [db]: Datenbank-Instanz
+  ///
+  /// Bei [ImportMode.overwrite] werden alle Tabellen in umgekehrter
+  /// Reihenfolge geleert, bevor der Import beginnt. Dadurch werden
+  /// FK-Constraint-Probleme vermieden.
+  ///
+  /// Liefert ein [BulkImportResult] mit den Ergebnissen pro Tabelle.
+  static Future<BulkImportResult> importMultipleFiles(
+    Map<String, String> tableFiles,
+    ImportMode mode,
+    AppDatabase db, {
+    int batchSize = 100,
+    CsvConversionOptions options = CsvConversionOptions.defaultOptions,
+    void Function({
+      required String currentTable,
+      required int tableIndex,
+      required int totalTables,
+      required double tableProgress,
+      required int tableImportedRows,
+      required int tableTotalRows,
+    })?
+    onProgress,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final tableResults = <BulkTableResult>[];
+    var totalImported = 0;
+    var totalFailed = 0;
+
+    try {
+      // -------------------------------------------------------------------
+      // 1. Prüfen: Sind alle benötigten Tabellen vorhanden?
+      // -------------------------------------------------------------------
+      final missing = findMissingTables(tableFiles);
+      if (missing.isNotEmpty) {
+        return BulkImportResult(
+          success: false,
+          tableResults: [],
+          errorMessage:
+              'Es fehlen CSV-Dateien für folgende Tabellen: '
+              '${missing.map((t) => _tableDisplayNames[t] ?? t).join(', ')}. '
+              'Bitte stellen Sie für alle Tabellen eine CSV-Datei bereit.',
+        );
+      }
+
+      // -------------------------------------------------------------------
+      // 2. Bei Overwrite: Alle Tabellen in umgekehrter Reihenfolge leeren
+      // -------------------------------------------------------------------
+      if (mode == ImportMode.overwrite) {
+        for (final table in _importOrder.reversed) {
+          if (tableFiles.containsKey(table)) {
+            await db.customStatement('DELETE FROM $table');
+          }
+        }
+      }
+
+      // -------------------------------------------------------------------
+      // 3. Tabellen-Schemas laden
+      // -------------------------------------------------------------------
+      final allSchemas = await getImportableTables(db);
+      final schemaMap = <String, TableSchema>{
+        for (final s in allSchemas) s.sqlTableName: s,
+      };
+
+      // -------------------------------------------------------------------
+      // 4. Tabellen in korrekter Reihenfolge importieren
+      // -------------------------------------------------------------------
+      for (var i = 0; i < _importOrder.length; i++) {
+        final tableName = _importOrder[i];
+        final filePath = tableFiles[tableName];
+        if (filePath == null) continue;
+
+        final schema = schemaMap[tableName];
+        if (schema == null) {
+          tableResults.add(
+            BulkTableResult(
+              tableName: tableName,
+              displayName: _tableDisplayNames[tableName] ?? tableName,
+              success: false,
+              errorMessage: 'Schema für Tabelle "$tableName" nicht gefunden',
+            ),
+          );
+          continue;
+        }
+
+        // Einzelnen Tabellen-Import durchführen
+        final result = await importFile(
+          filePath,
+          schema,
+          ImportMode.append, // Daten wurden bereits gelöscht → nur anfügen
+          db,
+          batchSize: batchSize,
+          options: options,
+          onProgress: (imported, total) {
+            onProgress?.call(
+              currentTable: _tableDisplayNames[tableName] ?? tableName,
+              tableIndex: i,
+              totalTables: _importOrder.length,
+              tableProgress: total > 0 ? imported / total : 0,
+              tableImportedRows: imported,
+              tableTotalRows: total,
+            );
+          },
+        );
+
+        tableResults.add(
+          BulkTableResult(
+            tableName: tableName,
+            displayName: _tableDisplayNames[tableName] ?? tableName,
+            success: result.success,
+            importedRows: result.importedRows,
+            failedRows: result.failedRows,
+            errorMessage: result.errorMessage,
+          ),
+        );
+
+        totalImported += result.importedRows;
+        totalFailed += result.failedRows;
+      }
+
+      stopwatch.stop();
+
+      return BulkImportResult(
+        success: totalFailed == 0 || totalImported > 0,
+        tableResults: tableResults,
+        totalImportedRows: totalImported,
+        totalFailedRows: totalFailed,
+      );
+    } catch (e, stackTrace) {
+      stopwatch.stop();
+      return BulkImportResult(
+        success: false,
+        tableResults: tableResults,
+        totalImportedRows: totalImported,
+        totalFailedRows: totalFailed,
+        errorMessage: 'Bulk-Import fehlgeschlagen: $e',
+      );
+    }
+  }
+}
+
+/// Ergebnis eines einzelnen Tabellen-Imports innerhalb eines Bulk-Imports.
+class BulkTableResult {
+  final String tableName;
+  final String displayName;
+  final bool success;
+  final int importedRows;
+  final int failedRows;
+  final String? errorMessage;
+
+  const BulkTableResult({
+    required this.tableName,
+    required this.displayName,
+    required this.success,
+    this.importedRows = 0,
+    this.failedRows = 0,
+    this.errorMessage,
+  });
+}
+
+/// Ergebnis eines Bulk-Imports (mehrere Tabellen).
+class BulkImportResult {
+  final bool success;
+  final List<BulkTableResult> tableResults;
+  final int totalImportedRows;
+  final int totalFailedRows;
+  final String? errorMessage;
+
+  const BulkImportResult({
+    required this.success,
+    required this.tableResults,
+    this.totalImportedRows = 0,
+    this.totalFailedRows = 0,
+    this.errorMessage,
+  });
 }
 
 /// Ergebnis einer Validierungs-Operation.

@@ -5,8 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/providers/active_menu_item_provider.dart';
 import '../core/providers/create_action_provider.dart';
-import 'csv_export_dialog.dart';
-import 'csv_import_dialog.dart';
+import 'csv_bulk_export_dialog.dart';
+import 'csv_bulk_import_dialog.dart';
 import 'database_backup_dialog.dart';
 
 /// Einfache Hauptmenüleiste mit Menüpunkten.
@@ -73,7 +73,7 @@ class MainMenuBar extends ConsumerWidget {
                 height: 32,
                 padding: const EdgeInsets.only(left: 32),
                 child: const Text('CSV Import'),
-                onTap: () => showCsvImportDialog(context, ref),
+                onTap: () => showCsvBulkImportDialog(context, ref),
               ),
               PopupMenuItem(
                 height: 32,
@@ -95,7 +95,7 @@ class MainMenuBar extends ConsumerWidget {
                 height: 32,
                 padding: const EdgeInsets.only(left: 32),
                 child: const Text('CSV Export'),
-                onTap: () => showCsvExportDialog(context, ref),
+                onTap: () => showCsvBulkExportDialog(context, ref),
               ),
               PopupMenuItem(
                 height: 32,
