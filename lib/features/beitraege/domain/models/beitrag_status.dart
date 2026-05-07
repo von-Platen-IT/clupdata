@@ -16,9 +16,10 @@ enum BeitragStatus {
   String get value => name;
 
   /// Creates a BeitragStatus from a database string.
+  /// Case-insensitive comparison to handle both "angemahnt" and "Angemahnt".
   static BeitragStatus fromString(String value) {
     return BeitragStatus.values.firstWhere(
-      (s) => s.name == value,
+      (s) => s.name.toLowerCase() == value.toLowerCase(),
       orElse: () => BeitragStatus.kontiert,
     );
   }

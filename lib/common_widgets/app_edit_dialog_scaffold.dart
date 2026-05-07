@@ -39,6 +39,9 @@ class AppEditDialogScaffold extends StatelessWidget {
   final VoidCallback onSave;
   final double contentWidth;
 
+  /// If true, the save button is enabled. Defaults to true.
+  final bool isSaveEnabled;
+
   /// If provided, a delete button is shown on the left side of the actions row.
   final Future<void> Function()? onDelete;
 
@@ -55,6 +58,7 @@ class AppEditDialogScaffold extends StatelessWidget {
     required this.isSaving,
     required this.onSave,
     this.contentWidth = 800,
+    this.isSaveEnabled = true,
     this.onDelete,
     this.deleteEntityLabel,
     this.exportConfig,
@@ -124,7 +128,7 @@ class AppEditDialogScaffold extends StatelessWidget {
                 ),
                 const Gap(8),
                 FilledButton.icon(
-                  onPressed: isSaving ? null : onSave,
+                  onPressed: (isSaving || !isSaveEnabled) ? null : onSave,
                   icon: isSaving
                       ? const SizedBox(
                           width: 16,

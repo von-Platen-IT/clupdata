@@ -140,7 +140,7 @@ class BeitraegeRepository {
     final statusChanged =
         current != null &&
         beitrag.status.present &&
-        beitrag.status.value != current.status;
+        beitrag.status.value.toLowerCase() != current.status.toLowerCase();
 
     await (_db.update(
       _db.beitraege,
@@ -151,6 +151,14 @@ class BeitraegeRepository {
         beitragId: beitrag.id.value,
         status: beitrag.status.value,
         bemerkung: statusBemerkung ?? 'Status geändert',
+      );
+    } else if (statusBemerkung != null && statusBemerkung.isNotEmpty) {
+      // If a status remark was provided but status didn't change (edge case),
+      // still add a history entry to document the action
+      await _addStatusEintrag(
+        beitragId: beitrag.id.value,
+        status: beitrag.status.present ? beitrag.status.value : current!.status,
+        bemerkung: statusBemerkung,
       );
     }
   }

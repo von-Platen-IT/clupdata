@@ -367,6 +367,11 @@ class VpitDataGrid<T> extends HookConsumerWidget {
         if (plutoRows.isNotEmpty) {
           sm.appendRows(plutoRows);
 
+          // Force PlutoGrid to repaint all cells to reflect data changes
+          // This is crucial when items are updated (e.g., status changes)
+          // and the grid needs to show the new values immediately
+          sm.notifyListeners();
+
           // Restore selection after PlutoGrid has processed the rows
           if (initialSelectedId != null) {
             // Use addPostFrameCallback instead of Future.delayed for

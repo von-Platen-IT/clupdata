@@ -16,8 +16,24 @@ import '../../../../core/utils/color_extensions.dart';
 import '../../domain/models/beitrag_status.dart';
 import '../../data/beitraege_repository.dart';
 import '../../presentation/providers/beitraege_list_provider.dart';
-import '../widgets/status_history_list.dart';
+import '../widgets/beitrag_status_history_grid.dart';
+import '../../domain/models/beitrag_status_history_row_data.dart';
 import '../../../export/domain/export_config.dart';
+
+/// Returns true if the dialog can be saved.
+/// - Rechnungsnummer must not be empty
+/// - If status changed, statusBemerkung must not be empty
+bool _canSave({
+  required String rechnungsnummer,
+  required String currentStatus,
+  required String? originalStatus,
+  required String statusBemerkung,
+}) {
+  if (rechnungsnummer.trim().isEmpty) return false;
+  final statusChanged = currentStatus != originalStatus;
+  if (statusChanged && statusBemerkung.trim().isEmpty) return false;
+  return true;
+}
 
 /// Modal dialog for creating and editing a [Beitrag] record.
 class BeitragEditDialog extends HookConsumerWidget {
@@ -80,18 +96,26 @@ class BeitragEditDialog extends HookConsumerWidget {
     final fnRechnungsnummer = useFocusNode();
     final fnStatus = useFocusNode();
 
+    // Track if data has been initialized (to prevent overwriting user input on stream updates)
+    final isInitialized = useRef<bool>(false);
+
     // ── Data initialisation ────────────────────────────────────────────────
     useEffect(() {
+      // Only initialize once to prevent overwriting user input when stream updates
+      if (isInitialized.value) return null;
+
       if (existing != null) {
         final b = existing.beitrag;
         ctrlRechnungsnummer.text = b.rechnungsnummer;
         ctrlStatus.text = b.status;
         ctrlKontiertAm.value = b.kontiertAm;
         ctrlStatusDatum.value = b.statusDatum;
-      } else {
+        isInitialized.value = true;
+      } else if (beitragId == null) {
         // New record defaults
         ctrlStatus.text = 'kontiert';
         ctrlRechnungsnummer.text = 'RE-${DateTime.now().year}-';
+        isInitialized.value = true;
       }
       return null;
     }, [existing]);
@@ -112,14 +136,69 @@ class BeitragEditDialog extends HookConsumerWidget {
     }, [isLoadingData]);
 
     final isSaving = useState(false);
-    final originalStatus = useRef<String?>(existing?.beitrag.status);
+    // Track the status at the time of dialog open to detect changes
+    // This is set once when the dialog opens and doesn't change during editing
+    final originalStatus = useState<String?>(null);
+
+    // Initialize originalStatus only once when data is first loaded
+    useEffect(() {
+      if (existing != null && originalStatus.value == null) {
+        originalStatus.value = existing.beitrag.status;
+      }
+      return null;
+    }, [existing?.beitrag.status]);
+
+    // Track whether the form can be saved (reactive)
+    final canSave = useState(false);
+
+    // Recompute canSave whenever relevant fields change
+    void updateCanSave() {
+      canSave.value = _canSave(
+        rechnungsnummer: ctrlRechnungsnummer.text,
+        currentStatus: ctrlStatus.text,
+        originalStatus: originalStatus.value,
+        statusBemerkung: ctrlStatusBemerkung.text,
+      );
+    }
+
+    // Listen to controller changes
+    useEffect(() {
+      void listener() => updateCanSave();
+      ctrlRechnungsnummer.addListener(listener);
+      ctrlStatus.addListener(listener);
+      ctrlStatusBemerkung.addListener(listener);
+      // Initial check
+      updateCanSave();
+      return () {
+        ctrlRechnungsnummer.removeListener(listener);
+        ctrlStatus.removeListener(listener);
+        ctrlStatusBemerkung.removeListener(listener);
+      };
+    }, [originalStatus.value]);
 
     // ── Save ───────────────────────────────────────────────────────────────
     Future<void> saveBeitrag() async {
-      if (ctrlRechnungsnummer.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rechnungsnummer ist ein Pflichtfeld.')),
-        );
+      if (!_canSave(
+        rechnungsnummer: ctrlRechnungsnummer.text,
+        currentStatus: ctrlStatus.text,
+        originalStatus: originalStatus.value,
+        statusBemerkung: ctrlStatusBemerkung.text,
+      )) {
+        if (ctrlRechnungsnummer.text.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rechnungsnummer ist ein Pflichtfeld.'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bei Statusänderung ist eine Bemerkung erforderlich.',
+              ),
+            ),
+          );
+        }
         return;
       }
 
@@ -130,19 +209,6 @@ class BeitragEditDialog extends HookConsumerWidget {
         // Update statusDatum if status has changed
         final statusChanged = ctrlStatus.text != originalStatus.value;
         final statusDatum = statusChanged ? now : ctrlStatusDatum.value;
-
-        // Validate status bemerkung if status changed
-        if (statusChanged && ctrlStatusBemerkung.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Bei Statusänderung ist eine Bemerkung erforderlich.',
-              ),
-            ),
-          );
-          isSaving.value = false;
-          return;
-        }
 
         // Save bemerkung if provided
         int? bemerkungId = existing?.beitrag.bemerkungId;
@@ -203,6 +269,7 @@ class BeitragEditDialog extends HookConsumerWidget {
       title: beitragId == null ? 'Neuer Beitrag' : 'Beitrag bearbeiten',
       isSaving: isSaving.value,
       onSave: saveBeitrag,
+      isSaveEnabled: canSave.value,
       contentWidth: 700,
       exportConfig: beitragId == null
           ? null
@@ -299,23 +366,22 @@ class BeitragEditDialog extends HookConsumerWidget {
               ),
             ],
           ),
-          // Status change reason field (only shown when status changes)
-          if (ctrlStatus.text != originalStatus.value) ...[
-            const Gap(8),
-            AppTextField(
-              controller: ctrlStatusBemerkung,
-              label: 'Grund der Statusänderung',
-              maxLines: 2,
-              required: true,
-            ),
-          ],
+          // Status change reason field (always visible)
+          const Gap(8),
+          AppTextField(
+            controller: ctrlStatusBemerkung,
+            label: 'Grund der Statusänderung',
+            maxLines: 2,
+            required: originalStatus.value != null &&
+                ctrlStatus.text != originalStatus.value,
+          ),
           const Gap(24),
 
           // ── Status-Historie ────────────────────────────────────────────
           if (beitragId != null) ...[
             const AppSectionHeader('Status-Historie'),
             const Gap(8),
-            _buildStatusHistoryList(statusHistoryAsync, dateFormatter),
+            _buildStatusHistoryGrid(statusHistoryAsync, dateFormatter),
             const Gap(24),
           ],
 
@@ -361,8 +427,8 @@ class BeitragEditDialog extends HookConsumerWidget {
     );
   }
 
-  /// Builds the status history list widget using the reusable StatusHistoryList.
-  Widget _buildStatusHistoryList(
+  /// Builds the status history grid widget using VpitDataGrid.
+  Widget _buildStatusHistoryGrid(
     AsyncSnapshot<List<BeitragStatusVerlaufData>> snapshot,
     DateFormat dateFormatter,
   ) {
@@ -378,8 +444,13 @@ class BeitragEditDialog extends HookConsumerWidget {
       );
     }
 
-    return StatusHistoryList(
-      history: snapshot.data!,
+    // Map VerlaufData to HistoryRowData - status comes from history entry
+    final historyRows = snapshot.data!
+        .map((verlauf) => BeitragStatusHistoryRowData.fromVerlauf(verlauf))
+        .toList();
+
+    return BeitragStatusHistoryGrid(
+      history: historyRows,
       dateFormatter: dateFormatter,
     );
   }
