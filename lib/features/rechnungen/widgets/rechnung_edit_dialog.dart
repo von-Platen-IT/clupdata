@@ -10,13 +10,26 @@ import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
+import '../../../../core/utils/color_extensions.dart';
 import '../data/rechnungen_repository.dart';
+import '../domain/models/rechnung_status.dart';
 import '../presentation/providers/rechnungen_list_provider.dart';
-import '../utils/rechnung_status_colors.dart';
 import '../../export/domain/export_config.dart';
 
-/// Valid status values for a [Rechnung].
-const kRechnungStatusValues = ['offen', 'bezahlt', 'storniert'];
+/// Returns true if the dialog can be saved.
+/// - Rechnungsnummer must not be empty
+/// - If status changed, statusBemerkung must not be empty
+bool _canSave({
+  required String rechnungsnummer,
+  required String currentStatus,
+  required String? originalStatus,
+  required String statusBemerkung,
+}) {
+  if (rechnungsnummer.trim().isEmpty) return false;
+  final statusChanged = currentStatus != originalStatus;
+  if (statusChanged && statusBemerkung.trim().isEmpty) return false;
+  return true;
+}
 
 /// Modal dialog for editing a [Rechnung] record.
 /// Opens with double-click on a row in the Rechnungen data grid.
@@ -64,12 +77,12 @@ class RechnungEditDialog extends HookConsumerWidget {
     final ctrlStatus = useTextEditingController();
     final ctrlRechnungsnummer = useTextEditingController();
     final ctrlKundeName = useTextEditingController();
+    final ctrlStatusBemerkung = useTextEditingController();
     final ctrlBemerkungTitel = useTextEditingController();
     final ctrlBemerkungText = useTextEditingController();
 
-    // State values for dates
+    // State values
     final selectedStatus = useState<String>('offen');
-    final originalStatus = useRef<String>('offen');
     final bezahltAm = useState<DateTime?>(null);
     final rechnungsDatum = useState<DateTime>(DateTime.now());
     final faelligkeitDatum = useState<DateTime>(
@@ -84,6 +97,22 @@ class RechnungEditDialog extends HookConsumerWidget {
 
     // Track if data has been initialized
     final isInitialized = useRef<bool>(false);
+
+    // Track the status at dialog open to detect changes
+    final originalStatus = useState<String?>(null);
+
+    // Track whether the form can be saved (reactive)
+    final canSave = useState(false);
+
+    // Recompute canSave whenever relevant fields change
+    void updateCanSave() {
+      canSave.value = _canSave(
+        rechnungsnummer: ctrlRechnungsnummer.text,
+        currentStatus: selectedStatus.value,
+        originalStatus: originalStatus.value,
+        statusBemerkung: ctrlStatusBemerkung.text,
+      );
+    }
 
     // Initialize form data when it loads
     useEffect(() {
@@ -100,7 +129,6 @@ class RechnungEditDialog extends HookConsumerWidget {
 
         // Set state values
         selectedStatus.value = r.status;
-        originalStatus.value = r.status;
         bezahltAm.value = r.bezahltAm;
         rechnungsDatum.value = r.datum;
         faelligkeitDatum.value = r.faelligAm;
@@ -116,11 +144,34 @@ class RechnungEditDialog extends HookConsumerWidget {
       return null;
     }, [rechnungAsync.value]);
 
+    // Initialize originalStatus only once when data is first loaded
+    useEffect(() {
+      if (isInitialized.value && originalStatus.value == null) {
+        originalStatus.value = selectedStatus.value;
+      }
+      return null;
+    }, [isInitialized.value]);
+
     // Keep status controller in sync
     useEffect(() {
       ctrlStatus.text = selectedStatus.value;
       return null;
     }, [selectedStatus.value]);
+
+    // Listen to controller changes for canSave
+    useEffect(() {
+      void listener() => updateCanSave();
+      ctrlRechnungsnummer.addListener(listener);
+      ctrlStatus.addListener(listener);
+      ctrlStatusBemerkung.addListener(listener);
+      // Initial check
+      updateCanSave();
+      return () {
+        ctrlRechnungsnummer.removeListener(listener);
+        ctrlStatus.removeListener(listener);
+        ctrlStatusBemerkung.removeListener(listener);
+      };
+    }, [originalStatus.value]);
 
     // Auto-focus based on initialFocusField
     useEffect(() {
@@ -130,7 +181,6 @@ class RechnungEditDialog extends HookConsumerWidget {
             case 'status':
               fnStatus.requestFocus();
             default:
-              // No default focus - dialog opens without focus
               break;
           }
         });
@@ -141,7 +191,6 @@ class RechnungEditDialog extends HookConsumerWidget {
     /// Handles status change with automatic date handling
     void handleStatusChange(String newStatus) {
       selectedStatus.value = newStatus;
-      ctrlStatus.text = newStatus;
 
       // Auto-set bezahlt_am when status changes to 'bezahlt'
       if (newStatus == 'bezahlt' && bezahltAm.value == null) {
@@ -155,6 +204,30 @@ class RechnungEditDialog extends HookConsumerWidget {
 
     /// Saves the rechnung with all changes
     Future<void> saveRechnung() async {
+      if (!_canSave(
+        rechnungsnummer: ctrlRechnungsnummer.text,
+        currentStatus: selectedStatus.value,
+        originalStatus: originalStatus.value,
+        statusBemerkung: ctrlStatusBemerkung.text,
+      )) {
+        if (ctrlRechnungsnummer.text.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rechnungsnummer ist ein Pflichtfeld.'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bei Statusänderung ist eine Bemerkung erforderlich.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       isSaving.value = true;
       try {
         final repo = ref.read(rechnungenRepositoryProvider);
@@ -261,6 +334,7 @@ class RechnungEditDialog extends HookConsumerWidget {
       title: 'Rechnung bearbeiten',
       isSaving: isSaving.value,
       onSave: saveRechnung,
+      isSaveEnabled: canSave.value,
       onDelete: deleteRechnung,
       deleteEntityLabel: 'Rechnung',
       exportConfig: ExportConfig(
@@ -284,6 +358,7 @@ class RechnungEditDialog extends HookConsumerWidget {
                   controller: ctrlRechnungsnummer,
                   label: 'Rechnungs-Nr.',
                   readOnly: true,
+                  required: true,
                 ),
               ),
               const Gap(16),
@@ -296,6 +371,15 @@ class RechnungEditDialog extends HookConsumerWidget {
                 ),
               ),
             ],
+          ),
+          // Status change reason field
+          const Gap(8),
+          AppTextField(
+            controller: ctrlStatusBemerkung,
+            label: 'Grund der Statusänderung',
+            maxLines: 2,
+            required: originalStatus.value != null &&
+                selectedStatus.value != originalStatus.value,
           ),
           const Gap(16),
 
@@ -386,7 +470,7 @@ class RechnungEditDialog extends HookConsumerWidget {
     );
   }
 
-  /// Builds the status dropdown with colored background.
+  /// Builds the status dropdown with colored background for the selected value.
   Widget _buildStatusDropdown(
     TextEditingController controller,
     FocusNode focusNode,
@@ -395,7 +479,8 @@ class RechnungEditDialog extends HookConsumerWidget {
   ) {
     return HookBuilder(
       builder: (context) {
-        final bgColor = rechnungStatusColor(selectedStatus.value);
+        final status = RechnungStatus.fromString(selectedStatus.value);
+        final bgColor = status.backgroundColor;
 
         // Create a wrapper controller to detect changes
         final wrapperController = useTextEditingController(
@@ -423,19 +508,15 @@ class RechnungEditDialog extends HookConsumerWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: bgColor.withAlpha((255 * 0.3).round()),
+            color: bgColor.withOpacityPercent(0.3),
             borderRadius: BorderRadius.circular(4),
           ),
           child: AppDropdownField<String>(
             controller: wrapperController,
             label: 'Status',
             focusNode: focusNode,
-            options: kRechnungStatusValues,
-            getLabel: (v) => v == 'offen'
-                ? 'Offen'
-                : v == 'bezahlt'
-                ? 'Bezahlt'
-                : 'Storniert',
+            options: RechnungStatus.allStringValues,
+            getLabel: (v) => RechnungStatus.fromString(v).label,
           ),
         );
       },

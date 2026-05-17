@@ -1,4 +1,5 @@
 import '../../../../core/database/database.dart';
+import '../../../beitraege/domain/models/beitrag_status.dart';
 import '../../domain/batch_export_summary.dart';
 import '../summary_generator.dart';
 
@@ -19,11 +20,9 @@ class BeitraegeSummaryGenerator implements SummaryGenerator {
     required DateTime? dateTo,
   }) async {
     if (exportedItemIds.isEmpty) {
-      return BatchExportSummary(
+      return SummaryGenerator.emptySummary(
         entityType: entityType,
         entityDisplayName: entityDisplayName,
-        exportedAt: DateTime.now(),
-        totalCount: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
       );
@@ -89,21 +88,6 @@ class BeitraegeSummaryGenerator implements SummaryGenerator {
   }
 
   String _statusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'kontiert':
-        return 'Kontiert';
-      case 'offen':
-        return 'Offen';
-      case 'bezahlt':
-        return 'Bezahlt';
-      case 'angemahnt':
-        return 'Angemahnt';
-      case 'storniert':
-        return 'Storniert';
-      case 'inkasso':
-        return 'Inkasso';
-      default:
-        return status;
-    }
+    return BeitragStatus.fromString(status).label;
   }
 }

@@ -1,4 +1,5 @@
 import '../../../../core/database/database.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../domain/batch_export_summary.dart';
 import '../summary_generator.dart';
 
@@ -19,11 +20,9 @@ class WarenSummaryGenerator implements SummaryGenerator {
     required DateTime? dateTo,
   }) async {
     if (exportedItemIds.isEmpty) {
-      return BatchExportSummary(
+      return SummaryGenerator.emptySummary(
         entityType: entityType,
         entityDisplayName: entityDisplayName,
-        exportedAt: DateTime.now(),
-        totalCount: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
       );
@@ -104,6 +103,6 @@ class WarenSummaryGenerator implements SummaryGenerator {
   }
 
   String _formatCurrency(double amount) {
-    return '${amount.toStringAsFixed(2).replaceAll('.', ',')} €';
+    return formatCurrencyEur(amount);
   }
 }

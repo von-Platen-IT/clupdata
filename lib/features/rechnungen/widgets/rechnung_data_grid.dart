@@ -6,9 +6,9 @@ import 'package:pluto_grid/pluto_grid.dart';
 import '../../../../core/utils/date_formatters.dart';
 import '../../../../widgets/data_grid_v2/vpit_data_grid.dart';
 import '../../../../widgets/data_grid_v2/data_grid_column_config.dart';
+import '../../beitraege/presentation/widgets/status_badge.dart';
 import '../domain/models/rechnung_row_data.dart';
 import '../presentation/providers/rechnungen_list_provider.dart';
-import '../utils/rechnung_status_colors.dart';
 import 'rechnung_edit_dialog.dart';
 import '../../export/domain/export_config.dart';
 
@@ -58,26 +58,10 @@ class RechnungDataGrid extends HookConsumerWidget {
             valueExtractor: (row) => row.rechnung.status,
             type: PlutoColumnType.text(),
             renderer: (rendererContext) {
-              final status = rendererContext.cell.value as String? ?? '';
-              final color = rechnungStatusColor(status);
+              final statusValue = rendererContext.cell.value as String? ?? '';
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color,
-                  border: Border.all(
-                    color: color.withAlpha((255 * 0.5).round()),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: rechnungStatusTextColor(status),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: StatusBadge.fromRechnungString(statusValue),
               );
             },
           ),

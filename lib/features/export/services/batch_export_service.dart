@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/data/export_data_repository.dart';
 import '../../../core/database/database.dart';
 import '../../../core/models/data_grid_meta_state.dart';
+import '../../../core/models/entity_type_info.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_export_context.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
@@ -26,19 +27,21 @@ import 'summary_generators/waren_summary_generator.dart';
 /// and combines everything into a single PDF or individual files.
 class BatchExportService {
   final ExportDataRepository _repository;
-  final Map<String, SummaryGenerator> _summaryGenerators;
+  final Map<String, SummaryGenerator>? _summaryGenerators;
 
   BatchExportService({
     required ExportDataRepository repository,
-    required AppDatabase db,
+    AppDatabase? db,
   }) : _repository = repository,
-       _summaryGenerators = {
-         'mitglied': MitgliederSummaryGenerator(db),
-         'rechnung': RechnungenSummaryGenerator(db),
-         'beitrag': BeitraegeSummaryGenerator(db),
-         'leistung': LeistungenSummaryGenerator(db),
-         'ware': WarenSummaryGenerator(db),
-       };
+       _summaryGenerators = db != null
+           ? {
+               'mitglied': MitgliederSummaryGenerator(db),
+               'rechnung': RechnungenSummaryGenerator(db),
+               'beitrag': BeitraegeSummaryGenerator(db),
+               'leistung': LeistungenSummaryGenerator(db),
+               'ware': WarenSummaryGenerator(db),
+             }
+           : null;
 
   /// Executes a batch export operation.
   ///
@@ -223,6 +226,9 @@ class BatchExportService {
     DateTime? dateFrom,
     DateTime? dateTo,
   ) async {
+    if (_summaryGenerators == null) {
+      throw UnsupportedError('Summary generation is not available.');
+    }
     final generator = _summaryGenerators[entityType.toLowerCase()];
     if (generator == null) {
       throw ArgumentError('No summary generator for entity type: $entityType');
@@ -342,30 +348,11 @@ class BatchExportService {
   }
 
   String _getTitleForEntityType(String entityType) {
-    switch (entityType.toLowerCase()) {
-      case 'mitglied':
-        return 'Mitglieder';
-      case 'rechnung':
-        return 'Rechnungen';
-      case 'beitrag':
-        return 'Beiträge';
-      case 'leistung':
-        return 'Leistungen';
-      case 'ware':
-        return 'Waren';
-      default:
-        return entityType;
-    }
+    return EntityTypeInfo.displayNameFor(entityType);
   }
 
   String? _detectEntityType(String entityName) {
-    final lower = entityName.toLowerCase();
-    if (lower.contains('rechnung')) return 'rechnung';
-    if (lower.contains('mitglied')) return 'mitglied';
-    if (lower.contains('beitrag')) return 'beitrag';
-    if (lower.contains('leistung')) return 'leistung';
-    if (lower.contains('ware')) return 'ware';
-    return null;
+    return EntityTypeInfo.detect(entityName);
   }
 
   String _formatDateTime(DateTime dt) {

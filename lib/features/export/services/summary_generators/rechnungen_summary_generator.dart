@@ -1,4 +1,6 @@
 import '../../../../core/database/database.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../rechnungen/domain/models/rechnung_status.dart';
 import '../../domain/batch_export_summary.dart';
 import '../summary_generator.dart';
 
@@ -19,11 +21,9 @@ class RechnungenSummaryGenerator implements SummaryGenerator {
     required DateTime? dateTo,
   }) async {
     if (exportedItemIds.isEmpty) {
-      return BatchExportSummary(
+      return SummaryGenerator.emptySummary(
         entityType: entityType,
         entityDisplayName: entityDisplayName,
-        exportedAt: DateTime.now(),
-        totalCount: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
       );
@@ -94,19 +94,10 @@ class RechnungenSummaryGenerator implements SummaryGenerator {
   }
 
   String _statusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'offen':
-        return 'Offen';
-      case 'bezahlt':
-        return 'Bezahlt';
-      case 'storniert':
-        return 'Storniert';
-      default:
-        return status;
-    }
+    return RechnungStatus.fromString(status).label;
   }
 
   String _formatCurrency(double amount) {
-    return '${amount.toStringAsFixed(2).replaceAll('.', ',')} €';
+    return formatCurrencyEur(amount);
   }
 }

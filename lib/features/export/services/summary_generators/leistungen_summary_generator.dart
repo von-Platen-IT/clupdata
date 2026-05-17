@@ -19,11 +19,9 @@ class LeistungenSummaryGenerator implements SummaryGenerator {
     required DateTime? dateTo,
   }) async {
     if (exportedItemIds.isEmpty) {
-      return BatchExportSummary(
+      return SummaryGenerator.emptySummary(
         entityType: entityType,
         entityDisplayName: entityDisplayName,
-        exportedAt: DateTime.now(),
-        totalCount: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
       );

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/models/status_manager.dart';
 import '../../utils/beitrag_status_colors.dart';
 
 /// Enum representing all possible states of a Beitrag (contribution/invoice).
 /// Replaces the string-based status handling with type-safe operations.
-enum BeitragStatus {
+/// Implements [StatusManager] for consistent status display across features.
+enum BeitragStatus implements StatusManager {
   kontiert, // Newly created, not yet processed
   offen, // Invoice sent, awaiting payment
   bezahlt, // Fully paid
@@ -13,6 +15,7 @@ enum BeitragStatus {
   inkasso; // Handed to collections agency
 
   /// Returns the database string representation.
+  @override
   String get value => name;
 
   /// Creates a BeitragStatus from a database string.
@@ -25,6 +28,7 @@ enum BeitragStatus {
   }
 
   /// Human-readable label for the status.
+  @override
   String get label {
     switch (this) {
       case BeitragStatus.kontiert:
@@ -46,12 +50,14 @@ enum BeitragStatus {
   ///
   /// Delegates to the central [beitragStatusColor] function from
   /// [beitrag_status_colors.dart] – the single source of truth.
+  @override
   Color get backgroundColor => beitragStatusColor(value);
 
   /// Foreground/text color (always dark for pastel backgrounds).
   ///
   /// Delegates to the central [beitragStatusTextColor] function from
   /// [beitrag_status_colors.dart].
+  @override
   Color get textColor => beitragStatusTextColor(value);
 
   /// Whether this status allows editing of the Beitrag.

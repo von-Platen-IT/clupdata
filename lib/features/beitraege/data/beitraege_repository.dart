@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clupdata/core/database/database.dart';
 import 'package:clupdata/core/data/bemerkung_repository.dart';
+import 'package:clupdata/core/data/rechnungsnummer_generator.dart';
 import 'package:clupdata/core/providers/database_provider.dart';
 import 'package:clupdata/features/beitraege/domain/models/beitrag_row_data.dart';
 
@@ -11,7 +12,11 @@ part 'beitraege_repository.g.dart';
 class BeitraegeRepository {
   final AppDatabase _db;
   final BemerkungRepository _bemerkungRepo;
-  BeitraegeRepository(this._db, this._bemerkungRepo);
+  late final RechnungsnummerGenerator _rechnungsnummerGenerator;
+
+  BeitraegeRepository(this._db, this._bemerkungRepo) {
+    _rechnungsnummerGenerator = RechnungsnummerGenerator(_db);
+  }
 
   // ── Bemerkung ─────────────────────────────────────────────────────────────
 
@@ -203,39 +208,9 @@ class BeitraegeRepository {
 
   /// Generates a unique invoice number with encoded date.
   /// Format: RE-YYYY-XXXXX where XXXXX is a sequential number.
-  /// Ensures the generated number is unique by checking against existing entries.
-  Future<String> generateRechnungsnummer() async {
-    final now = DateTime.now();
-    final year = now.year;
-
-    // Get the highest existing number for this year
-    final result = await _db
-        .customSelect(
-          "SELECT MAX(CAST(substr(rechnungsnummer, 9) AS INTEGER)) as max_num "
-          "FROM beitrag WHERE substr(rechnungsnummer, 4, 4) = ?",
-          variables: [Variable<String>(year.toString())],
-        )
-        .getSingle();
-
-    final maxNumber = (result.data['max_num'] as int?) ?? 0;
-    int nextNumber = maxNumber + 1;
-
-    // Ensure uniqueness (in case of gaps or manual insertions)
-    String candidate = 'RE-$year-${nextNumber.toString().padLeft(5, '0')}';
-    while (await rechnungsnummerExists(candidate)) {
-      nextNumber++;
-      candidate = 'RE-$year-${nextNumber.toString().padLeft(5, '0')}';
-    }
-
-    return candidate;
-  }
-
-  /// Checks if a rechnungsnummer already exists.
-  Future<bool> rechnungsnummerExists(String rechnungsnummer) async {
-    final result = await (_db.select(
-      _db.beitraege,
-    )..where((b) => b.rechnungsnummer.equals(rechnungsnummer))).get();
-    return result.isNotEmpty;
+  /// Delegates to the shared [RechnungsnummerGenerator].
+  Future<String> generateRechnungsnummer() {
+    return _rechnungsnummerGenerator.generateForBeitrag();
   }
 }
 

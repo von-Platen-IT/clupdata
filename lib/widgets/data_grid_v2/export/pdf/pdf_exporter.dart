@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../../core/models/entity_type_info.dart';
 import '../../../../core/providers/export_context_provider.dart';
 import '../export_data_table.dart';
 import 'pdf_export_context.dart';
@@ -117,17 +118,8 @@ class PdfExporter {
   }
 
   /// Detects entity type from entity name for template filtering.
+  /// Delegates to the centralized [EntityTypeInfo] enum.
   String? _detectEntityType(String? entityName) {
-    if (entityName == null) return null;
-
-    final lower = entityName.toLowerCase();
-
-    if (lower.contains('rechnung')) return 'rechnung';
-    if (lower.contains('mitglied')) return 'mitglied';
-    if (lower.contains('beitrag')) return 'beitrag';
-    if (lower.contains('leistung')) return 'leistung';
-    if (lower.contains('ware')) return 'ware';
-
-    return null;
+    return EntityTypeInfo.detect(entityName);
   }
 }

@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:printing/printing.dart';
 
-import '../../../core/providers/export_context_provider.dart';
 import '../../../core/providers/active_data_grid_provider.dart';
-import '../../../widgets/data_grid_v2/export/export_data_table.dart';
-// PdfExportData is defined in pdf_exporter.dart (already imported below)
+import '../../../core/providers/export_context_provider.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
+import '../services/dialog_export_helper.dart';
 import 'export_options_dialog.dart';
 
 /// A button that provides export functionality for detail dialogs.
@@ -79,27 +78,12 @@ class DialogExportButton extends ConsumerWidget {
       return;
     }
 
-    final rows = controller.columnConfigs.map((config) {
-      final rawValue = (config as dynamic).valueExtractor(item);
-      final formattedValue = config.formatter != null
-          ? config.formatter!(rawValue)
-          : rawValue?.toString() ?? '';
-      return [config.title, formattedValue];
-    }).toList();
-
-    final dataTable = ExportDataTable(
-      title: title,
-      headers: ['Feld', 'Wert'],
-      rows: rows,
-      exportedAt: DateTime.now(),
-    );
-
-    final exportContext = ExportContextData(
-      mode: ExportMode.detail,
-      dataTable: dataTable,
+    final exportContext = DialogExportHelper.buildDetailExportContext(
+      item: item,
       entityType: entityType,
       title: title,
       subtitle: subtitle,
+      controller: controller,
     );
 
     await showDialog(
@@ -187,27 +171,12 @@ class DialogExportMenuButton extends ConsumerWidget {
       return;
     }
 
-    final List<List<String>> rows = controller.columnConfigs.map<List<String>>((config) {
-      final rawValue = (config as dynamic).valueExtractor(item);
-      final formattedValue = config.formatter != null
-          ? config.formatter!(rawValue).toString()
-          : rawValue?.toString() ?? '';
-      return <String>[config.title, formattedValue];
-    }).toList();
-
-    final dataTable = ExportDataTable(
-      title: title,
-      headers: ['Feld', 'Wert'],
-      rows: rows,
-      exportedAt: DateTime.now(),
-    );
-
-    final exportContext = ExportContextData(
-      mode: ExportMode.detail,
-      dataTable: dataTable,
+    final exportContext = DialogExportHelper.buildDetailExportContext(
+      item: item,
       entityType: entityType,
       title: title,
       subtitle: subtitle,
+      controller: controller,
     );
 
     switch (value) {
