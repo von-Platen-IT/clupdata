@@ -26,64 +26,81 @@ class ListExportMenuButton<T> extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<String>(
-      icon: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withAlpha(128),
-          ),
-        ),
-        child: const Icon(Icons.more_vert),
-      ),
+    return IconButton.outlined(
       tooltip: 'Exportieren',
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'pdf',
-          child: Row(
-            children: [
-              Icon(
-                Icons.picture_as_pdf_outlined,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              const Text('Als PDF exportieren...'),
-            ],
+      icon: const Icon(Icons.more_vert),
+      onPressed: () async {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) return;
+
+        final overlay =
+            Navigator.of(context).overlay!.context.findRenderObject()
+                as RenderBox;
+        final position = RelativeRect.fromRect(
+          Rect.fromPoints(
+            renderBox.localToGlobal(Offset.zero, ancestor: overlay),
+            renderBox.localToGlobal(
+              renderBox.size.bottomRight(Offset.zero),
+              ancestor: overlay,
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: 'print',
-          child: Row(
-            children: [
-              Icon(
-                Icons.print_outlined,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
+          Offset.zero & overlay.size,
+        );
+
+        final value = await showMenu<String>(
+          context: context,
+          position: position,
+          items: [
+            PopupMenuItem(
+              value: 'pdf',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.picture_as_pdf_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Als PDF exportieren...'),
+                ],
               ),
-              const SizedBox(width: 8),
-              const Text('Drucken...'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'csv',
-          child: Row(
-            children: [
-              Icon(
-                Icons.table_chart_outlined,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
+            ),
+            PopupMenuItem(
+              value: 'print',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.print_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Drucken...'),
+                ],
               ),
-              const SizedBox(width: 8),
-              const Text('CSV exportieren...'),
-            ],
-          ),
-        ),
-      ],
-      onSelected: (value) => _handleSelection(context, ref, value),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'csv',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.table_chart_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('CSV exportieren...'),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        if (value != null && context.mounted) {
+          await _handleSelection(context, ref, value);
+        }
+      },
     );
   }
 

@@ -6,8 +6,6 @@ import 'package:drift/drift.dart' as drift;
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
 import '../../../../common_widgets/app_section_header.dart';
-import '../../../../common_widgets/forms/app_date_picker_field.dart';
-import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/providers/database_provider.dart';
 import '../../../../core/utils/color_extensions.dart';
@@ -50,13 +48,11 @@ class NeuerBeitragDialog extends HookConsumerWidget {
 
     // Controllers
     final memberSearchController = useTextEditingController();
-    final leistungSearchController = useTextEditingController();
     final beitragController = useTextEditingController();
     final kontiertAm = useState<DateTime>(DateTime.now());
 
     // Search results
     final memberSearchResults = useState<List<Mitglied>>([]);
-    final leistungSearchResults = useState<List<LeistungsDetail>>([]);
 
     // Loading states
     final isLoadingInvoiceNumber = useState(true);
@@ -91,37 +87,41 @@ class NeuerBeitragDialog extends HookConsumerWidget {
       memberSearchResults.value = results;
     }
 
-    // ── Leistung Search ──────────────────────────────────────────────────────
-    Future<void> searchLeistungen(String query) async {
-      if (query.length < 2) {
-        leistungSearchResults.value = [];
-        return;
-      }
-      final repo = ref.read(leistungenRepositoryProvider);
-      final results = await repo.searchLeistungen(query);
-      leistungSearchResults.value = results;
-    }
-
-    Future<void> loadAllLeistungen() async {
-      final repo = ref.read(leistungenRepositoryProvider);
-      final results = await repo.getAllLeistungenDetails();
-      leistungSearchResults.value = results;
-    }
-
-    // ── Update Beitrag when member changes ───────────────────────────────────
+    // ── Update Beitrag and Leistung when member changes ──────────────────────
     useEffect(() {
       final member = selectedMember.value;
-      if (member != null && member.preisId != null) {
-        // Load the member's price
-        Future<void> loadPrice() async {
-          final repo = ref.read(membersRepositoryProvider);
-          final (_, preis) = await repo.getMemberWithPrice(member.id);
-          if (preis != null) {
-            beitragController.text = preis.bruttopreis.toStringAsFixed(2);
+      if (member != null) {
+        // Load the member's contract (Leistung) if they have one
+        if (member.leistungId != null) {
+          Future<void> loadContract() async {
+            final leistungenRepo = ref.read(leistungenRepositoryProvider);
+            final detail = await leistungenRepo.getLeistungWithPrice(
+              member.leistungId!,
+            );
+            if (detail != null) {
+              selectedLeistung.value = detail;
+            }
           }
+
+          loadContract();
         }
 
-        loadPrice();
+        // Load the member's price
+        if (member.preisId != null) {
+          Future<void> loadPrice() async {
+            final repo = ref.read(membersRepositoryProvider);
+            final (_, preis) = await repo.getMemberWithPrice(member.id);
+            if (preis != null) {
+              beitragController.text = preis.bruttopreis.toStringAsFixed(2);
+            }
+          }
+
+          loadPrice();
+        }
+      } else {
+        // Clear dependent data when member is deselected
+        selectedLeistung.value = null;
+        beitragController.clear();
       }
       return null;
     }, [selectedMember.value]);
@@ -249,45 +249,42 @@ class NeuerBeitragDialog extends HookConsumerWidget {
           ],
           const Gap(24),
 
-          // ── Service (Leistung) Selection ───────────────────────────────────
+          // ── Service (Leistung) Display ─────────────────────────────────────
           const AppSectionHeader('Leistung'),
           const Gap(8),
-          _buildLeistungAutocomplete(
-            context,
-            leistungSearchController,
-            selectedLeistung,
-            leistungSearchResults,
-            searchLeistungen,
-            loadAllLeistungen,
-          ),
-          if (selectedLeistung.value != null) ...[
-            const Gap(8),
-            _buildSelectedLeistungInfo(context, selectedLeistung.value!),
-          ],
+          if (selectedLeistung.value != null)
+            _buildSelectedLeistungInfo(context, selectedLeistung.value!)
+          else
+            _buildEmptyInfoCard(
+              context,
+              icon: Icons.fitness_center,
+              message: 'Wird automatisch vom Mitglied übernommen',
+            ),
           const Gap(24),
 
-          // ── Contribution & Date ────────────────────────────────────────────
+          // ── Contribution & Date Display ────────────────────────────────────
           const AppSectionHeader('Beitrag & Daten'),
           const Gap(8),
           Row(
             children: [
               Expanded(
                 flex: 2,
-                child: AppTextField(
-                  controller: beitragController,
+                child: _buildReadOnlyField(
+                  context,
                   label: 'Beitrag (€)',
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  value: beitragController.text.isNotEmpty
+                      ? '${beitragController.text} €'
+                      : '-',
                 ),
               ),
               const Gap(16),
               Expanded(
                 flex: 2,
-                child: AppDatePickerField(
+                child: _buildReadOnlyField(
+                  context,
                   label: 'Kontiert am',
-                  value: kontiertAm.value,
-                  onChanged: (d) => kontiertAm.value = d ?? kontiertAm.value,
+                  value:
+                      '${kontiertAm.value.day.toString().padLeft(2, '0')}.${kontiertAm.value.month.toString().padLeft(2, '0')}.${kontiertAm.value.year}',
                 ),
               ),
               const Gap(16),
@@ -479,122 +476,6 @@ class NeuerBeitragDialog extends HookConsumerWidget {
     );
   }
 
-  /// Builds the leistung autocomplete search field.
-  Widget _buildLeistungAutocomplete(
-    BuildContext context,
-    TextEditingController controller,
-    ValueNotifier<LeistungsDetail?> selectedLeistung,
-    ValueNotifier<List<LeistungsDetail>> searchResults,
-    Future<void> Function(String) onSearch,
-    Future<void> Function() loadAll,
-  ) {
-    return Autocomplete<LeistungsDetail>(
-      optionsBuilder: (textEditingValue) {
-        // Show all results when text is exactly ' ' (triggered by search button)
-        if (textEditingValue.text == ' ') {
-          return searchResults.value;
-        }
-        if (textEditingValue.text.length < 2) {
-          return const Iterable<LeistungsDetail>.empty();
-        }
-        onSearch(textEditingValue.text);
-        return searchResults.value;
-      },
-      displayStringForOption: (detail) => detail.leistung.name,
-      onSelected: (detail) {
-        selectedLeistung.value = detail;
-        controller.text = detail.leistung.name;
-      },
-      fieldViewBuilder:
-          (context, textEditingController, focusNode, onFieldSubmitted) {
-            if (controller.text != textEditingController.text) {
-              textEditingController.text = controller.text;
-            }
-
-            return Stack(
-              alignment: Alignment.centerRight,
-              children: [
-                TextField(
-                  controller: textEditingController,
-                  focusNode: focusNode,
-                  decoration: InputDecoration(
-                    labelText: 'Leistung suchen',
-                    hintText: 'Mindestens 2 Zeichen eingeben...',
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: selectedLeistung.value != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            onPressed: () {
-                              selectedLeistung.value = null;
-                              controller.clear();
-                              textEditingController.clear();
-                            },
-                          )
-                        : const SizedBox(width: 40, height: 40),
-                  ),
-                  onChanged: (value) {
-                    controller.text = value;
-                    if (selectedLeistung.value != null) {
-                      selectedLeistung.value = null;
-                    }
-                  },
-                ),
-                if (selectedLeistung.value == null)
-                  Positioned(
-                    right: 0,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) async {
-                        // Preload data on tap down
-                        await loadAll();
-                      },
-                      onTapUp: (_) {
-                        // Trigger the autocomplete on tap up while keeping focus
-                        textEditingController.text = ' ';
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.search, size: 20),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 4,
-            child: Container(
-              width: 400,
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final detail = options.elementAt(index);
-                  return ListTile(
-                    dense: true,
-                    title: Text(detail.leistung.name),
-                    subtitle: Text(
-                      '${detail.leistung.laufzeit} - ${detail.preis.bruttopreis.toStringAsFixed(2)} €',
-                    ),
-                    onTap: () => onSelected(detail),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   /// Builds the selected leistung info card.
   Widget _buildSelectedLeistungInfo(
     BuildContext context,
@@ -624,6 +505,59 @@ class NeuerBeitragDialog extends HookConsumerWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a read-only info field that looks like a disabled text field.
+  Widget _buildReadOnlyField(
+    BuildContext context, {
+    required String label,
+    required String value,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: Text(
+        value,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+
+  /// Builds an empty info card with a hint message.
+  Widget _buildEmptyInfoCard(
+    BuildContext context, {
+    required IconData icon,
+    required String message,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey.shade600),
+          const Gap(12),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
             ),
           ),
         ],
