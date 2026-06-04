@@ -4,6 +4,11 @@ import '../../utils/uuid_helper.dart';
 /// Defines the structure for the `stammdaten` table.
 /// Key/value configuration store. Contains global settings like MwSt rate, file paths, app config.
 @DataClassName('StammdatenItem')
+@TableIndex(
+  name: 'idx_stammdaten_schluessel',
+  columns: {#schluessel},
+  unique: true,
+)
 @TableIndex(name: 'idx_stammdaten_kategorie', columns: {#kategorie})
 @TableIndex(name: 'idx_stammdaten_uuid', columns: {#uuid}, unique: true)
 class Stammdaten extends Table {

@@ -34,7 +34,7 @@ class RechnungPositionen extends Table {
   TextColumn get bezeichnung => text().withLength(min: 1, max: 200)();
 
   // Menge
-  RealColumn get menge => real()();
+  RealColumn get menge => real().withDefault(const Constant(1.0))();
 
   // Preise pro Stück (Snapshot)
   RealColumn get einzelpreisNetto => real()();

@@ -33,7 +33,7 @@
 ## Single Source of Truth
 - **[`lib/assets/data/structur.md`](lib/assets/data/structur.md)** ist die zentrale Spezifikation
 - Jede Änderung an Datenbanktabellen, Relationen oder UI-Screens MUSS zuerst hier dokumentiert werden
-- Schema-Version ist aktuell **15**
+- Schema-Version ist aktuell **17**
 
 ## Code-Generierung (MANDATORISCH)
 Nach Änderungen an `@riverpod`, `@DriftDatabase`, `@freezed`, oder `@JsonSerializable`:

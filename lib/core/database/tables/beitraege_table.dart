@@ -7,6 +7,11 @@ import 'mitglied_table.dart';
 import 'preis_table.dart';
 
 @DataClassName('Beitrag')
+@TableIndex(
+  name: 'idx_beitrag_rechnungsnummer',
+  columns: {#rechnungsnummer},
+  unique: true,
+)
 @TableIndex(name: 'idx_beitrag_mitglied', columns: {#mitgliedId})
 @TableIndex(name: 'idx_beitrag_status', columns: {#status})
 @TableIndex(name: 'idx_beitrag_uuid', columns: {#uuid}, unique: true)

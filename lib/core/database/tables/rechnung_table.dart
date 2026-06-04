@@ -5,6 +5,11 @@ import 'bemerkung_table.dart';
 import 'mitglied_table.dart';
 
 @DataClassName('Rechnung')
+@TableIndex(
+  name: 'idx_rechnung_nummer',
+  columns: {#rechnungsnummer},
+  unique: true,
+)
 @TableIndex(name: 'idx_rechnung_mitglied', columns: {#mitgliedId})
 @TableIndex(name: 'idx_rechnung_status', columns: {#status})
 @TableIndex(name: 'idx_rechnung_datum', columns: {#datum})

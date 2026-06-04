@@ -7,20 +7,25 @@
 
 | Eigenschaft | Wert |
 |---|---|
-| **version** | 1.1.0 |
+| **version** | 1.2.0 |
 | **created** | 2026-02-26 |
-| **updated** | 2026-04-27 |
+| **updated** | 2026-05-31 |
 | **description** | Schema definition for database structure and UI configuration. Used by AI coding agent to generate database models and UI screens. |
-| **file** | lib/assets/data/structur.json |
+| **file** | lib/assets/data/structur.md |
+| **db_schema_version** | 17 |
 
 ## UUID-Strategie für CSV-Export/Import
 
-Jede Tabelle erhält eine `uuid`-Spalte (TEXT, UNIQUE, NOT NULL, DEFAULT auto-generated). Diese UUID dient als **instanzunabhängige ID** für den CSV-Export/Import:
+Jede Tabelle erhält eine `uuid`-Spalte für den CSV-Export/Import. Diese UUID dient als **instanzunabhängige ID**:
 
+- **Drift-Definition**: `text().unique().nullable().clientDefault(() => generateUuid())`
+  - `nullable()` ist technisch erforderlich, da Drift `clientDefault` nur auf nullable-Spalten anwendet.
+  - Durch den `unique`-Constraint und die `clientDefault`-Generierung ist die Spalte effektiv NOT NULL.
+  - Bestehende Datensätze ohne UUID werden in Migration v17 nachträglich mit UUIDs versehen.
 - **Export**: Statt der lokalen `id` wird die `uuid` exportiert. Fremdschlüssel werden als `*_uuid` exportiert (z.B. `mitglied_uuid` statt `mitglied_id`).
 - **Import**: Beim Import wird ein **Upsert**-Verfahren verwendet (`INSERT ... ON CONFLICT(uuid) DO UPDATE`). Fremdschlüssel werden über eine UUID-Map im RAM aufgelöst (UUID → lokale ID).
 - **Vorteile**: CSV-Dateien sind instanzunabhängig, können zwischen verschiedenen Datenbanken ausgetauscht werden, und Importe sind idempotent.
-- **Paket**: `uuid` (^4.5.1) für die Generierung der UUIDs.
+- **Paket**: Eigene `generateUuid()`-Funktion in `lib/core/utils/uuid_helper.dart` (kein externes `uuid`-Package nötig).
 
 ### UUID-Spalten und FK-UUID-Mapping pro Tabelle
 
@@ -136,8 +141,8 @@ _Main member entity._
 | `preis_id` | INTEGER | FK->preis.id(SET NULL) |  |
 | `plz` | TEXT | MaxLen:10 |  |
 | `ort` | TEXT | MaxLen:100, Unicode |  |
-| `Strasse` | TEXT | MaxLen:100, Unicode |  |
-| `Hausnummer` | TEXT | MaxLen:10 |  |
+| `strasse` | TEXT | MaxLen:100, Unicode |  |
+| `hausnummer` | TEXT | MaxLen:10 |  |
 | `telefon1` | TEXT | MaxLen:50 |  |
 | `telefon2` | TEXT | MaxLen:50 |  |
 | `email` | TEXT | MaxLen:200 |  |
@@ -151,6 +156,8 @@ _Main member entity._
 
 **Berechnete Felder (Computed):**
 
+| Feld | Formel | Kommentar |
+|---|---|---|
 | `alter` | `floor(days_between(geboren, today) / 365.25)` | NOT stored. Computed at runtime from 'geboren' and today's date. |
 
 ### 1.6 `waren`
@@ -201,6 +208,7 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
 | `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "RE-2026-0001" |
 | `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Current payment status. **VERSIONIERT** in `beitrag_status_verlauf` — Änderungen erfordern einen Eintrag mit Erklärung |
 | `kontiert_am` | DATE | NotNull | Date when the contribution/invoice was created and is due |
+| `abrechnungs_zeitraum` | DATE | Nullable | Abrechnungszeitraum (z.B. 1.3.2026 für März 2026). Nur befüllt bei automatischer Rechnungslegung, null bei manuellen Beiträgen. Wird für Duplikat-Prüfung verwendet. |
 | `status_datum` | DATE | NotNull | Datum des letzten Statuswechsels (Snapshot, redundant zu Verlauf) |
 | `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
 
@@ -248,6 +256,9 @@ _Rechnung für Warenverkäufe (POS). Jede Rechnung kann mehrere Positionen haben
 | `erstellt_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Zeitpunkt der Anlage |
 | `aktualisiert_am` | DATETIME | NotNull, Default:CURRENT_TIMESTAMP | Letzte Änderung |
 
+**Constraints:**
+- `CHECK (mitglied_id IS NOT NULL OR kunde_name IS NOT NULL)` — Entweder Mitglied oder Kundenname muss gesetzt sein.
+
 **Status-Workflow:**
 - `offen` → `bezahlt` (Zahlung eingegangen)
 - `offen` → `storniert` (Rechnung storniert)
@@ -264,12 +275,15 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | `position_nr` | INTEGER | NotNull | Laufende Nummer 1, 2, 3... |
 | `waren_id` | INTEGER | FK->waren.id(SET NULL) | Verkaufter Artikel (NULL wenn gelöscht) |
 | `bezeichnung` | TEXT | NotNull, MaxLen:200 | Artikelbezeichnung (Snapshot) |
-| `menge` | REAL | NotNull, Default:1 | Anzahl |
+| `menge` | REAL | NotNull | Anzahl |
 | `einzelpreis_netto` | REAL | NotNull | Preis pro Stück Netto |
 | `einzelpreis_brutto` | REAL | NotNull | Preis pro Stück Brutto |
 | `mwst_satz` | REAL | NotNull | MwSt-Satz in % (z.B. 19.0) |
 | `gesamt_netto` | REAL | NotNull | menge * einzelpreis_netto |
 | `gesamt_brutto` | REAL | NotNull | menge * einzelpreis_brutto |
+
+**Constraints:**
+- `UNIQUE (rechnung_id, position_nr)` — Eine PositionNr pro Rechnung ist eindeutig.
 
 **Regeln:**
 - Positionen werden bei Löschung der Rechnung automatisch mitgelöscht (CASCADE)
@@ -345,15 +359,15 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 - **dateDbFormat**: YYYY-MM-DD
 - **locale**: de_DE
 - **allTablesUseAppDataGrid**: True
-- **appDataGridBaseClass**: AppDataGrid
-- **appDataGridLocation**: lib/widgets/data_grid/app_data_grid.dart
+- **appDataGridBaseClass**: VpitDataGrid
+- **appDataGridLocation**: lib/widgets/data_grid_v2/vpit_data_grid.dart
 - **comment**: See datagrid_agent_config.md for full AppDataGrid specification including search, sort dialog and filter dialog.
 
 
 ### 4.2 Screens
 
 #### Screen: Mitglieder (`screen_mitglied_list`)
-- **Route**: /mitglieder
+- **Route**: /members
 - **Typ**: dataGridScreen
 - **Datenquelle**: `mitglied`
 - **State Management:**
@@ -374,8 +388,8 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
   - Spalte `beitrag` (Beitrag) - text - Sort:True Filter:True
 
 #### Screen: Mitglied bearbeiten (`screen_mitglied_edit`)
-- **Route**: /mitglieder/edit
-- **Typ**: formScreen
+- **Route**: Dialog (keine eigene Route)
+- **Typ**: modalDialog
 - **Datenquelle**: `mitglied`
 - **Formular Bereiche:**
   - **Person**
@@ -412,8 +426,8 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
   - Spalte `nettopreis` (Netto (€)) - number - Sort:False Filter:False
 
 #### Screen: Leistung bearbeiten (`screen_leistung_edit`)
-- **Route**: /leistungen/edit
-- **Typ**: formScreen
+- **Route**: Dialog (keine eigene Route)
+- **Typ**: modalDialog
 - **Datenquelle**: `leistung`
 - **Formular Bereiche:**
   - **Leistung**
@@ -445,8 +459,8 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
   - Spalte `aktiv` (Aktiv) - boolean - Sort:True Filter:True
 
 #### Screen: Ware bearbeiten (`screen_ware_edit`)
-- **Route**: /waren/edit
-- **Typ**: formScreen
+- **Route**: Dialog (keine eigene Route)
+- **Typ**: modalDialog
 - **Datenquelle**: `waren`
 - **Formular Bereiche:**
   - **Allgemein**
@@ -508,8 +522,8 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 > **WICHTIG**: Diese Farben sind Teil der UX-Spezifikation. Änderungen erfordern ein Update dieser Dokumentation UND aller referenzierenden Dateien.
 
 #### Screen: Beitrag bearbeiten (`screen_beitrag_edit`)
-- **Route**: /beitraege/edit
-- **Typ**: formScreen
+- **Route**: Dialog (keine eigene Route)
+- **Typ**: modalDialog
 - **Datenquelle**: `beitrag`
 - **Formular Bereiche:**
   - **Beitrag / Rechnung**
@@ -569,8 +583,8 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | `storniert` | Hellgrau | `#EEEEEE` | Stornierte Rechnungen |
 
 #### Screen: Rechnung bearbeiten (`screen_rechnung_edit`)
-- **Route**: /rechnungen/edit
-- **Typ**: formScreen
+- **Route**: Dialog (keine eigene Route)
+- **Typ**: modalDialog
 - **Datenquelle**: `rechnung`
 - **Formular Bereiche:**
   - **Rechnung**
@@ -626,3 +640,104 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
   - `leistung_id` (Leistung) - Widget: DropdownField
   - `vertrag_laufzeit_von` (Laufzeit von) - Widget: DateField
   - `vertrag_laufzeit_bis` (Laufzeit bis) - Widget: DateField
+
+
+## 5. Domain-Modelle & Enums
+
+### 5.1 Status-Enums
+
+Alle Status-Enums implementieren das Interface [`StatusManager`](lib/core/models/status_manager.dart:1) für konsistente Darstellung (Label, Farben, Dropdowns).
+
+#### `BeitragStatus` — [`lib/features/beitraege/domain/models/beitrag_status.dart`](lib/features/beitraege/domain/models/beitrag_status.dart:1)
+
+| Wert | Label | Farbe | Bedeutung |
+|------|-------|-------|-----------|
+| `kontiert` | Kontiert | `#FFF9C4` | Neu angelegt |
+| `offen` | Offen | `#FFE0B2` | Fällig, ausstehend |
+| `bezahlt` | Bezahlt | `#C8E6C9` | Vollständig bezahlt |
+| `angemahnt` | Angemahnt | `#FFCDD2` | Zahlungserinnerung versandt |
+| `storniert` | Storniert | `#EEEEEE` | Storniert |
+| `inkasso` | Inkasso | `#F8BBD0` | An Inkasso übergeben |
+
+**Zusätzliche Properties (nur Code):**
+- `isEditable` → `true` außer bei `bezahlt` und `storniert`
+- `isOpen` → `true` bei `offen` und `angemahnt`
+- `isFinal` → `true` bei `bezahlt` und `storniert`
+
+**Farben-Quelle**: [`lib/features/beitraege/utils/beitrag_status_colors.dart`](lib/features/beitraege/utils/beitrag_status_colors.dart:1)
+
+#### `RechnungStatus` — [`lib/features/rechnungen/domain/models/rechnung_status.dart`](lib/features/rechnungen/domain/models/rechnung_status.dart:1)
+
+| Wert | Label | Farbe | Bedeutung |
+|------|-------|-------|-----------|
+| `offen` | Offen | `#FFE0B2` | Ausstehende Zahlung |
+| `bezahlt` | Bezahlt | `#C8E6C9` | Bezahlte Rechnung |
+| `storniert` | Storniert | `#EEEEEE` | Stornierte Rechnung |
+
+**Farben-Quelle**: [`lib/features/rechnungen/utils/rechnung_status_colors.dart`](lib/features/rechnungen/utils/rechnung_status_colors.dart:1)
+
+### 5.2 RowData-Modelle (DataGrid-Anzeige)
+
+| Klasse | Datei | Beschreibung |
+|--------|-------|--------------|
+| `MemberRowData` | [`lib/features/members/domain/models/member_row_data.dart`](lib/features/members/domain/models/member_row_data.dart:1) | Join aus Mitglied + Leistung + Preis. Enthält computed `alter`. |
+| `LeistungRowData` | [`lib/features/leistungen/domain/models/leistung_row_data.dart`](lib/features/leistungen/domain/models/leistung_row_data.dart:1) | Leistung mit Preis. Enthält computed `nettopreis`. |
+| `WarenRowData` | [`lib/features/waren/domain/models/waren_row_data.dart`](lib/features/waren/domain/models/waren_row_data.dart:1) | Alle Ware-Felder + computed `nettopreis`. |
+| `BeitragRowData` | [`lib/features/beitraege/domain/models/beitrag_row_data.dart`](lib/features/beitraege/domain/models/beitrag_row_data.dart:1) | Join aus Beitrag + Mitglied-Name + Leistung-Name. |
+| `RechnungRowData` | [`lib/features/rechnungen/domain/models/rechnung_row_data.dart`](lib/features/rechnungen/domain/models/rechnung_row_data.dart:1) | Join aus Rechnung + Kunden-Name (Mitglied oder Walk-in). |
+
+### 5.3 Detail-Modelle (Edit-Dialoge / komplexe Views)
+
+| Klasse | Datei | Beschreibung |
+|--------|-------|--------------|
+| `LeistungsDetail` | [`lib/features/leistungen/domain/models/leistungs_detail.dart`](lib/features/leistungen/domain/models/leistungs_detail.dart:1) | Leistung + Preis + optionale Bemerkung |
+| `WarenDetail` | [`lib/features/waren/domain/models/waren_detail.dart`](lib/features/waren/domain/models/waren_detail.dart:1) | Ware + optionale Bemerkung |
+| `RechnungWithPositionen` | [`lib/features/rechnungen/domain/models/rechnung_with_positionen.dart`](lib/features/rechnungen/domain/models/rechnung_with_positionen.dart:1) | Rechnung + alle Positionen + Kunden-Name |
+| `RechnungWithDetails` | [`lib/features/rechnungen/domain/models/rechnung_with_details.dart`](lib/features/rechnungen/domain/models/rechnung_with_details.dart:1) | Rechnung + Positionen + Kunden-Name + Bemerkung |
+| `BeitragStatusHistoryRowData` | [`lib/features/beitraege/domain/models/beitrag_status_history_row_data.dart`](lib/features/beitraege/domain/models/beitrag_status_history_row_data.dart:1) | Einzelner Status-Verlaufseintrag |
+
+
+## 6. Repositories & Provider
+
+| Feature | Repository | Provider | Besonderheiten |
+|---------|------------|----------|----------------|
+| Bemerkung | `BemerkungRepository` | `bemerkungRepositoryProvider` | Zentralisiert für alle Features |
+| Stammdaten | `StammdatenRepository` | `stammdatenRepositoryProvider` | — |
+| Mitglieder | `MembersRepository` | `membersRepositoryProvider` | Enthält Preis-Lookup, Leistungen-Dropdown |
+| Leistungen | `LeistungenRepository` | `leistungenRepositoryProvider` | Kaskadiert Preis + Bemerkung |
+| Waren | `WarenRepository` | `warenRepositoryProvider` | Kaskadiert Bemerkung |
+| Beiträge | `BeitraegeRepository` | `beitraegeRepositoryProvider` | Status-History automatisch bei CRUD |
+| Rechnungen | `RechnungenRepository` | `rechnungenRepositoryProvider` | Positionen-Management in Transaktionen |
+| Rechnungsnummern | `RechnungsnummerGenerator` | — | Shared Service: `RE-YYYY-XXXXX` (Beiträge), `R-YYYY-XXXXX` (Rechnungen) |
+
+
+## 7. Rechnungsnummern-Formate
+
+| Entität | Präfix | Format | Beispiel | Generator |
+|---------|--------|--------|----------|-----------|
+| Beitrag | `RE-` | `RE-YYYY-XXXXX` | `RE-2026-00001` | `RechnungsnummerGenerator.generateForBeitrag()` |
+| Rechnung (Waren) | `R-` | `R-YYYY-XXXXX` | `R-2026-00001` | `RechnungsnummerGenerator.generateForRechnung()` |
+
+> **WICHTIG**: Die Formate sind unterschiedlich und dürfen nicht verwechselt werden. Beiträge verwenden `RE-`, Rechnungen `R-`.
+
+
+## 8. Migrations-Historie (DB Schema)
+
+| Version | Änderung | Datei |
+|---------|----------|-------|
+| 1–4 | Initiales Schema | — |
+| 5 | Vollständiges Re-Create | [`database.dart`](lib/core/database/database.dart:62) |
+| 6 | `waren`-Tabelle hinzugefügt | — |
+| 7 | `mitglied.geschlecht` hinzugefügt | — |
+| 8 | `mitglied.preis_id` hinzugefügt | — |
+| 9 | `stammdaten.typ` korrigiert (number → float/integer) | — |
+| 10 | `stammdaten.system_pflicht` hinzugefügt | — |
+| 11 | `beitrag`-Tabelle hinzugefügt | — |
+| 12 | `beitrag_status_verlauf`-Tabelle hinzugefügt | — |
+| 13 | `beitrag_status_verlauf.bemerkung` → NOT NULL | — |
+| 14 | `rechnung` + `rechnung_position`-Tabellen hinzugefügt | — |
+| 15 | `beitrag.abrechnungs_zeitraum` hinzugefügt | — |
+| 16 | Tabellennamen angepasst (Singular: `mitglied`, `beitrag`, `rechnung`, `rechnung_position`) | — |
+| 17 | UUID-Spalten für alle Tabellen hinzugefügt | — |
+
+> **Regel**: Migrations sind **forward-only**. Nie `deleteTable` in Production ohne Daten-Migration.
