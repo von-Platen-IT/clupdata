@@ -61,6 +61,23 @@ class MainMenuBar extends ConsumerWidget {
           _MenuButton(
             title: 'Erstellen',
             items: [
+              // Stammdaten
+              PopupMenuItem(
+                child: _MenuItemWithShortcut(
+                  label: 'Neues Mitglied',
+                  shortcut: MenuShortcuts.createMitglied.menuLabel,
+                ),
+                onTap: () => MemberEditDialog.show(context),
+              ),
+              PopupMenuItem(
+                child: _MenuItemWithShortcut(
+                  label: 'Neue Leistung',
+                  shortcut: MenuShortcuts.createLeistung.menuLabel,
+                ),
+                onTap: () => LeistungEditDialog.show(context),
+              ),
+              const PopupMenuDivider(),
+              // Finanzen
               PopupMenuItem(
                 child: _MenuItemWithShortcut(
                   label: 'Neuer Beitrag',
@@ -77,20 +94,6 @@ class MainMenuBar extends ConsumerWidget {
               ),
               PopupMenuItem(
                 child: _MenuItemWithShortcut(
-                  label: 'Neues Mitglied',
-                  shortcut: MenuShortcuts.createMitglied.menuLabel,
-                ),
-                onTap: () => MemberEditDialog.show(context),
-              ),
-              PopupMenuItem(
-                child: _MenuItemWithShortcut(
-                  label: 'Neue Leistung',
-                  shortcut: MenuShortcuts.createLeistung.menuLabel,
-                ),
-                onTap: () => LeistungEditDialog.show(context),
-              ),
-              PopupMenuItem(
-                child: _MenuItemWithShortcut(
                   label: 'Neue Ware',
                   shortcut: MenuShortcuts.createWare.menuLabel,
                 ),
@@ -99,7 +102,7 @@ class MainMenuBar extends ConsumerWidget {
             ],
           ),
           _MenuButton(
-            title: 'Datenübertragung',
+            title: 'Extras',
             items: [
               // Rechnungserstellung Submenü
               const PopupMenuItem(
@@ -235,10 +238,7 @@ class _MenuItemWithShortcut extends StatelessWidget {
   final String label;
   final String shortcut;
 
-  const _MenuItemWithShortcut({
-    required this.label,
-    required this.shortcut,
-  });
+  const _MenuItemWithShortcut({required this.label, required this.shortcut});
 
   @override
   Widget build(BuildContext context) {

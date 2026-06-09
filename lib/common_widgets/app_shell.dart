@@ -66,18 +66,16 @@ class AppShell extends HookConsumerWidget {
         MenuShortcuts.rechnungBeitraege: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => const RechnungserstellungScreen(
-                title: 'Beiträge (n.a.)',
-              ),
+              builder: (context) =>
+                  const RechnungserstellungScreen(title: 'Beiträge (n.a.)'),
             ),
           );
         },
         MenuShortcuts.rechnungVerkauf: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => const RechnungserstellungScreen(
-                title: 'Verkauf (n.a.)',
-              ),
+              builder: (context) =>
+                  const RechnungserstellungScreen(title: 'Verkauf (n.a.)'),
             ),
           );
         },
@@ -139,14 +137,14 @@ class AppShell extends HookConsumerWidget {
                           label: Text('Beiträge'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Mdi.packageVariantClosed),
-                          selectedIcon: Icon(Mdi.packageVariant),
-                          label: Text('Waren'),
-                        ),
-                        NavigationRailDestination(
                           icon: Icon(Icons.receipt_long_outlined),
                           selectedIcon: Icon(Icons.receipt_long),
                           label: Text('Rechnungen'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Mdi.packageVariantClosed),
+                          selectedIcon: Icon(Mdi.packageVariant),
+                          label: Text('Waren'),
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.calendar_month_outlined),

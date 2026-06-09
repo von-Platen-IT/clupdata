@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -68,6 +69,9 @@ class _CsvBulkExportDialog extends HookConsumerWidget {
 
     // Cancel token
     final cancelToken = useState<bool>(false);
+
+    // Scroll-Controller für Auto-Scroll zum Ergebnis
+    final scrollController = useScrollController();
 
     useEffect(() {
       return () {
@@ -170,6 +174,17 @@ class _CsvBulkExportDialog extends HookConsumerWidget {
         );
 
         exportResult.value = result;
+
+        // Nach dem Export automatisch zum Ergebnis scrollen
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (scrollController.hasClients) {
+            scrollController.animateTo(
+              scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       } catch (e) {
         if (!cancelToken.value && context.mounted) {
           ScaffoldMessenger.of(
@@ -201,6 +216,7 @@ class _CsvBulkExportDialog extends HookConsumerWidget {
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
+          controller: scrollController,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

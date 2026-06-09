@@ -67,16 +67,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/waren',
-                builder: (context, state) => const WarenScreen(),
+                path: '/rechnungen',
+                builder: (context, state) => const RechnungenScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/rechnungen',
-                builder: (context, state) => const RechnungenScreen(),
+                path: '/waren',
+                builder: (context, state) => const WarenScreen(),
               ),
             ],
           ),
