@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../features/export/presentation/dialog_export_button.dart';
 import 'app_dialog_delete_action.dart';
@@ -86,14 +87,27 @@ class AppEditDialogScaffold extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Export button (only when config is provided)
-                  if (exportConfig != null)
-                    DialogExportMenuButton(
-                      item: exportConfig!.item,
-                      entityType: exportConfig!.entityType,
-                      title: exportConfig!.title,
-                      subtitle: exportConfig!.subtitle,
+                  // Direct PDF + Print buttons (only when config is provided)
+                  if (exportConfig != null) ...[
+                    Consumer(
+                      builder: (context, ref, _) => DialogExportButton(
+                        detailProvider: exportConfig!.detailProvider,
+                        item: exportConfig!.item,
+                        entityType: exportConfig!.entityType,
+                        title: exportConfig!.title,
+                        subtitle: exportConfig!.subtitle,
+                      ),
                     ),
+                    Consumer(
+                      builder: (context, ref, _) => DialogPrintButton(
+                        detailProvider: exportConfig!.detailProvider,
+                        item: exportConfig!.item,
+                        entityType: exportConfig!.entityType,
+                        title: exportConfig!.title,
+                        subtitle: exportConfig!.subtitle,
+                      ),
+                    ),
+                  ],
                   // Close button
                   IconButton(
                     icon: const Icon(Icons.close),

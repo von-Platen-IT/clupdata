@@ -19,6 +19,7 @@ import '../../presentation/providers/beitraege_list_provider.dart';
 import '../widgets/beitrag_status_history_grid.dart';
 import '../../domain/models/beitrag_status_history_row_data.dart';
 import '../../../export/domain/export_config.dart';
+import '../../domain/models/beitrag_detail_export_provider.dart';
 
 /// Returns true if the dialog can be saved.
 /// - Rechnungsnummer must not be empty
@@ -271,10 +272,15 @@ class BeitragEditDialog extends HookConsumerWidget {
       onSave: saveBeitrag,
       isSaveEnabled: canSave.value,
       contentWidth: 700,
-      exportConfig: beitragId == null
+      exportConfig: beitragId == null || existing == null
           ? null
           : ExportConfig(
-              item: existing,
+              detailProvider: BeitragDetailExportProvider(
+                beitrag: existing.beitrag,
+                mitgliedName: existing.mitgliedName,
+                leistungName: existing.leistungName,
+                statusVerlauf: statusHistoryAsync.data,
+              ),
               entityType: 'beitrag',
               title: 'Beitrag ${ctrlRechnungsnummer.text}',
             ),
@@ -372,7 +378,8 @@ class BeitragEditDialog extends HookConsumerWidget {
             controller: ctrlStatusBemerkung,
             label: 'Grund der Statusänderung',
             maxLines: 2,
-            required: originalStatus.value != null &&
+            required:
+                originalStatus.value != null &&
                 ctrlStatus.text != originalStatus.value,
           ),
           const Gap(24),

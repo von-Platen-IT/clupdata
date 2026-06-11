@@ -9,7 +9,7 @@ import 'package:gap/gap.dart';
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
 import '../core/utils/app_version.dart';
-import '../features/rechnungserstellung/rechnungserstellung_screen.dart';
+import '../features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
@@ -62,23 +62,9 @@ class AppShell extends HookConsumerWidget {
         MenuShortcuts.createMitglied: () => MemberEditDialog.show(context),
         MenuShortcuts.createLeistung: () => LeistungEditDialog.show(context),
         MenuShortcuts.createWare: () => WarenEditDialog.show(context),
-        // Datenübertragung-Menü
-        MenuShortcuts.rechnungBeitraege: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  const RechnungserstellungScreen(title: 'Beiträge (n.a.)'),
-            ),
-          );
-        },
-        MenuShortcuts.rechnungVerkauf: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  const RechnungserstellungScreen(title: 'Verkauf (n.a.)'),
-            ),
-          );
-        },
+        // Rechnungserstellung
+        MenuShortcuts.rechnungBeitraege: () =>
+            BeitraegeBatchDialog.show(context),
         MenuShortcuts.backup: () => showBackupDialog(context, ref),
         MenuShortcuts.restore: () => showRestoreDialog(context, ref),
         MenuShortcuts.csvExport: () => showCsvBulkExportDialog(context, ref),

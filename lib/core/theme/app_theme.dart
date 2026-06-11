@@ -6,7 +6,28 @@ import 'package:flutter/material.dart';
 /// It utilizes a compact [VisualDensity] layout to ensure UI elements fit well
 /// on computer screens, as opposed to default mobile paddings.
 class AppTheme {
-  
+  /// Font fallbacks to support Unicode box-drawing characters
+  /// (e.g. U+2500 ─) used by PlutoGrid for grid rendering.
+  ///
+  /// Includes platform-specific system fonts known to contain box-drawing glyphs:
+  /// - Windows: Segoe UI, Consolas
+  /// - Linux: DejaVu Sans, Noto Sans
+  ///
+  /// Flutter resolves the first available font from the fallback list,
+  /// so all platforms are covered with a single configuration.
+  static const _fontFamilyFallback = [
+    'Segoe UI',
+    'Consolas',
+    'DejaVu Sans',
+    'Noto Sans',
+  ];
+
+  /// Applies font fallbacks to the base text theme for consistent
+  /// box-drawing character support across all widgets.
+  static TextTheme _withFallbacks(TextTheme base) {
+    return base.apply(fontFamilyFallback: _fontFamilyFallback);
+  }
+
   /// Generates the configuration for the light theme mode.
   ///
   /// Uses a deep orange color palette (`colorScheme.fromSeed`) suitable for the Boxclub branding.
@@ -19,10 +40,8 @@ class AppTheme {
       ),
       // Kompaktere Dichte für Desktop
       visualDensity: VisualDensity.compact,
-      appBarTheme: const AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-      ),
+      textTheme: _withFallbacks(ThemeData.light().textTheme),
+      appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       navigationRailTheme: const NavigationRailThemeData(
         useIndicator: true,
         labelType: NavigationRailLabelType.all,
@@ -39,10 +58,8 @@ class AppTheme {
         brightness: Brightness.dark,
       ),
       visualDensity: VisualDensity.compact,
-      appBarTheme: const AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-      ),
+      textTheme: _withFallbacks(ThemeData.dark().textTheme),
+      appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       navigationRailTheme: const NavigationRailThemeData(
         useIndicator: true,
         labelType: NavigationRailLabelType.all,

@@ -204,25 +204,52 @@ class InvoicePdfTemplate implements PdfTemplate {
   }
 
   /// Builds the positions table from data rows.
+  ///
+  /// For detail (key-value) exports where headers are ['Feld', 'Wert'],
+  /// renders a clean two-column table without those headers.
   pw.Widget _buildPositionsTable(ExportDataTable dataTable, pw.Font font) {
-    final headerStyle = pw.TextStyle(
+    final labelStyle = pw.TextStyle(
       font: font,
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: pw.FontWeight.bold,
-      color: PdfColors.white,
     );
-    final cellStyle = pw.TextStyle(font: font, fontSize: 9);
+    final valueStyle = pw.TextStyle(font: font, fontSize: 10);
 
-    return pw.TableHelper.fromTextArray(
-      headers: dataTable.headers,
-      data: dataTable.rows,
-      headerStyle: headerStyle,
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey700),
-      headerHeight: 28,
-      cellHeight: 22,
-      cellStyle: cellStyle,
-      border: null,
-      cellAlignments: _buildCellAlignments(dataTable.columnCount),
+    return pw.Table(
+      columnWidths: const {0: pw.FlexColumnWidth(2), 1: pw.FlexColumnWidth(3)},
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+        bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+      ),
+      children: [
+        ...dataTable.rows.asMap().entries.map((entry) {
+          final rowIndex = entry.key;
+          final row = entry.value;
+          final isEven = rowIndex % 2 == 0;
+
+          return pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: isEven ? PdfColors.white : PdfColors.grey50,
+            ),
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                child: pw.Text(row.isNotEmpty ? row[0] : '', style: labelStyle),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                child: pw.Text(row.length > 1 ? row[1] : '', style: valueStyle),
+              ),
+            ],
+          );
+        }),
+      ],
     );
   }
 
@@ -323,24 +350,12 @@ class InvoicePdfTemplate implements PdfTemplate {
     return map;
   }
 
-  /// Determines text alignment for each column.
-  Map<int, pw.Alignment> _buildCellAlignments(int columnCount) {
-    final alignments = <int, pw.Alignment>{};
-    for (var i = 0; i < columnCount; i++) {
-      // Right-align last column (typically price/total)
-      if (i == columnCount - 1) {
-        alignments[i] = pw.Alignment.centerRight;
-      } else {
-        alignments[i] = pw.Alignment.centerLeft;
-      }
-    }
-    return alignments;
-  }
-
   /// Loads Roboto Regular from the bundled local asset.
   /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'lib/assets/fonts/Roboto-Regular.ttf',
+    );
     return pw.Font.ttf(fontData);
   }
 }

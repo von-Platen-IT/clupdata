@@ -48,11 +48,66 @@ class SimpleTableTemplate implements PdfTemplate {
         margin: const pw.EdgeInsets.all(48),
         header: (format) => _buildHeader(context, baseFont),
         footer: (pwContext) => _buildFooter(context, pwContext, baseFont),
-        build: (pwContext) => _buildBlocks(dataTable, baseFont),
+        build: (pwContext) => context.isDetailView
+            ? [_buildDetailTable(dataTable, baseFont)]
+            : _buildBlocks(dataTable, baseFont),
       ),
     );
 
     return pdf;
+  }
+
+  /// Builds a clean two-column key-value table for detail exports.
+  ///
+  /// Field names are displayed in the left column (bold) and values in the
+  /// right column. The "Feld"/"Wert" headers are omitted for clarity.
+  pw.Widget _buildDetailTable(ExportDataTable dataTable, pw.Font font) {
+    final labelStyle = pw.TextStyle(
+      font: font,
+      fontSize: 10,
+      fontWeight: pw.FontWeight.bold,
+    );
+    final valueStyle = pw.TextStyle(font: font, fontSize: 10);
+
+    return pw.Table(
+      columnWidths: {
+        0: const pw.FlexColumnWidth(2),
+        1: const pw.FlexColumnWidth(3),
+      },
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+        bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+      ),
+      children: [
+        ...dataTable.rows.asMap().entries.map((entry) {
+          final rowIndex = entry.key;
+          final row = entry.value;
+          final isEven = rowIndex % 2 == 0;
+
+          return pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: isEven ? PdfColors.white : PdfColors.grey50,
+            ),
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                child: pw.Text(row.isNotEmpty ? row[0] : '', style: labelStyle),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                child: pw.Text(row.length > 1 ? row[1] : '', style: valueStyle),
+              ),
+            ],
+          );
+        }),
+      ],
+    );
   }
 
   /// Builds the page header with title and metadata.
@@ -116,10 +171,7 @@ class SimpleTableTemplate implements PdfTemplate {
                       children: [
                         pw.Text(dataTable.headers[colIndex], style: labelStyle),
                         pw.SizedBox(height: 2),
-                        pw.Text(
-                          row[colIndex],
-                          style: valueStyle,
-                        ),
+                        pw.Text(row[colIndex], style: valueStyle),
                       ],
                     ),
                   ),
@@ -167,7 +219,9 @@ class SimpleTableTemplate implements PdfTemplate {
   /// Loads Roboto Regular from the bundled local asset.
   /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'lib/assets/fonts/Roboto-Regular.ttf',
+    );
     return pw.Font.ttf(fontData);
   }
 }

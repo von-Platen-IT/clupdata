@@ -7,6 +7,7 @@ import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/waren_repository.dart';
+import '../domain/models/ware_detail_export_provider.dart';
 import '../presentation/providers/waren_list_provider.dart';
 import '../../export/domain/export_config.dart';
 
@@ -291,7 +292,12 @@ class WarenEditDialog extends HookConsumerWidget {
       exportConfig: wareId == null
           ? null
           : ExportConfig(
-              item: details,
+              detailProvider: details != null
+                  ? WareDetailExportProvider(
+                      ware: details.ware,
+                      bemerkung: details.bemerkung,
+                    )
+                  : null,
               entityType: 'ware',
               title: 'Ware ${ctrlBezeichnung.text}',
             ),

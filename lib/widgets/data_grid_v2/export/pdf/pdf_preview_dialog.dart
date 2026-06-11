@@ -1,9 +1,15 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
+import '../../../../core/database/database.dart';
+import '../../../../features/stammdaten/data/stammdaten_repository.dart';
 import 'pdf_exporter.dart';
 import 'pdf_template.dart';
 import 'pdf_template_registry.dart';
@@ -32,7 +38,7 @@ import 'pdf_template_selector.dart';
 ///   builder: (_) => PdfPreviewDialog.fromExportData(exportData),
 /// );
 /// ```
-class PdfPreviewDialog extends StatefulWidget {
+class PdfPreviewDialog extends ConsumerStatefulWidget {
   /// The prepared export data containing raw data and context.
   final PdfExportData exportData;
 
@@ -58,14 +64,15 @@ class PdfPreviewDialog extends StatefulWidget {
   }
 
   @override
-  State<PdfPreviewDialog> createState() => _PdfPreviewDialogState();
+  ConsumerState<PdfPreviewDialog> createState() => _PdfPreviewDialogState();
 }
 
-class _PdfPreviewDialogState extends State<PdfPreviewDialog> {
+class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
   late PdfTemplate _selectedTemplate;
   Uint8List? _pdfData;
   bool _isGenerating = false;
   String? _errorMessage;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -174,6 +181,18 @@ class _PdfPreviewDialogState extends State<PdfPreviewDialog> {
               ],
             ),
           ),
+          if (_pdfData != null && !_isGenerating)
+            IconButton(
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_alt),
+              tooltip: 'Als PDF-Datei speichern',
+              onPressed: _isSaving ? null : () => _savePdfToFile(context),
+            ),
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
@@ -320,6 +339,91 @@ class _PdfPreviewDialogState extends State<PdfPreviewDialog> {
     }
   }
 
+  /// Saves the current PDF to a user-chosen file location.
+  ///
+  /// Reads the last export directory from stammdaten (`pfad_export`)
+  /// as initial directory, and persists the chosen directory after saving.
+  Future<void> _savePdfToFile(BuildContext context) async {
+    if (_pdfData == null) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      // Read last export directory from stammdaten
+      String? initialDirectory;
+      try {
+        final repo = ref.read(stammdatenRepositoryProvider);
+        final setting = await repo.getSetting('pfad_export');
+        if (setting?.wert != null && setting!.wert!.isNotEmpty) {
+          initialDirectory = setting.wert;
+        }
+      } catch (_) {
+        // Ignore errors reading stammdaten — fall back to default
+      }
+
+      final fileName = _generateFileName();
+
+      final filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'PDF-Datei speichern',
+        fileName: fileName,
+        initialDirectory: initialDirectory,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (filePath == null) {
+        // User cancelled
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
+
+      // Write PDF bytes to the chosen file
+      final file = File(filePath);
+      await file.writeAsBytes(_pdfData!);
+
+      // Persist chosen directory for next export
+      final chosenDirectory = file.parent.path;
+      try {
+        final repo = ref.read(stammdatenRepositoryProvider);
+        final existing = await repo.getSetting('pfad_export');
+        if (existing != null) {
+          await repo.updateSetting(
+            existing.copyWith(wert: Value(chosenDirectory)),
+          );
+        } else {
+          await repo.addSetting(
+            StammdatenCompanion.insert(
+              schluessel: 'pfad_export',
+              wert: Value(chosenDirectory),
+              typ: 'string',
+              kategorie: 'programm',
+              bezeichnung: 'Export-Verzeichnis',
+            ),
+          );
+        }
+      } catch (_) {
+        // Non-critical: saving the preference failed
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF gespeichert: $filePath'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   /// Generates a filename based on title and current date.
   String _generateFileName() {
     final sanitized = widget.exportData.context.title
@@ -334,7 +438,7 @@ class _PdfPreviewDialogState extends State<PdfPreviewDialog> {
 /// Simplified dialog for direct PDF preview without template selection.
 ///
 /// Use this when you already have a generated PDF and just want to show it.
-class SimplePdfPreviewDialog extends StatelessWidget {
+class SimplePdfPreviewDialog extends ConsumerStatefulWidget {
   /// The PDF document as byte array.
   final Uint8List pdfData;
 
@@ -347,6 +451,95 @@ class SimplePdfPreviewDialog extends StatelessWidget {
     required this.pdfData,
     required this.title,
   });
+
+  @override
+  ConsumerState<SimplePdfPreviewDialog> createState() =>
+      _SimplePdfPreviewDialogState();
+}
+
+class _SimplePdfPreviewDialogState
+    extends ConsumerState<SimplePdfPreviewDialog> {
+  bool _isSaving = false;
+
+  /// Saves the PDF to a user-chosen file location.
+  Future<void> _savePdfToFile(BuildContext context) async {
+    setState(() => _isSaving = true);
+
+    try {
+      // Read last export directory from stammdaten
+      String? initialDirectory;
+      try {
+        final repo = ref.read(stammdatenRepositoryProvider);
+        final setting = await repo.getSetting('pfad_export');
+        if (setting?.wert != null && setting!.wert!.isNotEmpty) {
+          initialDirectory = setting.wert;
+        }
+      } catch (_) {
+        // Ignore errors reading stammdaten — fall back to default
+      }
+
+      final fileName = _generateFileName();
+
+      final filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'PDF-Datei speichern',
+        fileName: fileName,
+        initialDirectory: initialDirectory,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (filePath == null) {
+        // User cancelled
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
+
+      // Write PDF bytes to the chosen file
+      final file = File(filePath);
+      await file.writeAsBytes(widget.pdfData);
+
+      // Persist chosen directory for next export
+      final chosenDirectory = file.parent.path;
+      try {
+        final repo = ref.read(stammdatenRepositoryProvider);
+        final existing = await repo.getSetting('pfad_export');
+        if (existing != null) {
+          await repo.updateSetting(
+            existing.copyWith(wert: Value(chosenDirectory)),
+          );
+        } else {
+          await repo.addSetting(
+            StammdatenCompanion.insert(
+              schluessel: 'pfad_export',
+              wert: Value(chosenDirectory),
+              typ: 'string',
+              kategorie: 'programm',
+              bezeichnung: 'Export-Verzeichnis',
+            ),
+          );
+        }
+      } catch (_) {
+        // Non-critical: saving the preference failed
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF gespeichert: $filePath'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler beim Speichern: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +557,7 @@ class SimplePdfPreviewDialog extends StatelessWidget {
               // PDF preview
               Expanded(
                 child: PdfPreview(
-                  build: (format) => pdfData,
+                  build: (format) => widget.pdfData,
                   allowPrinting: true,
                   allowSharing: true,
                   canChangePageFormat: false,
@@ -383,23 +576,31 @@ class SimplePdfPreviewDialog extends StatelessWidget {
 
   /// Builds the dialog header with title and close button.
   Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
-        ),
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border(bottom: BorderSide(color: theme.dividerColor)),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.picture_as_pdf,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          Icon(Icons.picture_as_pdf, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+            child: Text(widget.title, style: theme.textTheme.titleMedium),
+          ),
+          IconButton(
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_alt),
+            tooltip: 'Als PDF-Datei speichern',
+            onPressed: _isSaving ? null : () => _savePdfToFile(context),
           ),
           IconButton(
             icon: const Icon(Icons.close),
@@ -413,7 +614,7 @@ class SimplePdfPreviewDialog extends StatelessWidget {
 
   /// Generates a filename based on title and current date.
   String _generateFileName() {
-    final sanitized = title
+    final sanitized = widget.title
         .toLowerCase()
         .replaceAll(' ', '_')
         .replaceAll(RegExp(r'[^a-z0-9_]'), '');

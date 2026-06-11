@@ -15,6 +15,7 @@ import '../data/rechnungen_repository.dart';
 import '../domain/models/rechnung_status.dart';
 import '../presentation/providers/rechnungen_list_provider.dart';
 import '../../export/domain/export_config.dart';
+import '../domain/models/rechnung_detail_export_provider.dart';
 
 /// Returns true if the dialog can be saved.
 /// - Rechnungsnummer must not be empty
@@ -338,7 +339,12 @@ class RechnungEditDialog extends HookConsumerWidget {
       onDelete: deleteRechnung,
       deleteEntityLabel: 'Rechnung',
       exportConfig: ExportConfig(
-        item: data,
+        detailProvider: RechnungDetailExportProvider(
+          rechnung: data.rechnung,
+          positionen: data.positionen,
+          kundeName: data.kundeName,
+          bemerkung: data.bemerkung,
+        ),
         entityType: 'rechnung',
         title: 'Rechnung ${ctrlRechnungsnummer.text}',
       ),
@@ -378,7 +384,8 @@ class RechnungEditDialog extends HookConsumerWidget {
             controller: ctrlStatusBemerkung,
             label: 'Grund der Statusänderung',
             maxLines: 2,
-            required: originalStatus.value != null &&
+            required:
+                originalStatus.value != null &&
                 selectedStatus.value != originalStatus.value,
           ),
           const Gap(16),

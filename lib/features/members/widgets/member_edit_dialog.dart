@@ -12,6 +12,7 @@ import '../../../../core/database/database.dart';
 import '../presentation/providers/members_list_provider.dart';
 import '../domain/models/leistung_dropdown_item.dart';
 import '../data/members_repository.dart';
+import '../domain/models/member_detail_export_provider.dart';
 import '../../export/domain/export_config.dart';
 
 import '../../../../common_widgets/app_edit_dialog_scaffold.dart';
@@ -381,7 +382,16 @@ class MemberEditDialog extends HookConsumerWidget {
       exportConfig: memberId == null
           ? null
           : ExportConfig(
-              item: memberSnapshot.data,
+              detailProvider: memberSnapshot.data != null
+                  ? MemberDetailExportProvider(
+                      mitglied: memberSnapshot.data!,
+                      leistungName: ctrlLeistung.text.isNotEmpty
+                          ? ctrlLeistung.text
+                          : null,
+                      bruttopreis: preisSnapshot.data?.bruttopreis,
+                      bemerkung: bemerkungSnapshot.data,
+                    )
+                  : null,
               entityType: 'mitglied',
               title: 'Mitglied ${ctrlName.text}',
             ),

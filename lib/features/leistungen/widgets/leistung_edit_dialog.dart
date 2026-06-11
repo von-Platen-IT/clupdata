@@ -9,6 +9,7 @@ import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../data/leistungen_repository.dart';
 import '../domain/models/leistungs_detail.dart';
 import '../presentation/providers/leistungen_list_provider.dart';
+import '../domain/models/leistung_detail_export_provider.dart';
 import '../../export/domain/export_config.dart';
 
 class LeistungEditDialog extends HookConsumerWidget {
@@ -194,7 +195,11 @@ class LeistungEditDialog extends HookConsumerWidget {
       exportConfig: details == null
           ? null
           : ExportConfig(
-              item: details,
+              detailProvider: LeistungDetailExportProvider(
+                leistung: details!.leistung,
+                preis: details!.preis,
+                bemerkung: details!.bemerkung,
+              ),
               entityType: 'leistung',
               title: 'Leistung ${ctrlName.text}',
             ),

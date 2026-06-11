@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
-import '../features/rechnungserstellung/rechnungserstellung_screen.dart';
+import '../features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
@@ -117,35 +117,10 @@ class MainMenuBar extends ConsumerWidget {
                 height: 32,
                 padding: const EdgeInsets.only(left: 32),
                 child: _MenuItemWithShortcut(
-                  label: 'Beiträge (n.a.)',
+                  label: 'Beiträge',
                   shortcut: MenuShortcuts.rechnungBeitraege.menuLabel,
                 ),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const RechnungserstellungScreen(
-                        title: 'Beiträge (n.a.)',
-                      ),
-                    ),
-                  );
-                },
-              ),
-              PopupMenuItem(
-                height: 32,
-                padding: const EdgeInsets.only(left: 32),
-                child: _MenuItemWithShortcut(
-                  label: 'Verkauf (n.a.)',
-                  shortcut: MenuShortcuts.rechnungVerkauf.menuLabel,
-                ),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const RechnungserstellungScreen(
-                        title: 'Verkauf (n.a.)',
-                      ),
-                    ),
-                  );
-                },
+                onTap: () => BeitraegeBatchDialog.show(context),
               ),
               const PopupMenuDivider(),
               // Datenbank Submenü

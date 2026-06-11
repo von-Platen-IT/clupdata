@@ -66,12 +66,71 @@ class CompactTableTemplate implements PdfTemplate {
           dataTable.rowCount,
         ),
         build: (pwContext) => [
-          _buildCompactTable(dataTable, baseFont, boldFont, columnWidths),
+          if (context.isDetailView)
+            _buildDetailTable(dataTable, baseFont, boldFont)
+          else
+            _buildCompactTable(dataTable, baseFont, boldFont, columnWidths),
         ],
       ),
     );
 
     return pdf;
+  }
+
+  /// Builds a clean two-column key-value table for detail exports.
+  ///
+  /// Field names are displayed in the left column (bold) and values in the
+  /// right column. The "Feld"/"Wert" headers are omitted for clarity.
+  pw.Widget _buildDetailTable(
+    ExportDataTable dataTable,
+    pw.Font normalFont,
+    pw.Font boldFont,
+  ) {
+    final labelStyle = pw.TextStyle(
+      font: boldFont,
+      fontSize: _headerFontSize,
+      fontWeight: pw.FontWeight.bold,
+    );
+    final valueStyle = pw.TextStyle(font: normalFont, fontSize: _dataFontSize);
+
+    return pw.Table(
+      columnWidths: const {0: pw.FlexColumnWidth(2), 1: pw.FlexColumnWidth(3)},
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+        bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+      ),
+      children: [
+        ...dataTable.rows.asMap().entries.map((entry) {
+          final rowIndex = entry.key;
+          final row = entry.value;
+          final isEven = rowIndex % 2 == 0;
+
+          return pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: isEven ? PdfColors.white : PdfColors.grey50,
+            ),
+            children: [
+              pw.Container(
+                alignment: pw.Alignment.centerLeft,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 4,
+                ),
+                child: pw.Text(row.isNotEmpty ? row[0] : '', style: labelStyle),
+              ),
+              pw.Container(
+                alignment: pw.Alignment.centerLeft,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 4,
+                ),
+                child: pw.Text(row.length > 1 ? row[1] : '', style: valueStyle),
+              ),
+            ],
+          );
+        }),
+      ],
+    );
   }
 
   /// Builds a compact header with minimal height.
@@ -291,7 +350,9 @@ class CompactTableTemplate implements PdfTemplate {
   /// Loads Roboto Regular from the bundled local asset.
   /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
-    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'lib/assets/fonts/Roboto-Regular.ttf',
+    );
     return pw.Font.ttf(fontData);
   }
 
