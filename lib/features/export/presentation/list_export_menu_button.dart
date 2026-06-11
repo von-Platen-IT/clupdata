@@ -11,18 +11,27 @@ import '../../../widgets/data_grid_v2/export/pdf/pdf_exporter.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_preview_dialog.dart';
 import '../../../widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 import '../domain/export_config.dart';
-import 'export_options_dialog.dart';
 
 /// A button that provides export functionality for list views (DataGrid).
 ///
 /// Provides options to export to PDF, print, or CSV.
-/// Reads the data purely from the [exportCacheProvider] snapshot, completely
-/// decoupled from DataGridController or PlutoGrid.
+/// If [exportGenerator] is provided, it is used directly (preferred — avoids
+/// stale data when multiple VpitDataGrids are mounted via StatefulShellRoute).
+/// Otherwise falls back to the global [exportCacheProvider].
 class ListExportMenuButton<T> extends ConsumerWidget {
   /// Configuration for the export (title, entity type).
   final ExportConfig config;
 
-  const ListExportMenuButton({super.key, required this.config});
+  /// Optional local export generator from the parent VpitDataGrid.
+  /// When provided, bypasses the global [exportCacheProvider] to avoid
+  /// stale data from other mounted screens.
+  final ExportGenerator? exportGenerator;
+
+  const ListExportMenuButton({
+    super.key,
+    required this.config,
+    this.exportGenerator,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -109,7 +118,9 @@ class ListExportMenuButton<T> extends ConsumerWidget {
     WidgetRef ref,
     String value,
   ) async {
-    final snapshotGenerator = ref.read(exportCacheProvider);
+    // Prefer local generator (passed from parent VpitDataGrid) to avoid
+    // stale data when multiple screens are mounted via StatefulShellRoute.
+    final snapshotGenerator = exportGenerator ?? ref.read(exportCacheProvider);
 
     if (snapshotGenerator == null) {
       if (context.mounted) {
@@ -137,11 +148,13 @@ class ListExportMenuButton<T> extends ConsumerWidget {
 
     switch (value) {
       case 'pdf':
-        final exportData = await showDialog<PdfExportData>(
-          context: context,
-          builder: (_) => ExportOptionsDialog(contextData: exportContext),
+        // Always export all columns — no options dialog needed.
+        final exporter = PdfExporter();
+        final exportData = exporter.prepareExport(
+          exportContext,
+          useFullTable: true,
         );
-        if (exportData != null && context.mounted) {
+        if (context.mounted) {
           await showDialog(
             context: context,
             builder: (_) => PdfPreviewDialog(exportData: exportData),
@@ -164,11 +177,8 @@ class ListExportMenuButton<T> extends ConsumerWidget {
     try {
       final exporter = PdfExporter(template: PdfTemplateRegistry.simple);
 
-      // Für schnellen Druck verwenden wir direkt die sichtbare Tabelle.
-      final pdfBytes = await exporter.export(
-        exportContext,
-        useFullTable: false,
-      );
+      // Always print all columns.
+      final pdfBytes = await exporter.export(exportContext, useFullTable: true);
 
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,

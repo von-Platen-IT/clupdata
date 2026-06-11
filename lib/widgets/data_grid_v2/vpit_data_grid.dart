@@ -623,7 +623,10 @@ class VpitDataGrid<T> extends HookConsumerWidget {
               // Export button
               if (exportConfig != null) ...[
                 const Gap(8),
-                ListExportMenuButton<T>(config: exportConfig!),
+                ListExportMenuButton<T>(
+                  config: exportConfig!,
+                  exportGenerator: proxyGenerator,
+                ),
               ],
             ],
           ),

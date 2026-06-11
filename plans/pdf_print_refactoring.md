@@ -1,6 +1,6 @@
 # Refactoring-Plan: Drucken & PDF-Erstellung — Zentrales Modul
 
-> **Status**: Planungsphase | **Erstellt**: 2026-05-11 | **Modus**: Flutter Architect
+> **Status**: Teilweise implementiert | **Erstellt**: 2026-05-11 | **Aktualisiert**: 2026-06-11 | **Modus**: Flutter Architect
 
 ## 1. Zusammenfassung
 
@@ -165,9 +165,9 @@ classDiagram
 
 ## 5. Refactoring-Schritte
 
-### Schritt 1: `EntityTypeInfo`-Enum in `lib/core/models/` (DRY)
+### Schritt 1: `EntityTypeInfo`-Enum in `lib/core/models/` (DRY) — ✅ ERLEDIGT
 
-**Neu**: `lib/core/models/entity_type_info.dart`
+**Implementiert**: [`lib/core/models/entity_type_info.dart`](lib/core/models/entity_type_info.dart)
 
 Zentralisiert `_detectEntityType` und `_getTitleForEntityType` aus 3 Dateien in einen Enum.
 
@@ -192,7 +192,9 @@ enum EntityTypeInfo {
 
 **Impact**: 3 Dateien vereinfacht, ~30 Zeilen Duplikation eliminiert.
 
-### Schritt 2: `BatchPdfExporter` in `BatchExportService` integrieren (DRY)
+### Schritt 2: `BatchPdfExporter` in `BatchExportService` integrieren (DRY) — ❌ OFFEN
+
+**Status**: `BatchPdfExporter` existiert noch parallel zu `BatchExportService`. Beide Klassen leben in `lib/features/export/services/`.
 
 **Strategie**: `BatchPdfExporter` wird entfernt, seine Funktionalität geht in `BatchExportService` auf. `BatchExportService` wird die einzige Batch-Export-Klasse.
 
@@ -202,9 +204,9 @@ enum EntityTypeInfo {
 
 **Impact**: ~80 Zeilen Duplikation eliminiert, eine Klasse weniger zu warten.
 
-### Schritt 3: `CurrencyFormatter` in `lib/core/utils/` (DRY)
+### Schritt 3: `CurrencyFormatter` in `lib/core/utils/` (DRY) — ✅ ERLEDIGT
 
-**Neu**: `lib/core/utils/currency_formatter.dart`
+**Implementiert**: [`lib/core/utils/currency_formatter.dart`](lib/core/utils/currency_formatter.dart)
 
 Extrahiert `_formatCurrency` aus [`RechnungenSummaryGenerator`](lib/features/export/services/summary_generators/rechnungen_summary_generator.dart:109) und [`WarenSummaryGenerator`](lib/features/export/services/summary_generators/waren_summary_generator.dart:106).
 
@@ -213,16 +215,15 @@ String formatCurrencyEur(double amount) =>
     '${amount.toStringAsFixed(2).replaceAll('.', ',')} €';
 ```
 
-### Schritt 4: Summary-Generatoren nutzen `StatusManager`-Enums (OOP)
+### Schritt 4: Summary-Generatoren nutzen `StatusManager`-Enums (OOP) — ✅ ERLEDIGT
 
-**Änderungen**:
-- [`BeitraegeSummaryGenerator._statusLabel`](lib/features/export/services/summary_generators/beitraege_summary_generator.dart:91) → `BeitragStatus.fromString(status).label`
+**Implementiert**: Beide Summary-Generatoren nutzen jetzt die Status-Enums:
+- [`BeitraegeSummaryGenerator._statusLabel`](lib/features/export/services/summary_generators/beitraege_summary_generator.dart:90) → `BeitragStatus.fromString(status).label`
 - [`RechnungenSummaryGenerator._statusLabel`](lib/features/export/services/summary_generators/rechnungen_summary_generator.dart:96) → `RechnungStatus.fromString(status).label`
-- `_formatCurrency` → delegiert an `CurrencyFormatter`
 
-### Schritt 5: `_buildDetailExportData` in `DialogExportHelper` auslagern (DRY)
+### Schritt 5: `_buildDetailExportData` in `DialogExportHelper` auslagern (DRY) — ✅ ERLEDIGT
 
-**Neu**: `lib/features/export/services/dialog_export_helper.dart` (oder in `presentation/`)
+**Implementiert**: [`lib/features/export/services/dialog_export_helper.dart`](lib/features/export/services/dialog_export_helper.dart) mit `buildDetailExportContextFromProvider()` für den neuen DetailExportProvider-Flow.
 
 Extrahiert das 2× duplizierte `rows`-Building aus [`DialogExportButton`](lib/features/export/presentation/dialog_export_button.dart:82) und [`DialogExportMenuButton`](lib/features/export/presentation/dialog_export_button.dart:190).
 
@@ -236,7 +237,7 @@ ExportContextData buildDetailExportContext({
 }) { ... }
 ```
 
-### Schritt 6: Leere-Batch-Guard in `SummaryGenerator`-Basisklasse (DRY)
+### Schritt 6: Leere-Batch-Guard in `SummaryGenerator`-Basisklasse (DRY) — ❌ OFFEN
 
 **Änderung**: [`SummaryGenerator`](lib/features/export/services/summary_generator.dart:7) erhält eine `protected`-Methode für den leeren Fall.
 
@@ -246,10 +247,10 @@ BatchExportSummary emptySummary(String entityType, String displayName, ...) => .
 
 **Impact**: 5× 10 Zeilen Duplikation eliminiert.
 
-### Schritt 7: Tests
+### Schritt 7: Tests — ✅ ERLEDIGT
 
-- `test/core/models/entity_type_info_test.dart`
-- `test/core/utils/currency_formatter_test.dart`
+- [`test/core/models/entity_type_info_test.dart`](test/core/models/entity_type_info_test.dart)
+- [`test/core/utils/currency_formatter_test.dart`](test/core/utils/currency_formatter_test.dart)
 
 ## 6. Nicht-Ziele
 
@@ -258,16 +259,16 @@ BatchExportSummary emptySummary(String entityType, String displayName, ...) => .
 3. **Keine Schema-Migration**
 4. **Keine neuen Packages**
 
-## 7. Implementierungsreihenfolge
+## 7. Implementierungsfortschritt
 
-| Schritt | Beschreibung | Risiko |
-|---------|-------------|--------|
-| 1 | `EntityTypeInfo`-Enum | Niedrig |
-| 3 | `CurrencyFormatter` | Niedrig |
-| 4 | Summary-Generatoren auf `StatusManager` umstellen | Niedrig |
-| 6 | Leere-Batch-Guard in Basisklasse | Niedrig |
-| 5 | `DialogExportHelper` extrahieren | Mittel |
-| 2 | `BatchPdfExporter` in `BatchExportService` integrieren | **Hoch** |
-| 7 | Tests | Niedrig |
+| Schritt | Beschreibung | Risiko | Status |
+|---------|-------------|--------|--------|
+| 1 | `EntityTypeInfo`-Enum | Niedrig | ✅ Erledigt |
+| 3 | `CurrencyFormatter` | Niedrig | ✅ Erledigt |
+| 4 | Summary-Generatoren auf `StatusManager` umstellen | Niedrig | ✅ Erledigt |
+| 5 | `DialogExportHelper` extrahieren | Mittel | ✅ Erledigt |
+| 7 | Tests | Niedrig | ✅ Erledigt |
+| 6 | Leere-Batch-Guard in Basisklasse | Niedrig | ❌ Offen |
+| 2 | `BatchPdfExporter` in `BatchExportService` integrieren | **Hoch** | ❌ Offen |
 
-Schritt 2 wird als letzter implementiert, da er der invasivste ist und die meisten Abhängigkeiten hat.
+**Verbleibend**: Schritt 6 (DRY, niedrige Priorität) und Schritt 2 (Konsolidierung der Batch-Exporter, hohe Priorität).

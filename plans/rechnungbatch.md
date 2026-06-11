@@ -1,7 +1,8 @@
 # Plan: Batch-Rechnungserstellung (Beiträge & Verkauf)
 
-> **Status**: Planung  
-> **Erstellt**: 2026-06-09  
+> **Status**: Teilweise implementiert
+> **Erstellt**: 2026-06-09
+> **Aktualisiert**: 2026-06-11
 > **Betroffene Menüpunkte**: Extras → Rechnungserstellung → Beiträge | Verkauf
 
 ## 1. Ausgangslage
@@ -10,10 +11,12 @@
 
 | Komponente | Status | Datei |
 |---|---|---|
-| `RechnungslegungDialog` | ✅ Funktional | [`rechnungslegung_dialog.dart`](lib/features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart:1) |
-| `RechnungslegungService` | ✅ Funktional | [`rechnungslegung_service.dart`](lib/features/beitraege/services/rechnungslegung_service.dart:1) |
-| `RechnungserstellungScreen` (Beiträge) | ❌ Platzhalter | [`rechnungserstellung_screen.dart`](lib/features/rechnungserstellung/rechnungserstellung_screen.dart:1) |
-| `RechnungserstellungScreen` (Verkauf) | ❌ Platzhalter | (gleiche Datei, anderer `title`) |
+| `BatchRechnungService` (abstract) | ✅ Implementiert | [`batch_rechnung_service.dart`](lib/features/rechnungserstellung/services/batch_rechnung_service.dart:1) |
+| `BeitraegeBatchService` | ✅ Implementiert | [`beitraege_batch_service.dart`](lib/features/rechnungserstellung/services/beitraege_batch_service.dart:1) |
+| `BeitraegeBatchDialog` | ✅ Implementiert | [`beitraege_batch_dialog.dart`](lib/features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart:1) |
+| `BatchRechnungResult` | ✅ Implementiert | [`batch_rechnung_result.dart`](lib/features/rechnungserstellung/domain/models/batch_rechnung_result.dart:1) |
+| `VerkaufBatchService` | ❌ Offen | — |
+| `VerkaufBatchDialog` | ❌ Offen | — |
 | `RechnungenRepository` | ✅ Funktional | [`rechnungen_repository.dart`](lib/features/rechnungen/data/rechnungen_repository.dart:1) |
 | `RechnungsnummerGenerator` | ✅ Funktional | [`rechnungsnummer_generator.dart`](lib/core/data/rechnungsnummer_generator.dart:1) |
 | POS-System | ❌ Placeholder | [`pos_screen.dart`](lib/features/pos/pos_screen.dart:1) |
@@ -55,11 +58,11 @@
 
 ## 2. Dialog 1: Beitrags-Rechnungen erstellen
 
-### 2.1 Konzept
+### 2.1 Konzept — ✅ IMPLEMENTIERT
 
-Der bestehende [`RechnungslegungDialog`](lib/features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart:14) wird **ersetzt** durch einen erweiterten Dialog, der über das Menü **Extras → Rechnungserstellung → Beiträge** aufgerufen wird.
+Der bestehende [`RechnungslegungDialog`](lib/features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart:14) wurde durch [`BeitraegeBatchDialog`](lib/features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart:1) **ersetzt**, der über das Menü **Extras → Rechnungserstellung → Beiträge** aufgerufen wird.
 
-Der neue Dialog erzeugt `beitrag`-Datensätze für alle Mitglieder mit gültigem Vertrag für einen gewählten Zeitraum.
+Der Dialog erzeugt `beitrag`-Datensätze für alle Mitglieder mit gültigem Vertrag für einen gewählten Zeitraum.
 
 ### 2.2 Dialog-Layout
 
@@ -146,28 +149,15 @@ Nach Abschluss wird ein Ergebnis-Dialog angezeigt (analog zum bestehenden [`_bui
 └──────────────────────────────────────────────────────┘
 ```
 
-### 2.6 Service-Erweiterung
+### 2.6 Service-Erweiterung — ✅ IMPLEMENTIERT
 
-Der bestehende [`RechnungslegungService`](lib/features/beitraege/services/rechnungslegung_service.dart:29) wird erweitert:
+Der bestehende [`RechnungslegungService`](lib/features/beitraege/services/rechnungslegung_service.dart:29) wurde durch [`BeitraegeBatchService`](lib/features/rechnungserstellung/services/beitraege_batch_service.dart:36) ersetzt, der von [`BatchRechnungService`](lib/features/rechnungserstellung/services/batch_rechnung_service.dart:15) erbt.
 
-```dart
-// Neue Signatur (Pseudocode)
-Future<RechnungslegungResult> generateBeitraegeForPeriod({
-  required int year,
-  required int month,
-  required List<int> leistungIds,       // NEU: Filter nach Leistungen
-  required bool nurAktiveVertraege,     // NEU: Vertragslaufzeit prüfen
-  required bool nurOhneOffene,          // NEU: Duplikate mit offenen vermeiden
-  required String initialStatus,        // NEU: 'kontiert' oder 'offen'
-  String? bemerkung,                    // NEU: Optionale Bemerkung
-  bool quartalsweise = false,           // NEU: 3 Monate auf einmal
-  void Function(int processed, int total)? onProgress,
-});
-```
+Die Konfiguration erfolgt über [`BeitraegeBatchConfig`](lib/features/rechnungserstellung/services/beitraege_batch_service.dart:8) mit allen geplanten Parametern (Jahr, Monat, Leistungsfilter, aktive Verträge, Status-Auswahl, Bemerkung, Quartalsweise).
 
 ---
 
-## 3. Dialog 2: Verkaufs-Rechnungen erstellen (Waren)
+## 3. Dialog 2: Verkaufs-Rechnungen erstellen (Waren) — ❌ NICHT IMPLEMENTIERT
 
 ### 3.1 Konzept
 
@@ -314,22 +304,20 @@ Vor der Erstellung wird geprüft:
 
 ## 4. Architektur-Entscheidungen
 
-### 4.1 Feature-Struktur
+### 4.1 Feature-Struktur (aktuell)
 
 ```
 lib/features/rechnungserstellung/
-├── rechnungserstellung_screen.dart          # WIRD ENTFERNT (Platzhalter)
+├── domain/models/
+│   └── batch_rechnung_result.dart           # ✅ Implementiert
 ├── presentation/
-│   ├── dialogs/
-│   │   ├── beitraege_batch_dialog.dart      # NEU: Dialog 1 (Beiträge)
-│   │   └── verkauf_batch_dialog.dart        # NEU: Dialog 2 (Verkauf)
-│   └── widgets/
-│       ├── waren_auswahl_widget.dart        # NEU: Waren-Suche + Mengen
-│       ├── mitglieder_auswahl_widget.dart   # NEU: Mitglieder-MultiSelect
-│       └── batch_vorschau_widget.dart       # NEU: Vorschau vor Erstellung
+│   └── dialogs/
+│       └── beitraege_batch_dialog.dart      # ✅ Implementiert (Dialog 1)
+│       └── verkauf_batch_dialog.dart        # ❌ Offen (Dialog 2)
 └── services/
-    ├── beitraege_batch_service.dart         # NEU: Erweitert RechnungslegungService
-    └── verkauf_batch_service.dart           # NEU: Batch-Erstellung von Rechnungen
+    ├── batch_rechnung_service.dart          # ✅ Implementiert (abstract base)
+    ├── beitraege_batch_service.dart         # ✅ Implementiert
+    └── verkauf_batch_service.dart           # ❌ Offen
 ```
 
 ### 4.2 Menü-Integration
@@ -393,19 +381,19 @@ flowchart TD
 
 ---
 
-## 5. Implementierungs-Reihenfolge
+## 5. Implementierungs-Fortschritt
 
-| Schritt | Aufgabe | Abhängigkeit |
-|---|---|---|
-| 1 | `VerkaufBatchService` erstellen (Service-Schicht) | — |
-| 2 | `BeitraegeBatchService` erstellen (erweitert `RechnungslegungService`) | — |
-| 3 | `WarenAuswahlWidget` erstellen (Waren-Suche + Mengen-Eingabe) | — |
-| 4 | `MitgliederAuswahlWidget` erstellen (MultiSelect mit Checkboxen) | — |
-| 5 | `VerkaufBatchDialog` erstellen (Dialog 2) | 1, 3, 4 |
-| 6 | `BeitraegeBatchDialog` erstellen (Dialog 1, ersetzt `RechnungslegungDialog`) | 2, 4 |
-| 7 | `main_menu_bar.dart` anpassen (Dialoge statt Screen) | 5, 6 |
-| 8 | `RechnungserstellungScreen` entfernen (Platzhalter) | 7 |
-| 9 | `structur.md` aktualisieren (neue Dialoge dokumentieren) | 5, 6 |
+| Schritt | Aufgabe | Abhängigkeit | Status |
+|---|---|---|---|
+| 2 | `BatchRechnungService` (abstract) + `BeitraegeBatchService` erstellen | — | ✅ Erledigt |
+| 6 | `BeitraegeBatchDialog` erstellen (Dialog 1) | 2 | ✅ Erledigt |
+| 8 | `RechnungserstellungScreen` entfernen (Platzhalter) | — | ✅ Erledigt (Datei existiert nicht mehr) |
+| 7 | `main_menu_bar.dart` anpassen (Dialog statt Screen für Beiträge) | 6 | ✅ Erledigt |
+| 1 | `VerkaufBatchService` erstellen (Service-Schicht) | — | ❌ Offen |
+| 3 | `WarenAuswahlWidget` erstellen (Waren-Suche + Mengen-Eingabe) | — | ❌ Offen |
+| 4 | `MitgliederAuswahlWidget` erstellen (MultiSelect mit Checkboxen) | — | ❌ Offen |
+| 5 | `VerkaufBatchDialog` erstellen (Dialog 2) | 1, 3, 4 | ❌ Offen |
+| 9 | `structur.md` aktualisieren (Verkaufs-Dialog dokumentieren) | 5 | ❌ Offen |
 
 ### 5.1 ADR: Bestand nicht automatisch reduzieren
 
@@ -429,18 +417,18 @@ flowchart TD
 
 ---
 
-## 6. Betroffene Dateien
+## 6. Betroffene Dateien (aktualisiert)
 
-| Datei | Aktion | Beschreibung |
+| Datei | Aktion | Status |
 |---|---|---|
-| `lib/features/rechnungserstellung/rechnungserstellung_screen.dart` | **Löschen** | Platzhalter wird nicht mehr benötigt |
-| `lib/features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart` | **Neu** | Dialog 1 |
-| `lib/features/rechnungserstellung/presentation/dialogs/verkauf_batch_dialog.dart` | **Neu** | Dialog 2 |
-| `lib/features/rechnungserstellung/presentation/widgets/waren_auswahl_widget.dart` | **Neu** | Waren-Suche + Mengen |
-| `lib/features/rechnungserstellung/presentation/widgets/mitglieder_auswahl_widget.dart` | **Neu** | Mitglieder-MultiSelect |
-| `lib/features/rechnungserstellung/services/beitraege_batch_service.dart` | **Neu** | Service für Beitrags-Batch |
-| `lib/features/rechnungserstellung/services/verkauf_batch_service.dart` | **Neu** | Service für Verkaufs-Batch |
-| `lib/features/beitraege/services/rechnungslegung_service.dart` | **Ändern** | Parameter erweitern |
-| `lib/common_widgets/main_menu_bar.dart` | **Ändern** | Menüpunkte → Dialoge statt Screens |
-| `lib/assets/data/structur.md` | **Ändern** | Neue Dialoge dokumentieren |
-| `lib/core/router/app_router.dart` | **Keine Änderung** | Dialoge haben keine eigenen Routes |
+| `lib/features/rechnungserstellung/rechnungserstellung_screen.dart` | **Gelöscht** | ✅ Existiert nicht mehr |
+| `lib/features/rechnungserstellung/domain/models/batch_rechnung_result.dart` | **Neu** | ✅ Implementiert |
+| `lib/features/rechnungserstellung/services/batch_rechnung_service.dart` | **Neu** | ✅ Implementiert (abstract base) |
+| `lib/features/rechnungserstellung/services/beitraege_batch_service.dart` | **Neu** | ✅ Implementiert |
+| `lib/features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart` | **Neu** | ✅ Implementiert |
+| `lib/features/rechnungserstellung/services/verkauf_batch_service.dart` | **Neu** | ❌ Offen |
+| `lib/features/rechnungserstellung/presentation/dialogs/verkauf_batch_dialog.dart` | **Neu** | ❌ Offen |
+| `lib/features/rechnungserstellung/presentation/widgets/waren_auswahl_widget.dart` | **Neu** | ❌ Offen |
+| `lib/features/rechnungserstellung/presentation/widgets/mitglieder_auswahl_widget.dart` | **Neu** | ❌ Offen |
+| `lib/common_widgets/main_menu_bar.dart` | **Ändern** | ✅ Beiträge-Dialog integriert |
+| `lib/assets/data/structur.md` | **Ändern** | ❌ Verkaufs-Dialog noch nicht dokumentiert |

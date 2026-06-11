@@ -6,19 +6,19 @@ import '../export_data_table.dart';
 import 'pdf_export_context.dart';
 import 'pdf_template.dart';
 
-/// Default PDF template that generates a clean, paginated table.
+/// Default PDF template that generates a clean, compact, paginated table.
 ///
-/// This template provides a professional but minimal layout suitable
-/// for general data exports. It includes:
+/// This template provides a professional layout optimized for
+/// data-dense list exports on DIN A4. It includes:
 ///
-/// - Clean table with headers
+/// - Compact table with auto-sized columns
 /// - Alternating row colors for readability
+/// - Small but legible font sizes (8pt header, 7.5pt data)
+/// - Minimal margins and padding for maximum content density
 /// - Automatic pagination for long tables
 /// - Page numbers and export timestamp in footer
-/// - Optional title and filter/sort descriptions
 ///
-/// This is the fallback template when no domain-specific template
-/// is selected or registered.
+/// For detail exports (single item), a key-value layout is used.
 class SimpleTableTemplate implements PdfTemplate {
   @override
   String get displayName => 'Einfache Tabelle';
@@ -32,48 +32,65 @@ class SimpleTableTemplate implements PdfTemplate {
   @override
   List<String>? get supportedEntityTypes => null;
 
+  /// Font sizes for compact layout.
+  static const double _headerFontSize = 8;
+  static const double _dataFontSize = 7.5;
+  static const double _titleFontSize = 12;
+  static const double _metaFontSize = 7;
+
+  /// Row heights for consistent spacing.
+  static const double _headerRowHeight = 18;
+  static const double _dataRowHeight = 14;
+
+  /// Page margins — reduced from 48 to 32 for more content area.
+  static const double _pageMargin = 32;
+
   @override
   Future<pw.Document> generate(
     ExportDataTable dataTable,
     PdfExportContext context,
   ) async {
     final pdf = pw.Document();
-
-    // Load fonts for German umlaut support
     final baseFont = await _loadFont();
+    final boldFont = await _loadBoldFont();
+
+    // Calculate column widths based on content.
+    final columnWidths = _calculateColumnWidths(dataTable);
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(48),
-        header: (format) => _buildHeader(context, baseFont),
-        footer: (pwContext) => _buildFooter(context, pwContext, baseFont),
-        build: (pwContext) => context.isDetailView
-            ? [_buildDetailTable(dataTable, baseFont)]
-            : _buildBlocks(dataTable, baseFont),
+        margin: const pw.EdgeInsets.all(_pageMargin),
+        header: (format) => _buildHeader(context, baseFont, boldFont),
+        footer: (pwContext) =>
+            _buildFooter(context, pwContext, baseFont, dataTable.rowCount),
+        build: (pwContext) => [
+          if (context.isDetailView)
+            _buildDetailTable(dataTable, baseFont, boldFont)
+          else
+            _buildListTable(dataTable, baseFont, boldFont, columnWidths),
+        ],
       ),
     );
 
     return pdf;
   }
 
-  /// Builds a clean two-column key-value table for detail exports.
-  ///
-  /// Field names are displayed in the left column (bold) and values in the
-  /// right column. The "Feld"/"Wert" headers are omitted for clarity.
-  pw.Widget _buildDetailTable(ExportDataTable dataTable, pw.Font font) {
+  /// Builds a compact key-value table for detail exports (single item).
+  pw.Widget _buildDetailTable(
+    ExportDataTable dataTable,
+    pw.Font normalFont,
+    pw.Font boldFont,
+  ) {
     final labelStyle = pw.TextStyle(
-      font: font,
-      fontSize: 10,
+      font: boldFont,
+      fontSize: 8,
       fontWeight: pw.FontWeight.bold,
     );
-    final valueStyle = pw.TextStyle(font: font, fontSize: 10);
+    final valueStyle = pw.TextStyle(font: normalFont, fontSize: 8);
 
     return pw.Table(
-      columnWidths: {
-        0: const pw.FlexColumnWidth(2),
-        1: const pw.FlexColumnWidth(3),
-      },
+      columnWidths: const {0: pw.FlexColumnWidth(2), 1: pw.FlexColumnWidth(3)},
       border: const pw.TableBorder(
         horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
         bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
@@ -89,17 +106,19 @@ class SimpleTableTemplate implements PdfTemplate {
               color: isEven ? PdfColors.white : PdfColors.grey50,
             ),
             children: [
-              pw.Padding(
+              pw.Container(
+                alignment: pw.Alignment.centerLeft,
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
+                  horizontal: 6,
+                  vertical: 4,
                 ),
                 child: pw.Text(row.isNotEmpty ? row[0] : '', style: labelStyle),
               ),
-              pw.Padding(
+              pw.Container(
+                alignment: pw.Alignment.centerLeft,
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
+                  horizontal: 6,
+                  vertical: 4,
                 ),
                 child: pw.Text(row.length > 1 ? row[1] : '', style: valueStyle),
               ),
@@ -110,118 +129,222 @@ class SimpleTableTemplate implements PdfTemplate {
     );
   }
 
-  /// Builds the page header with title and metadata.
-  pw.Widget _buildHeader(PdfExportContext context, pw.Font font) {
-    final titleStyle = pw.TextStyle(
-      font: font,
-      fontSize: 16,
-      fontWeight: pw.FontWeight.bold,
-    );
-
-    final metaStyle = pw.TextStyle(font: font, fontSize: 8);
-
+  /// Builds a compact header with title and optional filter/sort info.
+  pw.Widget _buildHeader(
+    PdfExportContext context,
+    pw.Font normalFont,
+    pw.Font boldFont,
+  ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        if (context.title.isNotEmpty) pw.Text(context.title, style: titleStyle),
-        if (context.filterDescription != null)
-          pw.Text('Filter: ${context.filterDescription}', style: metaStyle),
-        if (context.sortDescription != null)
-          pw.Text('Sortierung: ${context.sortDescription}', style: metaStyle),
-        pw.SizedBox(height: 12),
-        pw.Divider(height: 1, thickness: 0.5, color: PdfColors.black),
-        pw.SizedBox(height: 8),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              context.title,
+              style: pw.TextStyle(
+                font: boldFont,
+                fontSize: _titleFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(
+              context.formattedDate,
+              style: pw.TextStyle(
+                font: normalFont,
+                fontSize: _metaFontSize,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+        ),
+        if (context.filterDescription != null ||
+            context.sortDescription != null)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 2),
+            child: pw.Text(
+              [
+                if (context.filterDescription != null)
+                  'Filter: ${context.filterDescription}',
+                if (context.sortDescription != null)
+                  'Sort: ${context.sortDescription}',
+              ].join(' | '),
+              style: pw.TextStyle(
+                font: normalFont,
+                fontSize: _metaFontSize,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ),
+        pw.SizedBox(height: 4),
+        pw.Divider(height: 0.5, thickness: 0.5, color: PdfColors.grey400),
+        pw.SizedBox(height: 4),
       ],
     );
   }
 
-  /// Builds individual data blocks per row instead of a wide table.
-  List<pw.Widget> _buildBlocks(ExportDataTable dataTable, pw.Font font) {
-    final labelStyle = pw.TextStyle(
-      font: font,
-      fontSize: 9,
-      fontWeight: pw.FontWeight.bold,
-    );
-
-    final valueStyle = pw.TextStyle(font: font, fontSize: 10);
-
-    final blocks = <pw.Widget>[];
-
-    for (var rowIndex = 0; rowIndex < dataTable.rows.length; rowIndex++) {
-      final isLastRow = rowIndex == dataTable.rows.length - 1;
-      final row = dataTable.rows[rowIndex];
-
-      blocks.add(
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 8),
-          child: pw.Wrap(
-            spacing: 24,
-            runSpacing: 12,
-            children: [
-              for (
-                var colIndex = 0;
-                colIndex < dataTable.headers.length;
-                colIndex++
-              )
-                if (row[colIndex].isNotEmpty)
-                  pw.SizedBox(
-                    width: 160,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(dataTable.headers[colIndex], style: labelStyle),
-                        pw.SizedBox(height: 2),
-                        pw.Text(row[colIndex], style: valueStyle),
-                      ],
-                    ),
-                  ),
-            ],
+  /// Builds the main compact data table for list exports.
+  pw.Widget _buildListTable(
+    ExportDataTable dataTable,
+    pw.Font normalFont,
+    pw.Font boldFont,
+    List<pw.FlexColumnWidth> columnWidths,
+  ) {
+    return pw.Table(
+      columnWidths: columnWidths.isNotEmpty
+          ? columnWidths.asMap().map((i, w) => MapEntry(i, w))
+          : null,
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+        bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+      ),
+      children: [
+        // Header row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.grey200,
+            border: pw.Border(
+              bottom: pw.BorderSide(color: PdfColors.grey400, width: 1),
+            ),
           ),
+          children: dataTable.headers.map((header) {
+            return pw.Container(
+              height: _headerRowHeight,
+              alignment: pw.Alignment.centerLeft,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 2,
+              ),
+              child: pw.Text(
+                header,
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: _headerFontSize,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+                overflow: pw.TextOverflow.clip,
+                maxLines: 1,
+              ),
+            );
+          }).toList(),
         ),
-      );
+        // Data rows with alternating background
+        ...dataTable.rows.asMap().entries.map((entry) {
+          final rowIndex = entry.key;
+          final row = entry.value;
+          final isEven = rowIndex % 2 == 0;
 
-      if (!isLastRow) {
-        blocks.add(
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 8),
-            child: pw.Divider(thickness: 0.5, color: PdfColors.black),
-          ),
-        );
-      }
-    }
+          return pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: isEven ? PdfColors.white : PdfColors.grey50,
+            ),
+            children: row.asMap().entries.map((cellEntry) {
+              final cellValue = cellEntry.value;
+              final isNumeric = _isNumeric(cellValue);
 
-    return blocks;
+              return pw.Container(
+                height: _dataRowHeight,
+                alignment: isNumeric
+                    ? pw.Alignment.centerRight
+                    : pw.Alignment.centerLeft,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 1,
+                ),
+                child: pw.Text(
+                  cellValue,
+                  style: pw.TextStyle(
+                    font: normalFont,
+                    fontSize: _dataFontSize,
+                    color: PdfColors.black,
+                  ),
+                  overflow: pw.TextOverflow.clip,
+                  maxLines: 1,
+                ),
+              );
+            }).toList(),
+          );
+        }),
+      ],
+    );
   }
 
-  /// Builds the page footer with timestamp and page numbers.
+  /// Builds the page footer with row count, timestamp and page numbers.
   pw.Widget _buildFooter(
     PdfExportContext context,
     pw.Context pwContext,
     pw.Font font,
+    int rowCount,
   ) {
-    final footerStyle = pw.TextStyle(font: font, fontSize: 8);
-
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(
-          'Exportiert: ${context.formattedTimestamp}',
-          style: footerStyle,
-        ),
-        pw.Text(
-          'Seite ${pwContext.pageNumber} von ${pwContext.pagesCount}',
-          style: footerStyle,
-        ),
-      ],
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(top: 4),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            '$rowCount Datensätze | Exportiert: ${context.formattedTimestamp}',
+            style: pw.TextStyle(
+              font: font,
+              fontSize: _metaFontSize,
+              color: PdfColors.grey500,
+            ),
+          ),
+          pw.Text(
+            'Seite ${pwContext.pageNumber}/${pwContext.pagesCount}',
+            style: pw.TextStyle(
+              font: font,
+              fontSize: _metaFontSize,
+              color: PdfColors.grey500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  /// Calculates optimal column widths based on header length.
+  List<pw.FlexColumnWidth> _calculateColumnWidths(ExportDataTable dataTable) {
+    final columnCount = dataTable.columnCount;
+    if (columnCount == 0) return [];
+
+    final widths = <pw.FlexColumnWidth>[];
+    final maxHeaderLength = dataTable.headers
+        .map((h) => h.length)
+        .reduce((a, b) => a > b ? a : b);
+
+    for (final header in dataTable.headers) {
+      final ratio = header.length / maxHeaderLength;
+      // Minimum width factor to prevent very narrow columns.
+      final widthFactor = 0.5 + (ratio * 0.5);
+      widths.add(pw.FlexColumnWidth(widthFactor));
+    }
+
+    return widths;
+  }
+
+  /// Checks if a value is a formatted number or currency amount.
+  bool _isNumeric(String value) {
+    if (value.isEmpty) return false;
+    final hasDecimalOrCurrency = RegExp(r'[,€$£%]').hasMatch(value);
+    if (!hasDecimalOrCurrency) return false;
+    final clean = value
+        .replaceAll(RegExp(r'[.€$£%\s]'), '')
+        .replaceAll(',', '.');
+    return double.tryParse(clean) != null;
+  }
+
   /// Loads Roboto Regular from the bundled local asset.
-  /// Supports full Latin character set including € and German umlauts.
   Future<pw.Font> _loadFont() async {
     final fontData = await rootBundle.load(
       'lib/assets/fonts/Roboto-Regular.ttf',
     );
+    return pw.Font.ttf(fontData);
+  }
+
+  /// Loads Roboto Bold from the bundled local asset.
+  Future<pw.Font> _loadBoldFont() async {
+    final fontData = await rootBundle.load('lib/assets/fonts/Roboto-Bold.ttf');
     return pw.Font.ttf(fontData);
   }
 }

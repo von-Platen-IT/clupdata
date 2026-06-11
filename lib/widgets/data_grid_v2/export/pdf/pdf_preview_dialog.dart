@@ -13,55 +13,33 @@ import '../../../../features/stammdaten/data/stammdaten_repository.dart';
 import 'pdf_exporter.dart';
 import 'pdf_template.dart';
 import 'pdf_template_registry.dart';
-import 'pdf_template_selector.dart';
 
-/// Dialog showing PDF preview with template selection, print and save capabilities.
+/// Dialog showing a PDF preview with "Exportieren" and "Abbrechen" buttons.
 ///
-/// This is a stateful widget that allows users to:
-/// - Select from available PDF templates
-/// - See live preview of the selected template
-/// - Print or save the generated PDF
-///
-/// The dialog receives raw export data and generates the PDF on-the-fly
-/// when the template selection changes.
+/// Simplified dialog that:
+/// - Shows a PDF preview of the generated document
+/// - Offers "Exportieren" (save to file) and "Abbrechen" (close) buttons
+/// - Uses the default template automatically (no template selection)
 ///
 /// Example usage:
 /// ```dart
-/// final exportData = exporter.prepareListExport(
-///   controller,
-///   title: 'Mitgliederliste',
-///   entityName: 'Mitglied',
-/// );
-///
 /// await showDialog(
 ///   context: context,
-///   builder: (_) => PdfPreviewDialog.fromExportData(exportData),
+///   builder: (_) => PdfPreviewDialog(exportData: exportData),
 /// );
 /// ```
 class PdfPreviewDialog extends ConsumerStatefulWidget {
   /// The prepared export data containing raw data and context.
   final PdfExportData exportData;
 
-  /// Optional initial template to use.
+  /// Optional initial template to use (overrides default).
   final PdfTemplate? initialTemplate;
 
-  /// Creates a [PdfPreviewDialog] with prepared export data.
   const PdfPreviewDialog({
     super.key,
     required this.exportData,
     this.initialTemplate,
   });
-
-  /// Convenience factory for creating from export data directly.
-  factory PdfPreviewDialog.fromExportData(
-    PdfExportData exportData, {
-    PdfTemplate? initialTemplate,
-  }) {
-    return PdfPreviewDialog(
-      exportData: exportData,
-      initialTemplate: initialTemplate,
-    );
-  }
 
   @override
   ConsumerState<PdfPreviewDialog> createState() => _PdfPreviewDialogState();
@@ -86,7 +64,6 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
     _generatePdf();
   }
 
-  /// Generates the PDF with the currently selected template.
   Future<void> _generatePdf() async {
     setState(() {
       _isGenerating = true;
@@ -115,18 +92,10 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
     }
   }
 
-  /// Called when the user selects a different template.
-  void _onTemplateChanged(PdfTemplate? template) {
-    if (template == null || template == _selectedTemplate) return;
-
-    setState(() {
-      _selectedTemplate = template;
-    });
-    _generatePdf();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       child: ClipRRect(
@@ -136,12 +105,79 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
           height: 750,
           child: Column(
             children: [
-              // Header with template selector
-              _buildHeader(context),
-              // Template selector row
-              _buildTemplateSelector(context),
-              // PDF preview area
+              // ── Header ──────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.picture_as_pdf,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.exportData.context.title,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: 'Schließen',
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Preview area ───────────────────────────────────────
               Expanded(child: _buildPreviewArea(context)),
+
+              // ── Action bar ─────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  border: Border(top: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed:
+                          _pdfData != null && !_isGenerating && !_isSaving
+                          ? () => _savePdfToFile(context)
+                          : null,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_alt),
+                      label: const Text('Exportieren'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -149,113 +185,6 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
     );
   }
 
-  /// Builds the dialog header with title and close button.
-  Widget _buildHeader(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border(bottom: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.picture_as_pdf, color: theme.colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.exportData.context.title,
-                  style: theme.textTheme.titleMedium,
-                ),
-                if (widget.exportData.isDetailView)
-                  Text(
-                    'Detailansicht',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (_pdfData != null && !_isGenerating)
-            IconButton(
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_alt),
-              tooltip: 'Als PDF-Datei speichern',
-              onPressed: _isSaving ? null : () => _savePdfToFile(context),
-            ),
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Schließen',
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the template selector row.
-  Widget _buildTemplateSelector(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(bottom: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: PdfTemplateSelector(
-              selectedTemplate: _selectedTemplate,
-              isDetailView: widget.exportData.isDetailView,
-              entityType: widget.exportData.effectiveEntityType,
-              onChanged: _onTemplateChanged,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Template info
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _getCategoryIcon(_selectedTemplate.category),
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _selectedTemplate.category.displayName,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the main preview area.
   Widget _buildPreviewArea(BuildContext context) {
     if (_isGenerating) {
       return const Center(
@@ -313,8 +242,8 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
 
     return PdfPreview(
       build: (format) => _pdfData!,
-      allowPrinting: true,
-      allowSharing: true,
+      allowPrinting: false,
+      allowSharing: false,
       canChangePageFormat: false,
       canChangeOrientation: false,
       initialPageFormat: PdfPageFormat.a4,
@@ -323,33 +252,12 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
     );
   }
 
-  /// Returns an icon for each template category.
-  IconData _getCategoryIcon(PdfTemplateCategory category) {
-    switch (category) {
-      case PdfTemplateCategory.generic:
-        return Icons.table_rows_outlined;
-      case PdfTemplateCategory.invoice:
-        return Icons.receipt_outlined;
-      case PdfTemplateCategory.member:
-        return Icons.person_outlined;
-      case PdfTemplateCategory.list:
-        return Icons.list_alt_outlined;
-      case PdfTemplateCategory.detail:
-        return Icons.article_outlined;
-    }
-  }
-
-  /// Saves the current PDF to a user-chosen file location.
-  ///
-  /// Reads the last export directory from stammdaten (`pfad_export`)
-  /// as initial directory, and persists the chosen directory after saving.
   Future<void> _savePdfToFile(BuildContext context) async {
     if (_pdfData == null) return;
 
     setState(() => _isSaving = true);
 
     try {
-      // Read last export directory from stammdaten
       String? initialDirectory;
       try {
         final repo = ref.read(stammdatenRepositoryProvider);
@@ -357,9 +265,7 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
         if (setting?.wert != null && setting!.wert!.isNotEmpty) {
           initialDirectory = setting.wert;
         }
-      } catch (_) {
-        // Ignore errors reading stammdaten — fall back to default
-      }
+      } catch (_) {}
 
       final fileName = _generateFileName();
 
@@ -372,12 +278,10 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
       );
 
       if (filePath == null) {
-        // User cancelled
         if (mounted) setState(() => _isSaving = false);
         return;
       }
 
-      // Write PDF bytes to the chosen file
       final file = File(filePath);
       await file.writeAsBytes(_pdfData!);
 
@@ -401,11 +305,10 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
             ),
           );
         }
-      } catch (_) {
-        // Non-critical: saving the preference failed
-      }
+      } catch (_) {}
 
       if (mounted) {
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('PDF gespeichert: $filePath'),
@@ -424,7 +327,6 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
     }
   }
 
-  /// Generates a filename based on title and current date.
   String _generateFileName() {
     final sanitized = widget.exportData.context.title
         .toLowerCase()
@@ -435,17 +337,13 @@ class _PdfPreviewDialogState extends ConsumerState<PdfPreviewDialog> {
   }
 }
 
-/// Simplified dialog for direct PDF preview without template selection.
+/// Simplified dialog for direct PDF preview where the PDF is already generated.
 ///
-/// Use this when you already have a generated PDF and just want to show it.
+/// Shows the PDF with "Exportieren" and "Abbrechen" buttons.
 class SimplePdfPreviewDialog extends ConsumerStatefulWidget {
-  /// The PDF document as byte array.
   final Uint8List pdfData;
-
-  /// The title shown in the dialog header.
   final String title;
 
-  /// Creates a [SimplePdfPreviewDialog] with the given [pdfData] and [title].
   const SimplePdfPreviewDialog({
     super.key,
     required this.pdfData,
@@ -461,12 +359,10 @@ class _SimplePdfPreviewDialogState
     extends ConsumerState<SimplePdfPreviewDialog> {
   bool _isSaving = false;
 
-  /// Saves the PDF to a user-chosen file location.
   Future<void> _savePdfToFile(BuildContext context) async {
     setState(() => _isSaving = true);
 
     try {
-      // Read last export directory from stammdaten
       String? initialDirectory;
       try {
         final repo = ref.read(stammdatenRepositoryProvider);
@@ -474,9 +370,7 @@ class _SimplePdfPreviewDialogState
         if (setting?.wert != null && setting!.wert!.isNotEmpty) {
           initialDirectory = setting.wert;
         }
-      } catch (_) {
-        // Ignore errors reading stammdaten — fall back to default
-      }
+      } catch (_) {}
 
       final fileName = _generateFileName();
 
@@ -489,16 +383,13 @@ class _SimplePdfPreviewDialogState
       );
 
       if (filePath == null) {
-        // User cancelled
         if (mounted) setState(() => _isSaving = false);
         return;
       }
 
-      // Write PDF bytes to the chosen file
       final file = File(filePath);
       await file.writeAsBytes(widget.pdfData);
 
-      // Persist chosen directory for next export
       final chosenDirectory = file.parent.path;
       try {
         final repo = ref.read(stammdatenRepositoryProvider);
@@ -518,11 +409,10 @@ class _SimplePdfPreviewDialogState
             ),
           );
         }
-      } catch (_) {
-        // Non-critical: saving the preference failed
-      }
+      } catch (_) {}
 
       if (mounted) {
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('PDF gespeichert: $filePath'),
@@ -543,6 +433,8 @@ class _SimplePdfPreviewDialogState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       child: ClipRRect(
@@ -552,19 +444,87 @@ class _SimplePdfPreviewDialogState
           height: 700,
           child: Column(
             children: [
-              // Custom header matching app design
-              _buildHeader(context),
-              // PDF preview
+              // ── Header ──────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.picture_as_pdf,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: 'Schließen',
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Preview ─────────────────────────────────────────────
               Expanded(
                 child: PdfPreview(
                   build: (format) => widget.pdfData,
-                  allowPrinting: true,
-                  allowSharing: true,
+                  allowPrinting: false,
+                  allowSharing: false,
                   canChangePageFormat: false,
                   canChangeOrientation: false,
                   initialPageFormat: PdfPageFormat.a4,
                   pdfFileName: _generateFileName(),
                   scrollViewDecoration: const BoxDecoration(),
+                ),
+              ),
+
+              // ── Action bar ─────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  border: Border(top: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: _isSaving
+                          ? null
+                          : () => _savePdfToFile(context),
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_alt),
+                      label: const Text('Exportieren'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -574,45 +534,6 @@ class _SimplePdfPreviewDialogState
     );
   }
 
-  /// Builds the dialog header with title and close button.
-  Widget _buildHeader(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border(bottom: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.picture_as_pdf, color: theme.colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(widget.title, style: theme.textTheme.titleMedium),
-          ),
-          IconButton(
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_alt),
-            tooltip: 'Als PDF-Datei speichern',
-            onPressed: _isSaving ? null : () => _savePdfToFile(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Schließen',
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Generates a filename based on title and current date.
   String _generateFileName() {
     final sanitized = widget.title
         .toLowerCase()

@@ -1,6 +1,6 @@
 # ClupData – Architektur-Analyse
 
-> Erstellt: 2026-04-27 | Mode: Flutter Architect
+> Erstellt: 2026-04-27 | **Aktualisiert**: 2026-06-11 | Mode: Flutter Architect
 
 ## 1. Projektüberblick
 
@@ -16,7 +16,7 @@
 | Data Grid | Pluto Grid (^8.0.0) + eigenes VpitDataGrid |
 | Architektur | Feature-basierte Clean Architecture |
 | SSOT | [`structur.md`](lib/assets/data/structur.md) |
-| Schema-Version | 16 ([`database.dart:46`](lib/core/database/database.dart:46)) |
+| Schema-Version | 17 ([`database.dart:46`](lib/core/database/database.dart:46)) |
 
 ---
 
@@ -97,6 +97,7 @@ flowchart TD
 erDiagram
     bemerkung {
         int id PK
+        text uuid UK
         text titel
         text text
         datetime datum_erstellt
@@ -104,6 +105,7 @@ erDiagram
 
     stammdaten {
         int id PK
+        text uuid UK
         text schluessel UK
         text wert
         text typ
@@ -116,12 +118,14 @@ erDiagram
 
     preis {
         int id PK
+        text uuid UK
         real bruttopreis
         int bemerkung_id FK
     }
 
     leistung {
         int id PK
+        text uuid UK
         text name
         int preis_id FK
         text laufzeit
@@ -130,6 +134,7 @@ erDiagram
 
     mitglied {
         int id PK
+        text uuid UK
         text anrede
         text name
         text vorname
@@ -152,6 +157,7 @@ erDiagram
 
     waren {
         int id PK
+        text uuid UK
         text bezeichnung
         text beschreibung
         text kategorie
@@ -177,6 +183,7 @@ erDiagram
 
     beitrag {
         int id PK
+        text uuid UK
         int mitglied_id FK
         int leistung_id FK
         int preis_id FK
@@ -190,6 +197,7 @@ erDiagram
 
     beitrag_status_verlauf {
         int id PK
+        text uuid UK
         int beitrag_id FK
         text status
         datetime geaendert_am
@@ -198,6 +206,7 @@ erDiagram
 
     rechnung {
         int id PK
+        text uuid UK
         text rechnungsnummer UK
         int mitglied_id FK
         text kunde_name
@@ -215,6 +224,7 @@ erDiagram
 
     rechnung_position {
         int id PK
+        text uuid UK
         int rechnung_id FK
         int position_nr
         int waren_id FK
@@ -259,7 +269,7 @@ erDiagram
 | **Status-Versionierung** | `beitrag.status` = aktueller Stand; `beitrag_status_verlauf` = unveränderliche Historie |
 | **WAL Mode** | Aktiv; `db.checkpoint()` vor Backups erforderlich |
 
-### 3.2 Indizes (22 definiert)
+### 3.2 Indizes (32 definiert)
 
 Hauptindizes für performante Abfragen auf:
 - **mitglied**: name+vorname, plz+ort, leistung_id, vertrag_laufzeit_von/bis, geboren
@@ -270,6 +280,7 @@ Hauptindizes für performante Abfragen auf:
 - **stammdaten**: schluessel (UNIQUE), kategorie
 - **bemerkung**: datum_erstellt
 - **rechnung_position**: rechnung_id, waren_id
+- **UUID-Indizes** (je UNIQUE pro Tabelle für CSV-Import-Lookup): bemerkung, stammdaten, preis, leistung, mitglied, waren, beitrag, beitrag_status_verlauf, rechnung, rechnung_position
 
 ---
 
@@ -302,9 +313,10 @@ lib/features/<feature>/
 | **Leistungen** | `features/leistungen/` | ✅ | ✅ | ✅ | Preis-Berechnung (Netto aus Brutto) |
 | **Waren** | `features/waren/` | ✅ | ✅ | ✅ | Bestandsverwaltung, MwSt-Berechnung |
 | **Rechnungen** | `features/rechnungen/` | ✅ | ✅ | ✅ | Positionen (CASCADE), Statusfarben |
+| **Rechnungserstellung** | `features/rechnungserstellung/` | – | – | ✅ | Batch-Rechnungserstellung (Beiträge + Verkauf) |
 | **Stammdaten** | `features/stammdaten/` | ✅ | ✅ | ✅ | Key/Value-Store, kategorisiert |
 | **POS** | `features/pos/` | ✅ | – | – | Sales Repository |
-| **Export** | `features/export/` | – | – | – | Batch-Export, PDF-Templates, Summary-Generators |
+| **Export** | `features/export/` | – | – | – | Batch-Export, PDF-Templates, Summary-Generators, DetailExportProvider |
 | **Dashboard** | `features/dashboard/` | – | – | – | Nur Screen |
 | **Calendar** | `features/calendar/` | ✅ | – | – | Schedule Repository |
 | **Documentation** | `features/documentation/` | – | – | – | Nur Screen |
@@ -317,7 +329,7 @@ lib/features/<feature>/
 
 ```mermaid
 flowchart TD
-    AppDB["AppDatabase<br/>(schemaVersion: 16)"]
+    AppDB["AppDatabase<br/>(schemaVersion: 17)"]
     AppDB --> BemerkungT["Bemerkung Table"]
     AppDB --> StammdatenT["Stammdaten Table"]
     AppDB --> PreisT["Preis Table"]
@@ -350,7 +362,7 @@ flowchart TD
 **Wichtige Designentscheidungen:**
 - [`BemerkungRepository`](lib/core/data/bemerkung_repository.dart) ist **zentral** in `core/data/`, nicht pro Feature – alle Features delegieren Bemerkung-Operationen dorthin
 - [`appDatabaseProvider`](lib/core/providers/database_provider.dart:12) ist `@Riverpod(keepAlive: true)` – Singleton über die gesamte App-Lebensdauer
-- Migrationen sind **inkrementell** (v5→v16), niemals Tabellen in Produktion löschen ohne Datenmigration
+- Migrationen sind **inkrementell** (v5→v17), niemals Tabellen in Produktion löschen ohne Datenmigration
 - `PRAGMA foreign_keys = ON` wird in `beforeOpen` enforced
 - Dev-DB: `clup_data_dev.sqlite` (Projekt-Root), Prod-DB: `clup_data.sqlite` (neben Executable)
 
@@ -500,7 +512,7 @@ vertrag_laufzeit_bis = vertrag_laufzeit_von + leistung.laufzeit
 
 ---
 
-## 8. Migrations-Historie (Schema v1→v16)
+## 8. Migrations-Historie (Schema v1→v17)
 
 | Version | Änderung |
 |---|---|
@@ -516,6 +528,7 @@ vertrag_laufzeit_bis = vertrag_laufzeit_von + leistung.laufzeit
 | v14 | `rechnungen` + `rechnung_positionen` Tabellen hinzugefügt |
 | v15 | `beitraege.abrechnungs_zeitraum` hinzugefügt |
 | v16 | Tabellennamen: Plural → Singular (mitglied, beitrag, rechnung, rechnung_position) |
+| v17 | UUID-Spalten für alle 10 Tabellen (CSV-Export/Import-Unterstützung) |
 
 ---
 
@@ -536,6 +549,8 @@ flowchart TD
 
     BeitraegeRepo --> BemerkungRepo
     MembersRepo --> BemerkungRepo
+    WarenRepo --> BemerkungRepo
+    RechnungenRepo --> BemerkungRepo
     LeistungenRepo --> PreiseRepo
 
     subgraph DB["AppDatabase (Singleton)"]
@@ -581,10 +596,10 @@ flowchart TD
 
 1. **Indizes**: Drift-`@TableIndex`-Annotationen fehlen in den Table-Definitionen – sollten ergänzt werden für Type-Safety
 2. **Feature `master_data`**: Existiert parallel zu `stammdaten` – mögliche Redundanz (master_data hat nur presentation-Layer, keine data/domain)
-3. **Computed Fields**: `nettopreis` und `alter` werden vermutlich im Repository berechnet – könnten als Domain-Model-Methoden konsolidiert werden
-4. **POS-Feature**: Nur Screen + Repository, keine Domain-Models oder Edit-Dialoge – möglicherweise noch unvollständig
-5. **Calendar-Feature**: Nur Screen + Repository – scheint rudimentär
-6. **Fehlende Tests**: Nur ein Test-File sichtbar (`test/core/providers/data_grid_meta_state_provider_test.dart`)
+3. **POS-Feature**: Nur Screen + Repository, keine Domain-Models oder Edit-Dialoge – möglicherweise noch unvollständig
+4. **Calendar-Feature**: Nur Screen + Repository – scheint rudimentär
+5. **Rechnungserstellung (Verkauf)**: `VerkaufBatchService` noch nicht implementiert (nur Beiträge-Batch vorhanden)
+6. **PDF-Export**: `BatchPdfExporter` existiert noch parallel zu `BatchExportService` – Konsolidierung ausstehend (siehe `plans/pdf_print_refactoring.md` Schritt 2)
 
 ---
 
