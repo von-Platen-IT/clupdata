@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mdi/mdi.dart';
 import 'package:gap/gap.dart';
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
@@ -103,23 +102,23 @@ class AppShell extends HookConsumerWidget {
                       trailing: _buildTrailing(context),
                       destinations: const [
                         NavigationRailDestination(
-                          icon: Icon(Mdi.homeOutline),
-                          selectedIcon: Icon(Mdi.home),
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
                           label: Text('Start'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Mdi.accountGroupOutline),
-                          selectedIcon: Icon(Mdi.accountGroup),
+                          icon: Icon(Icons.groups_outlined),
+                          selectedIcon: Icon(Icons.groups),
                           label: Text('Mitglieder'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Mdi.fileDocumentOutline),
-                          selectedIcon: Icon(Mdi.fileDocument),
+                          icon: Icon(Icons.description_outlined),
+                          selectedIcon: Icon(Icons.description),
                           label: Text('Leistungen'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Mdi.cashMultiple),
-                          selectedIcon: Icon(Mdi.cashMultiple),
+                          icon: Icon(Icons.payments),
+                          selectedIcon: Icon(Icons.payments),
                           label: Text('Beiträge'),
                         ),
                         NavigationRailDestination(
@@ -128,8 +127,8 @@ class AppShell extends HookConsumerWidget {
                           label: Text('Rechnungen'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Mdi.packageVariantClosed),
-                          selectedIcon: Icon(Mdi.packageVariant),
+                          icon: Icon(Icons.inventory_2_outlined),
+                          selectedIcon: Icon(Icons.inventory_2),
                           label: Text('Waren'),
                         ),
                         NavigationRailDestination(
