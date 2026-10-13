@@ -12,6 +12,7 @@ class AppTextField extends StatelessWidget {
   final bool readOnly;
   final FocusNode? focusNode;
   final String? errorText;
+  final ValueChanged<String>? onChanged;
 
   const AppTextField({
     super.key,
@@ -25,6 +26,7 @@ class AppTextField extends StatelessWidget {
     this.readOnly = false,
     this.focusNode,
     this.errorText,
+    this.onChanged,
   });
 
   @override
@@ -32,6 +34,7 @@ class AppTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       focusNode: focusNode,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: required ? '$label *' : label,
         isDense: true,

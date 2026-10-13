@@ -20,9 +20,11 @@ Das Erstellen-Menü bietet schnellen Zugriff auf die Erstellungsfunktionen für 
 
 ### Rechnungslegung
 
-Öffnet den Dialog zum Erstellen eines neuen Beitrags/Rechnung für ein Mitglied.
+Öffnet den **Rechnungslegungs-Assistenten** zum Erstellen von Beiträgen für
+viele Mitglieder auf einmal (z. B. Monatsbeiträge). Sie können zwischen vier
+Abrechnungsarten wählen und alles vorab in einer Vorschau prüfen.
 
-**Siehe auch**: [Beiträge - Neuen Beitrag erstellen](04_beitraege.md#neuen-beitrag-erstellen)
+**Siehe auch**: [Rechnungslegung](08_rechnungslegung.md)
 
 ### Ware
 

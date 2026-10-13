@@ -7,7 +7,8 @@ import '../../features/beitraege/beitraege_screen.dart';
 import '../../features/leistungen/leistungen_screen.dart';
 import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
-import '../../features/calendar/calendar_screen.dart';
+import '../../features/backup/presentation/backup_restore_screen.dart';
+import '../../features/calendar/presentation/kursplan_screen.dart';
 import '../../features/stammdaten/presentation/screens/stammdaten_screen.dart';
 import '../../features/rechnungen/rechnungen_screen.dart';
 import '../../features/documentation/documentation_screen.dart';
@@ -84,7 +85,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/calendar',
-                builder: (context, state) => const CalendarScreen(),
+                builder: (context, state) => const KursplanScreen(),
+              ),
+              GoRoute(
+                path: '/backup',
+                builder: (context, state) => const BackupRestoreScreen(),
               ),
             ],
           ),

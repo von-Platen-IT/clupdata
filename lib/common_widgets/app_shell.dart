@@ -8,7 +8,7 @@ import 'package:gap/gap.dart';
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
 import '../core/utils/app_version.dart';
-import '../features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart';
+import '../features/rechnungserstellung/presentation/rechnungslegung_wizard.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
@@ -16,7 +16,6 @@ import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
 import 'csv_bulk_export_dialog.dart';
 import 'csv_bulk_import_dialog.dart';
-import 'database_backup_dialog.dart';
 import 'main_menu_bar.dart';
 
 /// Haupt-Layout der Anwendung mit Menüleiste und NavigationRail.
@@ -63,9 +62,9 @@ class AppShell extends HookConsumerWidget {
         MenuShortcuts.createWare: () => WarenEditDialog.show(context),
         // Rechnungserstellung
         MenuShortcuts.rechnungBeitraege: () =>
-            BeitraegeBatchDialog.show(context),
-        MenuShortcuts.backup: () => showBackupDialog(context, ref),
-        MenuShortcuts.restore: () => showRestoreDialog(context, ref),
+            RechnungslegungWizardDialog.show(context),
+        MenuShortcuts.backup: () => context.go('/backup'),
+        MenuShortcuts.restore: () => context.go('/backup'),
         MenuShortcuts.csvExport: () => showCsvBulkExportDialog(context, ref),
         MenuShortcuts.csvImport: () => showCsvBulkImportDialog(context, ref),
         // Hilfe-Menü

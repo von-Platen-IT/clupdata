@@ -15,6 +15,9 @@ import 'tables/beitraege_table.dart';
 import 'tables/beitrag_status_verlauf_table.dart';
 import 'tables/rechnung_table.dart';
 import 'tables/rechnung_position_table.dart';
+import 'tables/kurs_table.dart';
+import 'tables/kursplan_table.dart';
+import 'tables/kursplan_termin_table.dart';
 
 part 'database.g.dart';
 
@@ -33,18 +36,27 @@ part 'database.g.dart';
     BeitragStatusVerlauf,
     Rechnungen,
     RechnungPositionen,
+    Kurs,
+    Kursplan,
+    KursplanTermine,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Initializes the database with a lazily opened connection.
   AppDatabase() : super(_openConnection());
 
+  /// Creates a database on a custom [QueryExecutor].
+  ///
+  /// Used by unit tests to run against an in-memory database
+  /// (`NativeDatabase.memory()`).
+  AppDatabase.forTesting(super.e);
+
   /// Gibt den Pfad der Datenbankdatei zurück.
   static String get dbFilePath => _resolveDbPath();
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   /// Schreibt den WAL-Cache in die Hauptdatei (für konsistente Backups).
   Future<void> checkpoint() async {
@@ -161,6 +173,11 @@ class AppDatabase extends _$AppDatabase {
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_uuid ON $table(uuid)',
           );
         }
+      } else if (from == 17) {
+        // v18: Kursplan-Tabellen (kurs, kursplan, kursplan_termin)
+        await migrator.createTable(kurs);
+        await migrator.createTable(kursplan);
+        await migrator.createTable(kursplanTermine);
       }
     },
     beforeOpen: (details) async {

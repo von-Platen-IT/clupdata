@@ -40,6 +40,16 @@ class AppEditDialogScaffold extends StatelessWidget {
   final VoidCallback onSave;
   final double contentWidth;
 
+  /// Label of the primary action button (e.g. 'Speichern', 'Weiter').
+  final String saveLabel;
+
+  /// Icon of the primary action button.
+  final IconData saveIcon;
+
+  /// Additional action widgets shown left of the cancel button
+  /// (e.g. a 'Zurück' button in wizard dialogs).
+  final List<Widget> additionalActions;
+
   /// If true, the save button is enabled. Defaults to true.
   final bool isSaveEnabled;
 
@@ -59,6 +69,9 @@ class AppEditDialogScaffold extends StatelessWidget {
     required this.isSaving,
     required this.onSave,
     this.contentWidth = 800,
+    this.saveLabel = 'Speichern',
+    this.saveIcon = Icons.save,
+    this.additionalActions = const [],
     this.isSaveEnabled = true,
     this.onDelete,
     this.deleteEntityLabel,
@@ -136,6 +149,8 @@ class AppEditDialogScaffold extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                ...additionalActions,
+                if (additionalActions.isNotEmpty) const Gap(8),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Abbrechen'),
@@ -152,8 +167,8 @@ class AppEditDialogScaffold extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.save),
-                  label: const Text('Speichern'),
+                      : Icon(saveIcon),
+                  label: Text(saveLabel),
                 ),
               ],
             ),

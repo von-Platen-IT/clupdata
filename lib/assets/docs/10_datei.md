@@ -23,7 +23,10 @@ Das Datei-Menü enthält grundlegende Funktionen für die Anwendung und den Zugr
 
 #### Kategorie: Programm
 - **Export-Verzeichnis**: Standardpfad für Exporte
-- **Backup-Verzeichnis**: Standardpfad für Backups
+- **Backup-Verzeichnis**: Zielverzeichnis der automatischen Datensicherung
+  *(wird auch im Bereich [Sicherung & Wiederherstellung](09_sicherung.md) gepflegt)*
+- **Backup-Intervall (Tage)**: Automatische Sicherung alle x Tage beim Programmstart
+- **Automatische Datensicherung**: Ein-/Ausschalten der Sicherung beim Start
 - **Datenbankversion**: Aktuelle Version (read-only)
 
 **Hinweis**: Einige Einstellungen sind als "read-only" markiert und können nicht geändert werden.

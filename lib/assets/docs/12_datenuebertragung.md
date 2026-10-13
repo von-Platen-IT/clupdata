@@ -24,14 +24,17 @@ Importieren Sie Daten aus einer CSV-Datei in die Anwendung.
 
 ### Datenbank-Restore
 
-Stellen Sie ein ранее erstelltes Datenbank-Backup wieder her.
+Stellen Sie ein zuvor erstelltes Datenbank-Backup wieder her.
 
 **Vorgehensweise:**
-1. Öffnen Sie **Datenübertragung > Import > Datenbank-Restore**
-2. Wählen Sie die Backup-Datei aus
+1. Öffnen Sie den Bereich **Sicherung & Wiederherstellung**
+2. Wählen Sie die gewünschte Sicherung aus der Liste oder
+   **„Aus Datei wiederherstellen…"**
 3. Bestätigen Sie den Restore-Vorgang
 
-**Warnung**: Der Restore überschreibt die aktuelle Datenbank!
+**Warnung**: Das Wiederherstellen ersetzt alle aktuellen Daten. Starten Sie die
+Anwendung danach neu. Details siehe
+[Sicherung & Wiederherstellung](09_sicherung.md).
 
 ## Export
 
@@ -64,15 +67,18 @@ Drucken Sie die aktuelle Listenansicht direkt aus.
 Erstellen Sie ein vollständiges Backup der Datenbank.
 
 **Vorgehensweise:**
-1. Öffnen Sie **Datenübertragung > Export > Datenbank-Backup**
-2. Wählen Sie den Speicherort
-3. Klicken Sie auf **Sichern**
+1. Öffnen Sie den Bereich **Sicherung & Wiederherstellung**
+2. **„Jetzt sichern…"** – Sie wählen den Speicherort frei, oder
+3. **„In Auto-Verzeichnis sichern"** – sofortiges Backup ins konfigurierte Verzeichnis
 
-**Tipp**: Regelmäßige Backups schützen vor Datenverlust!
+**Tipp**: Über die automatische Datensicherung wird beim Programmstart im
+eingestellten Intervall (z. B. alle 7 Tage) selbständig gesichert – ohne Ihr
+Zutun. Details siehe [Sicherung & Wiederherstellung](09_sicherung.md).
 
 ## Tipps
 
-- Der Backup-Ordner kann in den **Einstellungen** konfiguriert werden
+- Das Backup-Verzeichnis und das Intervall legen Sie im Bereich
+  **Sicherung & Wiederherstellung** fest
 - CSV-Dateien können in Excel oder anderen Tabellenkalkulationen geöffnet werden
 - PDF-Exporte können individuell konfiguriert werden
 

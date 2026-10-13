@@ -1,8 +1,8 @@
 # Plan: Batch-Rechnungserstellung (Beiträge & Verkauf)
 
-> **Status**: Teilweise implementiert
+> **Status**: ⚠️ ERSETZT durch den Rechnungslegung-Wizard — siehe [`plans/rechnungsstellung-konzept.md`](rechnungsstellung-konzept.md) und [`plans/refactoring-rechnungsstellung.md`](refactoring-rechnungsstellung.md). Dieses Dokument bleibt nur als historischer Referenzbestand erhalten.
 > **Erstellt**: 2026-06-09
-> **Aktualisiert**: 2026-06-11
+> **Aktualisiert**: 2026-10-12
 > **Betroffene Menüpunkte**: Extras → Rechnungserstellung → Beiträge | Verkauf
 
 ## 1. Ausgangslage

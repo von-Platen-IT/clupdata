@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
-import '../features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart';
+import '../features/rechnungserstellung/presentation/rechnungslegung_wizard.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
@@ -13,7 +13,6 @@ import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
 import 'csv_bulk_export_dialog.dart';
 import 'csv_bulk_import_dialog.dart';
-import 'database_backup_dialog.dart';
 
 /// Einfache Hauptmenüleiste mit Menüpunkten.
 ///
@@ -120,7 +119,7 @@ class MainMenuBar extends ConsumerWidget {
                   label: 'Beiträge',
                   shortcut: MenuShortcuts.rechnungBeitraege.menuLabel,
                 ),
-                onTap: () => BeitraegeBatchDialog.show(context),
+                onTap: () => RechnungslegungWizardDialog.show(context),
               ),
               const PopupMenuDivider(),
               // Datenbank Submenü
@@ -139,7 +138,7 @@ class MainMenuBar extends ConsumerWidget {
                   label: 'Backup',
                   shortcut: MenuShortcuts.backup.menuLabel,
                 ),
-                onTap: () => showBackupDialog(context, ref),
+                onTap: () => context.go('/backup'),
               ),
               PopupMenuItem(
                 height: 32,
@@ -148,7 +147,7 @@ class MainMenuBar extends ConsumerWidget {
                   label: 'Restore',
                   shortcut: MenuShortcuts.restore.menuLabel,
                 ),
-                onTap: () => showRestoreDialog(context, ref),
+                onTap: () => context.go('/backup'),
               ),
               const PopupMenuDivider(),
               // CSV Dateien Submenü

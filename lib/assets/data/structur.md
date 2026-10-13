@@ -9,10 +9,10 @@
 |---|---|
 | **version** | 1.2.0 |
 | **created** | 2026-02-26 |
-| **updated** | 2026-05-31 |
+| **updated** | 2026-10-12 |
 | **description** | Schema definition for database structure and UI configuration. Used by AI coding agent to generate database models and UI screens. |
 | **file** | lib/assets/data/structur.md |
-| **db_schema_version** | 17 |
+| **db_schema_version** | 18 |
 
 ## UUID-Strategie für CSV-Export/Import
 
@@ -41,6 +41,9 @@ Jede Tabelle erhält eine `uuid`-Spalte für den CSV-Export/Import. Diese UUID d
 | `beitrag_status_verlauf` | `uuid` | `beitrag_uuid` |
 | `rechnung` | `uuid` | `mitglied_uuid`, `bemerkung_uuid` |
 | `rechnung_position` | `uuid` | `rechnung_uuid`, `waren_uuid` |
+| `kurs` | `uuid` | `bemerkung_uuid` |
+| `kursplan` | `uuid` | `bemerkung_uuid` |
+| `kursplan_termin` | `uuid` | `kursplan_uuid`, `kurs_uuid` |
 
 ### Import-Reihenfolge (FK-Abhängigkeiten auflösen)
 
@@ -54,6 +57,9 @@ Jede Tabelle erhält eine `uuid`-Spalte für den CSV-Export/Import. Diese UUID d
 8. `beitrag_status_verlauf` (FK → beitrag)
 9. `rechnung` (FK → mitglied, bemerkung)
 10. `rechnung_position` (FK → rechnung, waren)
+11. `kurs` (FK → bemerkung)
+12. `kursplan` (FK → bemerkung)
+13. `kursplan_termin` (FK → kursplan, kurs)
 
 
 ## 1. Datenbank Tabellen
@@ -97,8 +103,11 @@ _Key/value configuration store. Contains global settings like MwSt rate, file pa
 | firma_plz |  | string | firma | PLZ | 1 | 1 |
 | firma_ort |  | string | firma | Ort | 1 | 1 |
 | pfad_export |  | string | programm | Export-Verzeichnis | 1 | 0 |
-| pfad_backup |  | string | programm | Backup-Verzeichnis | 1 | 0 |
+| pfad_backup |  | string | programm | Backup-Verzeichnis (automatische Sicherungen) | 1 | 0 |
 | db_version | 1 | integer | programm | Datenbankversion | 0 | 1 |
+| backup_intervall_tage | 7 | integer | programm | Backup-Intervall (Tage) | 1 | 1 |
+| backup_automatisch_aktiv | 1 | boolean | programm | Automatische Datensicherung beim Programmstart | 1 | 1 |
+| backup_letztes_datum |  | date | programm | Zeitpunkt des letzten erfolgreichen Backups | 0 | 1 |
 
 ### 1.3 `preis`
 _Price entity. Nettopreis is always computed at runtime from bruttopreis and mwst from stammdaten._
@@ -289,6 +298,52 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 - Positionen werden bei Löschung der Rechnung automatisch mitgelöscht (CASCADE)
 - Preise werden als Snapshot gespeichert (Änderungen an Waren ändern nicht bestehende Rechnungen)
 
+### 1.11 `kurs`
+_Kurstyp/Kursangebot (z. B. „Boxen Erwachsene"). Jeder Kurstyp hat eine eindeutige Farbe für die Kursplan-Darstellung._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `name` | TEXT | NotNull, MaxLen:100, Unicode | z. B. „Boxen Erwachsene" |
+| `kampfsportart` | TEXT | NotNull, MaxLen:100, Unicode | z. B. „Boxen", „Kickboxen", „MMA" |
+| `farbe` | TEXT | NotNull, MaxLen:9 | Hex-Farbe `#RRGGBB` – farbliche Kennzeichnung im Kursplan |
+| `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
+
+### 1.12 `kursplan`
+_Kursplan mit Gültigkeitszeitraum. Mehrere Pläne können für unterschiedliche Zeitbereiche angelegt werden (mindestens eine Woche)._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `name` | TEXT | NotNull, MaxLen:100, Unicode | z. B. „Winterplan 2026/27" |
+| `gueltig_von` | DATE | NotNull | Erste gültige Woche. Wird beim Speichern auf den **Montag** normalisiert. |
+| `gueltig_bis` | DATE | Nullable | Letzte gültige Woche (Montag). NULL = unbegrenzt gültig. |
+| `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
+
+**Geschäftsregeln:**
+- `gueltig_von`/`gueltig_bis` werden auf Wochenanfänge (Montage) normalisiert
+- `gueltig_bis` >= `gueltig_von` (mindestens eine Woche)
+- Plan-Ermittlung für eine Woche: `gueltig_von <= montag` UND (`gueltig_bis IS NULL` ODER `gueltig_bis >= montag`)
+- Bei Überschneidung zweier Pläne gewinnt der Plan mit dem spätesten `gueltig_von`
+
+### 1.13 `kursplan_termin`
+_Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `kursplan_id` | INTEGER | NotNull, FK->kursplan.id(CASCADE) | Gehört zu einem Kursplan – wird mit dem Plan gelöscht |
+| `kurs_id` | INTEGER | NotNull, FK->kurs.id(RESTRICT) | Kurs mit Terminen kann nicht gelöscht werden |
+| `wochentag` | INTEGER | NotNull, Enum:[1..7] | 1 = Montag … 7 = Sonntag |
+| `startzeit` | TEXT | NotNull, MaxLen:5, Format:HH:mm | Startzeit (lexikographisch sortierbar) |
+| `endezeit` | TEXT | MaxLen:5, Format:HH:mm | Endzeit; NULL = offenes Ende |
+
+**Constraints:**
+- `CHECK (endezeit IS NULL OR endezeit > startzeit)` — Ende muss nach Start liegen
+
 ## 2. Datenbank Indizes
 
 | Tabelle | Index Name | Felder | Unique | Kommentar |
@@ -326,6 +381,13 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | `beitrag_status_verlauf` | `idx_beitrag_status_verlauf_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
 | `rechnung` | `idx_rechnung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
 | `rechnung_position` | `idx_rechnung_position_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `kurs` | `idx_kurs_name` | `name` | Nein |  |
+| `kurs` | `idx_kurs_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `kursplan` | `idx_kursplan_gueltig` | `gueltig_von, gueltig_bis` | Nein | Wochen-Auswahl |
+| `kursplan` | `idx_kursplan_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `kursplan_termin` | `idx_kursplan_termin_plan` | `kursplan_id` | Nein |  |
+| `kursplan_termin` | `idx_kursplan_termin_kurs` | `kurs_id` | Nein |  |
+| `kursplan_termin` | `idx_kursplan_termin_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
 
 
 ## 3. Relationen
@@ -347,6 +409,10 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
 | `rechnung.bemerkung_id` | `bemerkung.id` | many-to-one (SET NULL) | Rechnung hat optionale Bemerkung |
 | `rechnung_position.rechnung_id` | `rechnung.id` | many-to-one (CASCADE) | Position gehört zu Rechnung |
 | `rechnung_position.waren_id` | `waren.id` | many-to-one (SET NULL) | Position referenziert Ware |
+| `kurs.bemerkung_id` | `bemerkung.id` | many-to-one | Kurs hat eine optionale Bemerkung |
+| `kursplan.bemerkung_id` | `bemerkung.id` | many-to-one | Kursplan hat eine optionale Bemerkung |
+| `kursplan_termin.kursplan_id` | `kursplan.id` | many-to-one (CASCADE) | Termin gehört zu einem Kursplan |
+| `kursplan_termin.kurs_id` | `kurs.id` | many-to-one (RESTRICT) | Termin referenziert einen Kurs |
 
 
 ## 4. UI Konfiguration
@@ -539,6 +605,41 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
     - `bemerkung_titel` (Titel) - Widget: TextField
     - `bemerkung_text` (Text) - Widget: TextAreaField
 
+#### Screen: Kursplan (`screen_kursplan`)
+- **Route**: /calendar
+- **Typ**: customScreen (Wochen-Raster, keine Datentabelle)
+- **Datenquelle**: `kursplan`, `kursplan_termin`, `kurs`
+- **Kommentar**: Zeigt den für die ausgewählte Woche gültigen Kursplan als Wochen-Raster (Spalten = Wochentage, Zeilen = 30-Min-Slots 06:00–22:00). Kurse werden farbig gemäß `kurs.farbe` dargestellt. Vollständige Spezifikation: `plans/kursplan.md`.
+- **Elemente:**
+  - `woche_nav` (Wochen-Navigation) - Widget: IconButton-Row (◀/▶ ± 7 Tage, „Heute")
+  - `woche_anzeige` (Wochenbereich + KW) - Widget: Text
+  - `kursplan_auswahl` (Plan) - Widget: DropdownField – alle für die Woche gültigen Pläne; Vorauswahl: spätester `gueltig_von`
+  - `wochen_raster` (Kursplan) - Widget: CustomGrid – Spalten Mo–So, Zeit-Slots 30 Min, Kurs-Blöcke mit `kurs.farbe`
+  - `legende` (Kurs-Legende) - Widget: Wrap – Farbquadrat + Kursname + Kampfsportart
+  - `kurse_verwalten` (Kurse) - Widget: Button → `dialog_kurs_list`
+  - `plaene_verwalten` (Pläne) - Widget: Button → `dialog_kursplan_list`
+
+#### Screen: Sicherung & Wiederherstellung (`screen_backup_restore`)
+- **Route**: /backup
+- **Typ**: customScreen
+- **Datenquelle**: `stammdaten` (Konfiguration), Dateisystem (`pfad_backup`)
+- **Kommentar**: Eigener UI-Bereich für Backup & Restore. Vollständige Spezifikation: `plans/backup-konzept.md`.
+- **Elemente:**
+  - `status_card` (Status) - Widget: InfoCard – letztes Backup (Datum/Uhrzeit + Art), nächstes fällig, Auto-Verzeichnis, Live-Status des Tasks
+  - `backup_manuell` (Jetzt sichern…) - Widget: ElevatedButton – mit **Verzeichniswahl** (Save-Dialog)
+  - `backup_auto_ort` (In Auto-Verzeichnis sichern) - Widget: OutlinedButton
+  - `auto_aktiv` (Beim Programmstart automatisch sichern) - Widget: CheckboxField → `backup_automatisch_aktiv`
+  - `intervall_tage` (Intervall in Tagen) - Widget: NumberField → `backup_intervall_tage`
+  - `pfad_backup` (Verzeichnis) - Widget: ReadOnlyField + Button „Ändern…" (Directory-Picker) → `pfad_backup`
+  - `backup_liste` (Vorhandene Sicherungen) - Widget: List – Spalten: Datei, Erstellt am, Größe, Aktion „Wiederherstellen"; Quelle: Scan des Auto-Verzeichnisses, sortiert nach Datum (neueste zuerst)
+  - `restore_aus_datei` (Aus Datei wiederherstellen…) - Widget: OutlinedButton
+- **Regeln:**
+  - **Auto-Backup beim Start**: `postFrameCallback` nach dem ersten Frame, asynchron/nicht blockierend, **kein modal-Dialog** (dezente Statusanzeige)
+  - **Intervall-Regel**: fällig ⇔ `backup_automatisch_aktiv = 1` UND (`backup_letztes_datum` leer ODER `jetzt − backup_letztes_datum > backup_intervall_tage`)
+  - **Backup-Mechanik**: `db.checkpoint()` (WAL) + Datei-Kopie, Dateiname `clup_data_backup_YYYY-MM-DD_HH-MM.sqlite`
+  - **Restore**: Bestätigungsdialog mit Warnung → Sicherheitskopie `.bak` → Datei ersetzen → `appDatabaseProvider` invalidieren → Neustart-Hinweis (kein automatischer App-Abbruch)
+  - **`backup_letztes_datum`** wird bei jedem erfolgreichen Backup gesetzt (manuell und automatisch), nur programmintern änderbar
+
 ### 4.3 Dialoge
 
 #### Dialog: Neuer Beitrag (`dialog_beitrag_new`)
@@ -640,6 +741,85 @@ _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
   - `leistung_id` (Leistung) - Widget: DropdownField
   - `vertrag_laufzeit_von` (Laufzeit von) - Widget: DateField
   - `vertrag_laufzeit_bis` (Laufzeit bis) - Widget: DateField
+
+#### Dialog: Rechnungslegung Wizard (`dialog_rechnungslegung_wizard`)
+- **Typ**: modalDialog (5-Schritt-Assistent)
+- **Datenquelle**: `beitrag` (schreibend), `mitglied`, `leistung`, `preis` (lesend)
+- **Kommentar**: Einheitlicher Assistent zur Beitrags-Rechnungsstellung. Ersetzt den bisherigen `RechnungslegungDialog` (lib/features/beitraege/presentation/dialogs/rechnungslegung_dialog.dart) und `BeitraegeBatchDialog` (lib/features/rechnungserstellung/presentation/dialogs/beitraege_batch_dialog.dart). Vollständige Spezifikation: `plans/rechnungsstellung-konzept.md`.
+- **Einstiegspunkte** (alle öffnen denselben Wizard):
+  - Menü: Extras → Rechnungserstellung
+  - Tastenkürzel/Toolbar: `MenuShortcuts.rechnungBeitraege`
+  - Beiträge → Neu → „Rechnungslegung" (Modus `zeitperioden` vorausgewählt)
+- **Schritt 1 – Abrechnungsmodus** (`modus`):
+  - `zeitperioden` – Alle Mitglieder mit gültigem Vertrag für einen Zeitraum
+  - `einzelnesMitglied` – Offene Perioden eines einzelnen Mitglieds abarbeiten
+  - `ausgewaehlteMitglieder` – Gezielte Mehrfachauswahl von Mitgliedern
+  - `kurse` – Alle Mitglieder bestimmter Kurse (Kurse = `leistung`-Datensätze)
+- **Schritt 2 – Auswahl (modusabhängig):**
+  - `mitglied_search` (Mitglied suchen) - Widget: AutocompleteField (Modus: `einzelnesMitglied`)
+  - `offene_perioden` (Offene Perioden) - Widget: CheckboxList (Modus: `einzelnesMitglied`)
+  - `mitglied_liste` (Mitglieder auswählen) - Widget: CheckboxList mit Suche/Filter (Modus: `ausgewaehlteMitglieder`)
+  - `leistung_ids` (Kurse) - Widget: MultiSelect – zeigt Name, Laufzeit, Preis, Mitgliederanzahl (Modus: `kurse`)
+- **Schritt 3 – Zeitraum & Optionen:**
+  - `zeitraum_typ` (Zeitraum) - Widget: RadioGroup (Monat | Quartal | Jahr | Zeitraum von–bis)
+  - `monat` (Monat) - Widget: DropdownField
+  - `quartal` (Quartal) - Widget: DropdownField
+  - `jahr` (Jahr) - Widget: DropdownField
+  - `von` (Von) / `bis` (Bis) - Widget: DateField
+  - `nur_aktive_vertraege` (Nur aktive Verträge) - Widget: CheckboxField - Standard: true
+  - `nur_ohne_offene` (Nur ohne offene/kontierte Beiträge) - Widget: CheckboxField - Standard: false
+  - `status_nach_erstellung` (Status nach Erstellung) - Widget: RadioGroup (kontiert | offen) - Standard: kontiert
+  - `bemerkung` (Bemerkung) - Widget: TextField - optional
+- **Schritt 4 – Vorschau (editierbar, Kernstück):**
+  - `vorschau_tabelle` (Zu erstellende Beiträge) - Widget: DataTable mit Checkbox je Zeile
+  - Spalten: inkludiert | Mitglied | Kurs/Leistung | Zeitraum | Betrag (editierbar) | Hinweis
+  - Bereits abgerechnete Perioden sind markiert und per Standard abgewählt (Idempotenz sichtbar)
+  - `betrag` je Zeile überschreibbar (Preis-Snapshot), Zeilen abwählbar
+  - Summenanzeige: zu erstellen / bereits abgerechnet / Gesamtbetrag
+- **Schritt 5 – Ergebnis & Anschlussaktionen:**
+  - Anzeige: erstellt, übersprungen, Fehler, Gesamtbetrag
+  - Aktionen: `beitraege_anzeigen`, `pdf_sammeldruck`, `csv_export`, `schliessen`
+- **Abrechnungsrhythmus (Periodenbildung aus `leistung.laufzeit`):**
+  - `monatlich` → 1 Beitrag je Monat im gewählten Zeitraum
+  - `quartalsweise` → 1 Beitrag je Quartal (`abrechnungs_zeitraum` = Quartalsanfang)
+  - `jaehrlich` → 1 Beitrag je Jahr (`abrechnungs_zeitraum` = Jahresanfang)
+  - `einmalig` → 1 Beitrag gesamt (global, nie mehrfach)
+- **Logik & Datenintegrität:**
+  - Duplikat-Schlüssel: `mitglied_id + abrechnungs_zeitraum` (idempotent, bereits abgerechnete werden nicht erneut erstellt)
+  - Preis-Snapshot: `mitglied.preis_id` → Fallback `leistung.preis_id`; Kopie in `preis` (keine Live-Referenz)
+  - Rechnungsnummer: `RE-YYYY-XXXXX` via `RechnungsnummerGenerator.generateForBeitrag()`
+  - Initialer `beitrag_status_verlauf`-Eintrag mit verpflichtender Bemerkung
+  - Gesamte Erstellung in EINER DB-Transaktion (bei Fehler vollständiger Rollback)
+  - `kontiert_am` = Erstellungszeitpunkt; `status_datum` = `kontiert_am`
+  - Statusfarben ausschließlich aus `lib/features/beitraege/utils/beitrag_status_colors.dart`
+
+#### Dialog: Kurs bearbeiten (`dialog_kurs_edit`)
+- **Typ**: modalDialog
+- **Datenquelle**: `kurs`
+- **Felder:**
+  - `name` (Name) - Widget: TextField
+  - `kampfsportart` (Kampfsportart) - Widget: TextField
+  - `farbe` (Farbe) - Widget: ColorSelect (16 vordefinierte Farbfelder + Hex-Anzeige)
+  - `bemerkung_titel` (Titel) - Widget: TextField
+  - `bemerkung_text` (Text) - Widget: TextAreaField
+- **Validierung:** Name und Kampfsportart sind Pflichtfelder
+
+#### Dialog: Kursplan bearbeiten (`dialog_kursplan_edit`)
+- **Typ**: modalDialog
+- **Datenquelle**: `kursplan`, `kursplan_termin`
+- **Felder:**
+  - `name` (Name) - Widget: TextField
+  - `gueltig_von` (Gültig von) - Widget: DateField – wird auf Montag normalisiert
+  - `gueltig_bis` (Gültig bis) - Widget: DateField (optional, NULL = unbegrenzt)
+  - `termine` (Termine) - Widget: EditableList – je Zeile: Wochentag (Dropdown Mo–So), Kurs (Dropdown), Start/Ende (HH:mm), Entfernen
+  - `termin_add` (Termin hinzufügen) - Widget: Button
+  - `bemerkung_titel` (Titel) - Widget: TextField
+  - `bemerkung_text` (Text) - Widget: TextAreaField
+- **Validierung:**
+  - Name ist Pflichtfeld
+  - `gueltig_bis` >= `gueltig_von` (mindestens eine Woche)
+  - Keine Überschneidungen: gleicher Kurs + Wochentag + überlappende Zeit
+  - `endezeit` > `startzeit`
 
 
 ## 5. Domain-Modelle & Enums

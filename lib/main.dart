@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/backup/presentation/auto_backup_initializer.dart';
 import 'widgets/data_grid_v2/export/pdf/compact_table_template.dart';
 import 'widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 
@@ -66,6 +67,11 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // Reagiert auf OS-Einstellung
+      // Startet das Auto-Backup als nicht-blockierenden Hintergrund-Task
+      // nach dem ersten gerenderten Frame (siehe plans/backup-konzept.md).
+      builder: (context, child) => AutoBackupInitializer(
+        child: child ?? const SizedBox.shrink(),
+      ),
       locale: const Locale('de', 'DE'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

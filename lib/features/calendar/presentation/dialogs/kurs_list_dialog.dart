@@ -1,0 +1,111 @@
+import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import '../../../../common_widgets/app_dialog_delete_action.dart';
+import '../../data/kursplan_repository.dart';
+import '../kurs_farbe_utils.dart';
+import '../providers/kursplan_providers.dart';
+import 'kurs_edit_dialog.dart';
+
+/// Verwaltungsdialog für Kurse (Kurstypen): Liste, Neu, Bearbeiten, Löschen.
+class KursListDialog extends ConsumerWidget {
+  const KursListDialog({super.key});
+
+  /// Opens the course management dialog.
+  static Future<void> show(BuildContext context) {
+    return showDialog(context: context, builder: (_) => const KursListDialog());
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kurseAsync = ref.watch(kurseListProvider);
+
+    return AlertDialog(
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Kurse verwalten'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Schließen',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 520,
+        height: 400,
+        child: kurseAsync.when(
+          data: (kurse) => kurse.isEmpty
+              ? const Center(child: Text('Noch keine Kurse angelegt.'))
+              : ListView(
+                  children: [
+                    for (final kurs in kurse)
+                      ListTile(
+                        leading: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: parseKursFarbe(kurs.farbe),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.grey.shade400),
+                          ),
+                        ),
+                        title: Text(kurs.name),
+                        subtitle: Text(kurs.kampfsportart),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              tooltip: 'Bearbeiten',
+                              onPressed: () =>
+                                  KursEditDialog.show(context, kurs: kurs),
+                            ),
+                            AppDialogDeleteAction(
+                              entityLabel: 'Kurs',
+                              onConfirmed: () async {
+                                final repo = ref.read(
+                                  kursplanRepositoryProvider,
+                                );
+                                try {
+                                  await repo.deleteKurs(kurs.id);
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Kurs kann nicht gelöscht werden: '
+                                          'Er wird noch in Kursplänen verwendet.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Fehler beim Laden: $e')),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Schließen'),
+        ),
+        const Gap(8),
+        FilledButton.icon(
+          onPressed: () => KursEditDialog.show(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Neuer Kurs'),
+        ),
+      ],
+    );
+  }
+}

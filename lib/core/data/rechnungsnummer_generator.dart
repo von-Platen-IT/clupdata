@@ -64,10 +64,11 @@ class RechnungsnummerGenerator {
     int nextNumber = maxNumber + 1;
 
     // Ensure uniqueness (in case of gaps or manual insertions)
-    String candidate = '$prefix$year-${nextNumber.toString().padLeft(5, '0')}';
+    // Format: PREFIX-YYYY-XXXXX (z. B. RE-2026-00001) – siehe AGENTS.md.
+    String candidate = '$prefix-$year-${nextNumber.toString().padLeft(5, '0')}';
     while (await existsFn(candidate)) {
       nextNumber++;
-      candidate = '$prefix$year-${nextNumber.toString().padLeft(5, '0')}';
+      candidate = '$prefix-$year-${nextNumber.toString().padLeft(5, '0')}';
     }
 
     return candidate;

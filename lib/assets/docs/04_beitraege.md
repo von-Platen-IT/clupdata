@@ -33,8 +33,7 @@ Die Beitragsliste zeigt folgende Informationen:
 ### Neuen Beitrag erstellen
 
 1. Klicken Sie auf das **"+"-Symbol** in der Symbolleiste
-2. Oder nutzen Sie das Menü **Erstellen > Rechnungslegung**
-3. Füllen Sie die folgenden Felder aus:
+2. Füllen Sie die folgenden Felder aus:
 
 #### Felder im Dialog
 - **Mitglied suchen**: Suchen Sie über Vor- und Nachname
@@ -44,6 +43,19 @@ Die Beitragsliste zeigt folgende Informationen:
 - **Status**: Wird automatisch auf "kontiert" gesetzt
 
 **Hinweis**: Die Rechnungsnummer wird automatisch generiert.
+
+### Beiträge für viele Mitglieder (Rechnungslegung)
+
+Möchten Sie **viele Beiträge auf einmal** erstellen – z. B. den Monatsbeitrag für
+alle Mitglieder – nutzen Sie den **Rechnungslegungs-Assistenten**:
+
+1. Menü **Extras → Rechnungserstellung** (oder **Erstellen → Rechnungslegung**)
+2. Wählen Sie die Abrechnungsart: **Zeitperioden**, **einzelnes Mitglied**,
+   **ausgewählte Mitglieder** oder **Kurse**
+3. Prüfen Sie die **Vorschau** – erst danach werden die Beiträge erstellt
+
+**Vorteil**: Bereits abgerechnete Zeiträume werden erkannt und nicht doppelt
+erstellt. Details siehe [Rechnungslegung](08_rechnungslegung.md).
 
 ### Beitrag bearbeiten
 

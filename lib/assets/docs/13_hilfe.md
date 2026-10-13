@@ -10,7 +10,7 @@ Das Hilfe-Menü bietet Informationen über die Anwendung.
 
 Zeigt Informationen über die Anwendung an:
 
-- **App-Name**: PhraPhikanet Organizer
+- **App-Name**: ClupData
 - **Version**: Aktuelle Versionsnummer
 - **Beschreibung**: Informationen zum Zweck der Anwendung
 

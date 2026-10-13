@@ -119,6 +119,16 @@ class DocumentationScreen extends HookConsumerWidget {
                             '07_kursplan.md',
                             Icons.calendar_today,
                           ),
+                          _DocEntry(
+                            'Rechnungslegung',
+                            '08_rechnungslegung.md',
+                            Icons.receipt_long,
+                          ),
+                          _DocEntry(
+                            'Sicherung & Wiederherstellung',
+                            '09_sicherung.md',
+                            Icons.settings_backup_restore,
+                          ),
                         ], selectedDoc),
                         const Divider(),
                         _buildNavSection(context, 'Menüleisten-Funktionen', [
@@ -167,37 +177,79 @@ class DocumentationScreen extends HookConsumerWidget {
                     fileName: selectedDoc.value!,
                     onBack: () => selectedDoc.value = null,
                   )
-                : _buildWelcomeScreen(context),
+                : _buildWelcomeScreen(context, selectedDoc),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWelcomeScreen(BuildContext context) {
+  Widget _buildWelcomeScreen(
+    BuildContext context,
+    ValueNotifier<String?> selectedDoc,
+  ) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.menu_book,
-            size: 80,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Willkommen in der Hilfe & Dokumentation',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Wählen Sie ein Thema aus dem Inhaltsverzeichnis\noder verwenden Sie die Suchfunktion.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Willkommen in der Hilfe & Dokumentation',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Wählen Sie ein Thema aus dem Inhaltsverzeichnis\noder verwenden Sie die Suchfunktion.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Erste Schritte – schneller Einstieg für neue Benutzer
+            Text(
+              'Erste Schritte',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                _QuickLink(
+                  icon: Icons.rocket_launch,
+                  label: 'Schnellstart',
+                  onTap: () => selectedDoc.value = '00_index.md',
+                ),
+                _QuickLink(
+                  icon: Icons.people,
+                  label: 'Mitglieder anlegen',
+                  onTap: () => selectedDoc.value = '02_mitglieder.md',
+                ),
+                _QuickLink(
+                  icon: Icons.receipt_long,
+                  label: 'Beiträge abrechnen',
+                  onTap: () => selectedDoc.value = '08_rechnungslegung.md',
+                ),
+                _QuickLink(
+                  icon: Icons.settings_backup_restore,
+                  label: 'Datensicherung einrichten',
+                  onTap: () => selectedDoc.value = '09_sicherung.md',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -258,6 +310,28 @@ class DocumentationScreen extends HookConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Schnell-Zugangskachel für den Willkommens-Bildschirm („Erste Schritte").
+class _QuickLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickLink({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }
