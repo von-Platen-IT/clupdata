@@ -47,3 +47,26 @@ flutter pub run build_runner build -d
 - **NIEMALS** destruktive Befehle (`rm -rf`, `DROP TABLE`)
 - Keine personenbezogenen Daten in Logs (nur IDs)
 - Neue Packages nur nach expliziter Rücksprache
+
+## Recherche mit Context7 (MCP) – MANDATORISCH
+Bei Fragen zu Bibliotheken, Frameworks, SDKs oder CLI-Werkzeugen (Riverpod, Drift, Pluto Grid,
+go_router, Dart, Flutter …) **nicht aus dem Gedächtnis antworten**, sondern die aktuelle Doku holen.
+Ein Aufruf des Werkzeugs `use_mcp_tool` erfolgt immer in zwei Schritten:
+
+1. Library-ID auflösen:
+   ```json
+   {"server_name":"context7","tool_name":"resolve-library-id",
+    "arguments":{"libraryName":"riverpod","query":"Notifier provider code generation"}}
+   ```
+2. Doku abfragen (mit der ID aus Schritt 1, Format `/org/projekt`):
+   ```json
+   {"server_name":"context7","tool_name":"query-docs",
+    "arguments":{"libraryId":"/websites/riverpod_dev","query":"Wie definiere ich einen @riverpod Notifier?","language":"de"}}
+   ```
+
+- **Kein Vorwissen als Ersatz:** erst Context7 fragen, dann planen/implementieren.
+- **Kein zweiter Suchweg:** Websuche (`tavily-search`) nur, wenn Context7 keine passende
+  Bibliothek findet – nicht zusätzlich.
+- Ist `use_mcp_tool` im Werkzeugkasten **nicht** vorhanden, ist nicht der Server defekt, sondern
+  dem Mode fehlt die Gruppe `mcp` in `.roomodes` (`groups: [..., mcp]`). Diesen Hinweis dann
+  nennen, statt die Recherche stillschweigend auszulassen.

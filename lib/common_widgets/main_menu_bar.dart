@@ -69,6 +69,13 @@ class MainMenuBar extends ConsumerWidget {
                 onTap: () => MemberEditDialog.show(context),
               ),
               PopupMenuItem(
+                child: const _MenuItemWithShortcut(
+                  label: 'Schnellerfassung Mitglieder',
+                  shortcut: '',
+                ),
+                onTap: () => context.go('/schnellerfassung'),
+              ),
+              PopupMenuItem(
                 child: _MenuItemWithShortcut(
                   label: 'Neue Leistung',
                   shortcut: MenuShortcuts.createLeistung.menuLabel,

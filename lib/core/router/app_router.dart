@@ -9,6 +9,7 @@ import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/backup/presentation/backup_restore_screen.dart';
 import '../../features/calendar/presentation/kursplan_screen.dart';
+import '../../features/schnellerfassung/presentation/schnellerfassung_screen.dart';
 import '../../features/stammdaten/presentation/screens/stammdaten_screen.dart';
 import '../../features/rechnungen/rechnungen_screen.dart';
 import '../../features/documentation/documentation_screen.dart';
@@ -90,6 +91,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/backup',
                 builder: (context, state) => const BackupRestoreScreen(),
+              ),
+              GoRoute(
+                path: '/schnellerfassung',
+                builder: (context, state) => const SchnellerfassungScreen(),
               ),
             ],
           ),

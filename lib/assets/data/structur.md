@@ -640,6 +640,23 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
   - **Restore**: Bestätigungsdialog mit Warnung → Sicherheitskopie `.bak` → Datei ersetzen → `appDatabaseProvider` invalidieren → Neustart-Hinweis (kein automatischer App-Abbruch)
   - **`backup_letztes_datum`** wird bei jedem erfolgreichen Backup gesetzt (manuell und automatisch), nur programmintern änderbar
 
+#### Screen: Schnellerfassung (`screen_schnellerfassung`)
+- **Route**: /schnellerfassung
+- **Typ**: customScreen (Eingabe-Arbeitsbereich für Massenerfassung)
+- **Datenquelle**: `mitglied`, `leistung`, `stammdaten` (Vorlagen als JSON)
+- **Kommentar**: Optimiert für die Erstbefüllung (viele Datensätze manuell einpflegen). Vollständige Spezifikation: `plans/schnellerfassung.md`.
+- **Elemente:**
+  - `vorlage_leiste` (Vorlagen) - Widget: Row – Dropdown „Vorlage wählen", Buttons „Als Vorlage speichern…", „Löschen", „Von vorhandenem Datensatz übernehmen…"
+  - `mitglied_formular` (Eingabe) - Widget: Form – Feldgruppen Person/Kontakt/Vertrag/Bemerkung (Pflichtfelder: `name`, `vorname`, `leistung_id`)
+  - `erfasste_liste` (Sitzungs-Protokoll) - Widget: List – „Erfasst in dieser Sitzung", Duplikat-Warnung (informativ, nicht blockierend), Zähler
+  - `speichern_leeren` (Speichern & leeren) - Widget: ElevatedButton – Tastenkürzel `Strg+Enter`; Formular leeren, Fokus auf erstes Pflichtfeld
+  - `speichern_behalten` (Speichern & Felder behalten) - Widget: OutlinedButton – Personenfelder leeren, Komfortfelder (Anrede, PLZ, Ort, Strasse, Leistung, Vertrag) behalten
+- **Regeln:**
+  - Speichern via `MembersRepository.addMember()` (gleicher Pfad wie Einzel-Dialog)
+  - **Vorlagen** in `stammdaten` als JSON (`vorlage_mitglied_<slug>`, typ=string, kategorie=programm) – kein Schema-Change
+  - **Duplikat-Warnung**: Namensgleichheit in Sitzung ODER Datenbank → Hinweis in der Seitenleiste
+  - **Auto-Vorlage**: Nach „Speichern & Felder behalten" bleiben Komfortfelder gefüllt, Personenfelder (name, vorname, geboren, telefon, email) werden geleert
+
 ### 4.3 Dialoge
 
 #### Dialog: Neuer Beitrag (`dialog_beitrag_new`)

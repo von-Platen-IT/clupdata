@@ -24,9 +24,13 @@ customModes:
       - Shared Code unter lib/core/ und lib/common_widgets/
     groups:
       - read
+      - mcp
       - - edit
         - fileRegex: \.(md|txt|yaml|yml)$
           description: Nur Dokumentations- und Konfigurationsdateien
+    allowedMcpServers:
+      - context7
+      - tavily-search
 
   - slug: flutter-dev
     name: 💻 Flutter Developer
@@ -61,6 +65,7 @@ customModes:
         - fileRegex: \.(dart|yaml|yml|json|arb)$
           description: Dart-, Konfigurations- und Lokalisierungsdateien
       - command
+      - mcp
 
   - slug: flutter-tester
     name: 🧪 Flutter Tester
@@ -89,6 +94,7 @@ customModes:
         - fileRegex: ^test/.*\.dart$
           description: Nur Testdateien im test/-Ordner
       - command
+      - mcp
 
   - slug: flutter-reviewer
     name: 🔍 Flutter Code Reviewer
@@ -114,3 +120,7 @@ customModes:
       - Feedback immer konstruktiv mit Begründung und Verbesserungsvorschlag
     groups:
       - read
+      - mcp
+    allowedMcpServers:
+      - context7
+      - tavily-search
