@@ -56,6 +56,8 @@ dependencies:
   pdf_merger: ^0.0.6
   file_picker: ^10.3.3
   uuid: ^4.5.1
+  # Direkte Nutzung für das Library-Override beim App-Start (Linux).
+  sqlite3: ^2.9.4
 
 dev_dependencies:
   flutter_test:
@@ -73,8 +75,6 @@ dev_dependencies:
   build_verify: ^3.1.1
   freezed: ^3.2.5
   json_serializable: ^6.13.0
-  # Direkte Deklaration für In-Memory-DB-Tests (bereits transitiv via drift).
-  sqlite3: ^2.9.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

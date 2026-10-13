@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/router/app_router.dart';
+import 'core/utils/sqlite_loader.dart';
 import 'core/theme/app_theme.dart';
 import 'features/backup/presentation/auto_backup_initializer.dart';
 import 'widgets/data_grid_v2/export/pdf/compact_table_template.dart';
@@ -20,6 +21,12 @@ import 'widgets/data_grid_v2/export/pdf/pdf_template_registry.dart';
 /// Finally, it runs the app wrapped in a Riverpod [ProviderScope].
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // sqlite3-Library-Override (Linux: nur libsqlite3.so.0 vorhanden).
+  // Zusätzlich wird das Override über Drifts isolateSetup im
+  // Datenbank-Isolate ausgeführt – siehe core/utils/sqlite_loader.dart.
+  configureSqlite();
+
   await initializeDateFormatting('de_DE', null);
   Intl.defaultLocale = 'de_DE';
 

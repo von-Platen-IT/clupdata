@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
+import '../utils/sqlite_loader.dart';
 import '../utils/uuid_helper.dart';
 import 'tables/bemerkung_table.dart';
 import 'tables/stammdaten_table.dart';
@@ -196,6 +197,13 @@ String _resolveDbPath() {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    return NativeDatabase.createInBackground(File(_resolveDbPath()));
+    final pfad = _resolveDbPath();
+    debugPrint('[sqlite3] Öffne Datenbank: $pfad');
+    return NativeDatabase.createInBackground(
+      File(pfad),
+      // WICHTIG: Das Library-Override muss auch im Hintergrund-Isolate
+      // ausgeführt werden – dort greift das Override des Haupt-Isolates NICHT.
+      isolateSetup: configureSqlite,
+    );
   });
 }

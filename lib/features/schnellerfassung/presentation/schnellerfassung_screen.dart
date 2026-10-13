@@ -32,7 +32,11 @@ class SchnellerfassungScreen extends HookConsumerWidget {
       final name = felder.value.name.trim();
       final vorname = felder.value.vorname.trim();
       if (name.isEmpty) {
-        ref.read(sitzungsProtokollProvider.notifier).setzeWarnung(null);
+        // Verzögert, um Provider-Änderungen während des Widget-Builds
+        // zu vermeiden (Riverpod-Fehler: „modify a provider while building").
+        Future(
+          () => ref.read(sitzungsProtokollProvider.notifier).setzeWarnung(null),
+        );
         return null;
       }
       final timer = Timer(const Duration(milliseconds: 500), () {

@@ -42,21 +42,43 @@ class KursListDialog extends ConsumerWidget {
               : ListView(
                   children: [
                     for (final kurs in kurse)
-                      ListTile(
-                        leading: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: parseKursFarbe(kurs.farbe),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.grey.shade400),
-                          ),
-                        ),
-                        title: Text(kurs.name),
-                        subtitle: Text(kurs.kampfsportart),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      // Eigene Zeile statt ListTile: ListTile.trailing ist auf
+                      // 56px begrenzt, was die Aktionsbuttons beschädigt.
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
                           children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: parseKursFarbe(kurs.farbe),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ),
+                            const Gap(12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    kurs.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  Text(
+                                    kurs.kampfsportart,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.edit),
                               tooltip: 'Bearbeiten',
@@ -94,12 +116,13 @@ class KursListDialog extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Fehler beim Laden: $e')),
         ),
       ),
+      // Hinweis: AlertDialog.actions ist ein OverflowBar (kein Flex) –
+      // ein Gap-Widget dort würde eine Layout-Exception auslösen.
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Schließen'),
         ),
-        const Gap(8),
         FilledButton.icon(
           onPressed: () => KursEditDialog.show(context),
           icon: const Icon(Icons.add),

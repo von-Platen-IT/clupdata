@@ -46,13 +46,33 @@ class KursplanListDialog extends ConsumerWidget {
               : ListView(
                   children: [
                     for (final plan in plaene)
-                      ListTile(
-                        leading: const Icon(Icons.calendar_month),
-                        title: Text(plan.name),
-                        subtitle: Text(_gueltigkeitText(plan)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      // Eigene Zeile statt ListTile: ListTile.trailing ist auf
+                      // 56px begrenzt, was die Aktionsbuttons beschädigt.
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
                           children: [
+                            const Icon(Icons.calendar_month),
+                            const Gap(12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    plan.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium,
+                                  ),
+                                  Text(
+                                    _gueltigkeitText(plan),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.edit),
                               tooltip: 'Bearbeiten',
@@ -77,12 +97,13 @@ class KursplanListDialog extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Fehler beim Laden: $e')),
         ),
       ),
+      // Hinweis: AlertDialog.actions ist ein OverflowBar (kein Flex) –
+      // ein Gap-Widget dort würde eine Layout-Exception auslösen.
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Schließen'),
         ),
-        const Gap(8),
         FilledButton.icon(
           onPressed: () => KursplanEditDialog.show(context),
           icon: const Icon(Icons.add),
