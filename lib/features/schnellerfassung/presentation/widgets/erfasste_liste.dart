@@ -36,22 +36,22 @@ class ErfassteListe extends ConsumerWidget {
               const Gap(8),
             ],
             Expanded(
+              // ListView.builder: nur sichtbare Zeilen werden gebaut
+              // (Performance-Regel „Implement grids and lists thoughtfully").
               child: protokoll.namen.isEmpty
                   ? Text(
                       'Noch keine Datensätze erfasst.',
                       style: theme.textTheme.bodySmall,
                     )
-                  : ListView(
-                      children: [
-                        for (var i = 0; i < protokoll.namen.length; i++)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Text(
-                              '${i + 1}.  ${protokoll.namen[i]}',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ),
-                      ],
+                  : ListView.builder(
+                      itemCount: protokoll.namen.length,
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          '${i + 1}.  ${protokoll.namen[i]}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
                     ),
             ),
             const Gap(8),

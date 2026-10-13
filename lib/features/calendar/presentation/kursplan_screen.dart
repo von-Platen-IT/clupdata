@@ -101,9 +101,13 @@ class KursplanScreen extends ConsumerWidget {
                             ),
                           ),
                         )
-                      : KursplanWochenGrid(
-                          termine: termine,
-                          wochenAnfang: woche,
+                      // RepaintBoundary: Das Raster wird bei Overlays/Hover
+                      // nicht komplett neu gezeichnet (Performance-Optimierung).
+                      : RepaintBoundary(
+                          child: KursplanWochenGrid(
+                            termine: termine,
+                            wochenAnfang: woche,
+                          ),
                         ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),

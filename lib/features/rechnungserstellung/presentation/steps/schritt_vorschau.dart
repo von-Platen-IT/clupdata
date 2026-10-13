@@ -34,12 +34,21 @@ class SchrittVorschau extends ConsumerWidget {
         const Gap(8),
         const _TabellenKopf(),
         const Divider(height: 1),
-        for (var i = 0; i < zeilen.length; i++)
-          _VorschauZeileWidget(zeile: zeilen[i], index: i),
         if (zeilen.isEmpty)
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Keine passenden Mitglieder/Perioden gefunden.'),
+          )
+        else
+          // ListView.builder: nur sichtbare Zeilen werden gebaut – wichtig
+          // bei großen Abrechnungen (Performance-Regel „lists thoughtfully").
+          SizedBox(
+            height: 420,
+            child: ListView.builder(
+              itemCount: zeilen.length,
+              itemBuilder: (context, i) =>
+                  _VorschauZeileWidget(zeile: zeilen[i], index: i),
+            ),
           ),
       ],
     );

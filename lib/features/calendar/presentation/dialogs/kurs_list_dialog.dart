@@ -39,12 +39,13 @@ class KursListDialog extends ConsumerWidget {
         child: kurseAsync.when(
           data: (kurse) => kurse.isEmpty
               ? const Center(child: Text('Noch keine Kurse angelegt.'))
-              : ListView(
-                  children: [
-                    for (final kurs in kurse)
-                      // Eigene Zeile statt ListTile: ListTile.trailing ist auf
-                      // 56px begrenzt, was die Aktionsbuttons beschädigt.
-                      Padding(
+              : ListView.builder(
+                  itemCount: kurse.length,
+                  itemBuilder: (context, index) {
+                    final kurs = kurse[index];
+                    // Eigene Zeile statt ListTile: ListTile.trailing ist auf
+                    // 56px begrenzt, was die Aktionsbuttons beschädigt.
+                    return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
@@ -109,8 +110,8 @@ class KursListDialog extends ConsumerWidget {
                             ),
                           ],
                         ),
-                      ),
-                  ],
+                    );
+                  },
                 ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Fehler beim Laden: $e')),

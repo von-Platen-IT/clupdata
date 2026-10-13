@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
@@ -26,6 +28,7 @@ class MitgliedVorlageDialog extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final searchController = useTextEditingController();
     final ergebnisse = useState<List<Mitglied>>([]);
+    final debounce = useState<Timer?>(null);
 
     Future<void> suchen(String query) async {
       final repo = ref.read(membersRepositoryProvider);
@@ -36,7 +39,7 @@ class MitgliedVorlageDialog extends HookConsumerWidget {
 
     useEffect(() {
       suchen('');
-      return null;
+      return () => debounce.value?.cancel();
     }, []);
 
     return AlertDialog(
@@ -50,7 +53,14 @@ class MitgliedVorlageDialog extends HookConsumerWidget {
               controller: searchController,
               label: 'Mitglied suchen',
               suffixIcon: const Icon(Icons.search),
-              onChanged: suchen,
+              // Debounce: DB-Abfrage erst nach 300 ms Eingabepause.
+              onChanged: (query) {
+                debounce.value?.cancel();
+                debounce.value = Timer(
+                  const Duration(milliseconds: 300),
+                  () => suchen(query),
+                );
+              },
             ),
             const Gap(8),
             Expanded(

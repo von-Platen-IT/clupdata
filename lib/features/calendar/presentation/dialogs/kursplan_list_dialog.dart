@@ -43,12 +43,13 @@ class KursplanListDialog extends ConsumerWidget {
         child: plaeneAsync.when(
           data: (plaene) => plaene.isEmpty
               ? const Center(child: Text('Noch keine Kurspläne angelegt.'))
-              : ListView(
-                  children: [
-                    for (final plan in plaene)
-                      // Eigene Zeile statt ListTile: ListTile.trailing ist auf
-                      // 56px begrenzt, was die Aktionsbuttons beschädigt.
-                      Padding(
+              : ListView.builder(
+                  itemCount: plaene.length,
+                  itemBuilder: (context, index) {
+                    final plan = plaene[index];
+                    // Eigene Zeile statt ListTile: ListTile.trailing ist auf
+                    // 56px begrenzt, was die Aktionsbuttons beschädigt.
+                    return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
@@ -90,8 +91,8 @@ class KursplanListDialog extends ConsumerWidget {
                             ),
                           ],
                         ),
-                      ),
-                  ],
+                    );
+                  },
                 ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Fehler beim Laden: $e')),
