@@ -10,6 +10,7 @@ import '../../../../common_widgets/app_section_header.dart';
 import '../../../../common_widgets/forms/app_date_picker_field.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
+import '../../../../core/utils/datum_utils.dart';
 import '../../members/data/members_repository.dart';
 import '../../waren/data/waren_repository.dart';
 import '../data/rechnungen_repository.dart';
@@ -66,7 +67,7 @@ class NeueRechnungDialog extends HookConsumerWidget {
 
     final rechnungsDatum = useState<DateTime>(DateTime.now());
     final faelligkeitDatum = useState<DateTime>(
-      DateTime.now().add(const Duration(days: 14)),
+      addiereTage(DateTime.now(), 14),
     );
 
     final positionen = useState<List<PositionEingabe>>([]);

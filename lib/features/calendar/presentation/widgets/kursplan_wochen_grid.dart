@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/datum_utils.dart';
+import '../../domain/kursplan_layout.dart';
 import '../../domain/models/kursplan_termin_row_data.dart';
 import '../../domain/wochen_utils.dart';
 import '../kurs_farbe_utils.dart';
@@ -8,8 +10,10 @@ import '../kurs_farbe_utils.dart';
 /// Zeilen = 30-Minuten-Slots (06:00–22:00).
 ///
 /// Jeder Kurstermin wird als farbiger Block über seiner Zeitspanne
-/// dargestellt (Hintergrund = `kurs.farbe`). Überlappende Termine
-/// teilen sich die Spaltenbreite.
+/// dargestellt (Hintergrund = `kurs.farbe`). **Gleichzeitige** Termine werden
+/// per Lane-Packing nebeneinander angeordnet (siehe [berechnePlatzierungen]);
+/// der Blockinhalt passt sich der verfügbaren Höhe/Breite an, sodass kein
+/// Overflow entsteht.
 ///
 /// Hinweis Widget-Regel: Das Raster ist eine Kalender-Darstellung
 /// (Zeit-Raster), keine Datentabelle – die PlutoGrid-Regel (Data-Grids)
@@ -45,7 +49,6 @@ class KursplanWochenGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final gesamtHoehe = slotAnzahl * slotHoehe;
-    final datumFormat = _zweiStellen;
 
     return Column(
       children: [
@@ -59,8 +62,8 @@ class KursplanWochenGrid extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text(
                     '${wochentagNamen[tag - 1]}\n'
-                    '${datumFormat(wochenAnfang.add(Duration(days: tag - 1)).day)}.'
-                    '${datumFormat(wochenAnfang.add(Duration(days: tag - 1)).month)}.',
+                    '${_zweiStellen(addiereTage(wochenAnfang, tag - 1).day)}.'
+                    '${_zweiStellen(addiereTage(wochenAnfang, tag - 1).month)}.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -120,135 +123,198 @@ class _TagSpalte extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final platzierungen = berechnePlatzierungen(termine);
 
-    return Container(
+    // Hinweis: DecoratedBox statt Container – Container würde über
+    // BoxDecoration.border ein implizites Padding (1px/Kante) erzeugen und
+    // den Inhalt um 2px verkleinern (Overflow der Slot-Spalte).
+    return SizedBox(
       height: gesamtHoehe,
-      decoration: BoxDecoration(border: Border.all(color: theme.dividerColor)),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final spaltenBreite = constraints.maxWidth;
-          return Stack(
-            children: [
-              // Slot-Linien
-              Column(
-                children: [
-                  for (var i = 0; i < KursplanWochenGrid.slotAnzahl; i++)
-                    Container(
-                      height: KursplanWochenGrid.slotHoehe,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: theme.dividerColor.withValues(alpha: 0.5),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final spaltenBreite = constraints.maxWidth;
+            return Stack(
+              children: [
+                // Slot-Linien
+                Column(
+                  children: [
+                    for (var i = 0; i < KursplanWochenGrid.slotAnzahl; i++)
+                      Container(
+                        height: KursplanWochenGrid.slotHoehe,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: theme.dividerColor.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              // Kurs-Blöcke (überlappende teilen die Spaltenbreite)
-              for (final gruppe in _ueberlappungsGruppen())
-                for (var idx = 0; idx < gruppe.length; idx++)
-                  _positionierterBlock(
-                    gruppe[idx],
-                    idx,
-                    gruppe.length,
-                    spaltenBreite,
-                  ),
-            ],
-          );
-        },
+                  ],
+                ),
+                // Kurs-Blöcke (gleichzeitige Termine teilen die Spaltenbreite)
+                for (final p in platzierungen)
+                  _positionierterBlock(p, platzierungen, spaltenBreite),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   /// Positioniert einen Kurs-Block im Stack (Pixel-Berechnung via LayoutBuilder).
   Widget _positionierterBlock(
-    KursplanTerminRowData termin,
-    int spaltenIndex,
-    int spaltenAnzahl,
+    TerminPlatzierung platzierung,
+    List<TerminPlatzierung> alle,
     double spaltenBreite,
   ) {
+    final termin = platzierung.termin;
+
+    // Zeitachse auf den Anzeigebereich [tagStart, tagEnde] begrenzen.
     final startSlot =
-        (termin.startMinuten - KursplanWochenGrid.tagStart) ~/
-        KursplanWochenGrid.slotMinuten;
+        ((termin.startMinuten - KursplanWochenGrid.tagStart) ~/
+                KursplanWochenGrid.slotMinuten)
+            .clamp(0, KursplanWochenGrid.slotAnzahl - 1)
+            .toInt();
     final endSlot =
         ((termin.endMinuten - KursplanWochenGrid.tagStart) /
                 KursplanWochenGrid.slotMinuten)
             .ceil()
-            .clamp(startSlot + 1, KursplanWochenGrid.slotAnzahl);
+            .clamp(startSlot + 1, KursplanWochenGrid.slotAnzahl)
+            .toInt();
+
+    final laneBreite = spaltenBreite / platzierung.laneAnzahl;
+    final links = laneBreite * platzierung.laneIndex + 1;
+    final breite = (laneBreite - 2).clamp(0.0, double.infinity).toDouble();
+
+    final parallelNamen = [
+      for (final o in alle)
+        if (!identical(o.termin, termin) && ueberlappt(termin, o.termin))
+          o.termin.kursName,
+    ];
 
     return Positioned(
       top: startSlot * KursplanWochenGrid.slotHoehe,
       height: (endSlot - startSlot) * KursplanWochenGrid.slotHoehe,
-      left: spaltenBreite * spaltenIndex / spaltenAnzahl + 1,
-      width: spaltenBreite / spaltenAnzahl - 2,
-      child: _KursBlock(termin: termin),
+      left: links,
+      width: breite,
+      child: _KursBlock(platzierung: platzierung, parallelNamen: parallelNamen),
     );
-  }
-
-  /// Gruppiert überlappende Termine (für die Spaltenteilung).
-  List<List<KursplanTerminRowData>> _ueberlappungsGruppen() {
-    final sortiert = [...termine]
-      ..sort((a, b) => a.startMinuten.compareTo(b.startMinuten));
-    final gruppen = <List<KursplanTerminRowData>>[];
-    var aktuell = <KursplanTerminRowData>[];
-    var gruppenEnde = -1;
-
-    for (final t in sortiert) {
-      if (aktuell.isNotEmpty && t.startMinuten >= gruppenEnde) {
-        gruppen.add(aktuell);
-        aktuell = [];
-        gruppenEnde = -1;
-      }
-      aktuell.add(t);
-      if (t.endMinuten > gruppenEnde) gruppenEnde = t.endMinuten;
-    }
-    if (aktuell.isNotEmpty) gruppen.add(aktuell);
-    return gruppen;
   }
 }
 
-/// Farbiger Kursblock mit Name und Zeitbereich.
+/// Farbiger Kursblock mit responsivem Inhalt, Parallel-Badge und Tooltip.
 class _KursBlock extends StatelessWidget {
-  final KursplanTerminRowData termin;
+  final TerminPlatzierung platzierung;
 
-  const _KursBlock({required this.termin});
+  /// Namen der gleichzeitig laufenden Kurse (für den Tooltip).
+  final List<String> parallelNamen;
+
+  const _KursBlock({required this.platzierung, required this.parallelNamen});
 
   @override
   Widget build(BuildContext context) {
+    final termin = platzierung.termin;
     final farbe = parseKursFarbe(termin.farbe);
     final textFarbe = kursTextFarbe(farbe);
+    final zeit = termin.endezeit == null
+        ? termin.startzeit
+        : '${termin.startzeit}–${termin.endezeit}';
 
-    return Container(
-      margin: const EdgeInsets.all(1),
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: farbe,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            termin.kursName,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: textFarbe,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+    return Tooltip(
+      message: _tooltipText(termin),
+      waitDuration: const Duration(milliseconds: 400),
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          color: farbe,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final hoehe = constraints.maxHeight;
+              final breite = constraints.maxWidth;
+              // Zeit nur bei ausreichender Höhe/Breite (verhindert Overflow).
+              final zeigeZeit = hoehe >= 56 && breite >= 90;
+              final zeigeName = hoehe >= 20 && breite >= 24;
+
+              return Stack(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      3,
+                      3,
+                      platzierung.istParallel ? 14 : 3,
+                      3,
+                    ),
+                    // OverflowBox: Inhalt darf die feste Blockhöhe überragen,
+                    // ohne einen RenderFlex-Overflow zu melden (ClipRRect kappt).
+                    child: OverflowBox(
+                      alignment: Alignment.topLeft,
+                      maxHeight: double.infinity,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (zeigeName)
+                            Text(
+                              termin.kursName,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: textFarbe,
+                              ),
+                              maxLines: zeigeZeit ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          if (zeigeZeit)
+                            Text(
+                              zeit,
+                              style: TextStyle(fontSize: 10, color: textFarbe),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (platzierung.istParallel)
+                    Positioned(
+                      top: 1,
+                      right: 1,
+                      child: Icon(
+                        Icons.people_alt_outlined,
+                        size: 11,
+                        color: textFarbe,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-          Text(
-            termin.endezeit == null
-                ? termin.startzeit
-                : '${termin.startzeit}–${termin.endezeit}',
-            style: TextStyle(fontSize: 10, color: textFarbe),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// Tooltip mit Kursname, Kampfsportart, Zeit und parallelen Kursen.
+  String _tooltipText(KursplanTerminRowData termin) {
+    final zeit = termin.endezeit == null
+        ? 'ab ${termin.startzeit}'
+        : '${termin.startzeit}–${termin.endezeit}';
+    final buffer = StringBuffer()
+      ..writeln(termin.kursName)
+      ..writeln(termin.kampfsportart)
+      ..write(zeit);
+    if (parallelNamen.isNotEmpty) {
+      buffer.write('\nParallel: ${parallelNamen.join(', ')}');
+    }
+    return buffer.toString();
   }
 }

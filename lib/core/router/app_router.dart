@@ -7,6 +7,7 @@ import '../../features/beitraege/beitraege_screen.dart';
 import '../../features/leistungen/leistungen_screen.dart';
 import '../../features/waren/waren_screen.dart';
 import '../../features/pos/pos_screen.dart';
+import '../../features/billing/presentation/offene_posten_screen.dart';
 import '../../features/backup/presentation/backup_restore_screen.dart';
 import '../../features/calendar/presentation/kursplan_screen.dart';
 import '../../features/schnellerfassung/presentation/schnellerfassung_screen.dart';
@@ -103,6 +104,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/pos',
                 builder: (context, state) => const PosScreen(),
+              ),
+              GoRoute(
+                path: '/offene-posten',
+                builder: (context, state) => const OffenePostenScreen(),
               ),
               GoRoute(
                 path: '/master-data',

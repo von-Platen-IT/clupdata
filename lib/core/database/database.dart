@@ -16,6 +16,9 @@ import 'tables/beitraege_table.dart';
 import 'tables/beitrag_status_verlauf_table.dart';
 import 'tables/rechnung_table.dart';
 import 'tables/rechnung_position_table.dart';
+import 'tables/rechnung_status_verlauf_table.dart';
+import 'tables/zahlung_table.dart';
+import 'tables/mahnung_table.dart';
 import 'tables/kurs_table.dart';
 import 'tables/kursplan_table.dart';
 import 'tables/kursplan_termin_table.dart';
@@ -37,6 +40,9 @@ part 'database.g.dart';
     BeitragStatusVerlauf,
     Rechnungen,
     RechnungPositionen,
+    RechnungStatusVerlaeufe,
+    Zahlungen,
+    Mahnungen,
     Kurs,
     Kursplan,
     KursplanTermine,
@@ -57,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The schema version. Increment this when making changes to any [Table] design.
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   /// Schreibt den WAL-Cache in die Hauptdatei (für konsistente Backups).
   Future<void> checkpoint() async {
@@ -179,12 +185,53 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(kurs);
         await migrator.createTable(kursplan);
         await migrator.createTable(kursplanTermine);
+        if (to > 18) {
+          await _migrateToV19(migrator);
+        }
+      } else if (from == 18) {
+        // v19: Billing-Datenmodell (Zahlungen, Mahnungen, Rechnungs-Status-Verlauf)
+        await _migrateToV19(migrator);
       }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Migration auf Schema v19: Billing-Datenmodell.
+  ///
+  /// - Neue Tabellen `zahlung`, `mahnung`, `rechnung_status_verlauf`
+  /// - Neue Spalte `beitrag.faellig_am` (Default: `kontiert_am + 14 Tage`)
+  ///
+  /// Rein additiv, forward-only (keine Datenverluste). **Idempotent**:
+  /// Die Migration kann bei einem vorherigen Fehlschlag teilgelaufen sein,
+  /// jeder Schritt ist deshalb einzeln abgesichert.
+  Future<void> _migrateToV19(Migrator migrator) async {
+    // Tabellen nur anlegen, wenn noch nicht vorhanden (idempotent).
+    try {
+      await migrator.createTable(zahlungen);
+    } catch (_) {/* bereits vorhanden */}
+    try {
+      await migrator.createTable(mahnungen);
+    } catch (_) {/* bereits vorhanden */}
+    try {
+      await migrator.createTable(rechnungStatusVerlaeufe);
+    } catch (_) {/* bereits vorhanden */}
+
+    // Spalte faellig_am: SQLite erlaubt kein ALTER ADD COLUMN NOT NULL ohne
+    // Default – daher mit Default 0 anlegen und anschließend befüllen.
+    // Drift speichert DateTime als Unix-Timestamp in Sekunden.
+    try {
+      await customStatement(
+        'ALTER TABLE beitrag ADD COLUMN faellig_am INTEGER NOT NULL DEFAULT 0',
+      );
+    } catch (_) {/* Spalte existiert bereits */}
+    // Bestehende Beiträge: Fälligkeit = kontiert_am + 14 Tage.
+    await customStatement(
+      'UPDATE beitrag SET faellig_am = kontiert_am + 1209600 '
+      'WHERE faellig_am = 0 OR faellig_am IS NULL',
+    );
+  }
 }
 
 String _resolveDbPath() {

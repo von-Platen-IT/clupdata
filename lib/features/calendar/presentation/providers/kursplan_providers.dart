@@ -1,7 +1,9 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/utils/datum_utils.dart';
 import '../../data/kursplan_repository.dart';
 import '../../domain/models/kurs_row_data.dart';
+import '../../domain/models/kursplan_ansicht.dart';
 import '../../domain/models/kursplan_row_data.dart';
 import '../../domain/models/kursplan_termin_row_data.dart';
 import '../../domain/wochen_utils.dart';
@@ -22,29 +24,13 @@ Stream<List<KursplanRowData>> kursplaeneList(Ref ref) {
   return repo.watchKursplaene();
 }
 
-/// Die aktuell angezeigte Woche (immer ein Montag).
-@riverpod
-class AktuelleWoche extends _$AktuelleWoche {
-  @override
-  DateTime build() => montagVon(DateTime.now());
-
-  /// Eine Woche vor.
-  void vor() => state = state.add(const Duration(days: 7));
-
-  /// Eine Woche zurück.
-  void zurueck() => state = state.subtract(const Duration(days: 7));
-
-  /// Zur aktuellen Woche springen.
-  void heute() => state = montagVon(DateTime.now());
-
-  /// Direkte Auswahl eines Datums (wird auf Montag normalisiert).
-  void setze(DateTime datum) => state = montagVon(datum);
-}
-
-/// Alle für die [aktuelleWocheProvider] gültigen Kurspläne.
+/// Alle für die Woche des aktuellen Fokus-Datums gültigen Kurspläne.
+///
+/// Der Fokus stammt aus der [KursplanAnsichtSteuerung] (Ansicht unabhängig).
 @riverpod
 Future<List<KursplanRowData>> gueltigeKursplaene(Ref ref) async {
-  final woche = ref.watch(aktuelleWocheProvider);
+  final fokus = ref.watch(kursplanAnsichtSteuerungProvider).fokus;
+  final woche = montagVon(fokus);
   final repo = ref.watch(kursplanRepositoryProvider);
   return repo.loadGueltigePlaene(woche);
 }
@@ -75,4 +61,68 @@ Future<List<KursplanTerminRowData>> kursplanTermine(Ref ref) async {
 
   final repo = ref.watch(kursplanRepositoryProvider);
   return repo.loadTermine(plan.id);
+}
+
+/// Unveränderlicher Zustand der Kursplan-Darstellung (Ansicht + Fokus-Datum).
+class KursplanAnsichtZustand {
+  const KursplanAnsichtZustand({required this.fokus, required this.ansicht});
+
+  /// Das Datum, auf das die Darstellung ausgerichtet ist (Jahr/Monat/Woche/Tag).
+  final DateTime fokus;
+
+  /// Aktive Darstellungsform.
+  final KursplanAnsicht ansicht;
+
+  KursplanAnsichtZustand copyWith({DateTime? fokus, KursplanAnsicht? ansicht}) {
+    return KursplanAnsichtZustand(
+      fokus: fokus ?? this.fokus,
+      ansicht: ansicht ?? this.ansicht,
+    );
+  }
+}
+
+/// Steuerung der Kursplan-Darstellung (Ansicht + Navigation).
+///
+/// Initial: **aktuelle Wochenansicht** (Anforderung). Die Navigation bewegt
+/// den [KursplanAnsichtZustand.fokus] in Schritten der aktiven Ansicht.
+@riverpod
+class KursplanAnsichtSteuerung extends _$KursplanAnsichtSteuerung {
+  @override
+  KursplanAnsichtZustand build() => KursplanAnsichtZustand(
+    fokus: DateTime.now(),
+    ansicht: KursplanAnsicht.woche,
+  );
+
+  /// Wechselt die Darstellungsform (Fokus bleibt erhalten).
+  void setzeAnsicht(KursplanAnsicht ansicht) {
+    state = state.copyWith(ansicht: ansicht);
+  }
+
+  /// Springt zum angegebenen Datum (DatePicker).
+  void setzeFokus(DateTime datum) {
+    state = state.copyWith(fokus: datum);
+  }
+
+  /// Springt zum heutigen Tag.
+  void heute() => state = state.copyWith(fokus: DateTime.now());
+
+  /// Navigation „vor" in Schritten der aktiven Ansicht.
+  void vor() => state = state.copyWith(fokus: _verschiebe(1));
+
+  /// Navigation „zurück" in Schritten der aktiven Ansicht.
+  void zurueck() => state = state.copyWith(fokus: _verschiebe(-1));
+
+  DateTime _verschiebe(int richtung) {
+    final f = state.fokus;
+    switch (state.ansicht) {
+      case KursplanAnsicht.jahr:
+        return DateTime(f.year + richtung, f.month, f.day);
+      case KursplanAnsicht.monat:
+        return DateTime(f.year, f.month + richtung, f.day);
+      case KursplanAnsicht.woche:
+        return addiereTage(f, 7 * richtung);
+      case KursplanAnsicht.tag:
+        return addiereTage(f, richtung);
+    }
+  }
 }

@@ -8,8 +8,10 @@ import '../../common_widgets/feature_screen_scaffold.dart';
 import '../../core/data/bemerkung_repository.dart';
 import '../../core/database/database.dart';
 import 'data/rechnungen_repository.dart';
+import 'widgets/gutschrift_dialog.dart';
 import 'widgets/neue_rechnung_dialog.dart';
 import 'widgets/rechnung_data_grid.dart';
+import 'widgets/sammelrechnung_dialog.dart';
 
 /// Main screen for the Rechnungen (invoices) module.
 class RechnungenScreen extends HookConsumerWidget {
@@ -34,6 +36,30 @@ class RechnungenScreen extends HookConsumerWidget {
       title: 'Rechnungen',
       hasSelection: selectedRowId.value != null,
       onCreateNew: () => NeueRechnungDialog.show(context),
+      additionalActions: [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.merge_type),
+          label: const Text('Sammelrechnung'),
+          onPressed: () => SammelrechnungDialog.show(context),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.assignment_return),
+          label: const Text('Stornieren'),
+          onPressed: selectedRowId.value == null
+              ? null
+              : () async {
+                  final repo = ref.read(rechnungenRepositoryProvider);
+                  final details = await repo.getRechnungWithDetails(
+                    selectedRowId.value!,
+                  );
+                  if (details != null && context.mounted) {
+                    await GutschriftDialog.show(context, details);
+                    selectedRowId.value = null;
+                  }
+                },
+        ),
+      ],
       onDeleteSelection: () async {
         if (selectedRowId.value == null) return;
         final confirm = await AppDialogDeleteAction.showDeleteConfirmation(

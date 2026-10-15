@@ -6,11 +6,20 @@ import '../kurs_farbe_utils.dart';
 
 /// Farb-Legende der im Kursplan angezeigten Kurse.
 ///
-/// Zeigt je Kurs ein Farbquadrat mit Name und Kampfsportart.
+/// Zeigt je Kurs ein Farbquadrat mit Name und Kampfsportart. Kurse, die im
+/// aktuellen Plan parallel zu einem anderen Kurs laufen, werden mit einem
+/// Parallel-Symbol markiert.
 class KursplanLegende extends StatelessWidget {
   final List<KursRowData> kurse;
 
-  const KursplanLegende({super.key, required this.kurse});
+  /// IDs der Kurse, die im aktuellen Plan parallel laufen.
+  final Set<int> parallelKursIds;
+
+  const KursplanLegende({
+    super.key,
+    required this.kurse,
+    this.parallelKursIds = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +46,17 @@ class KursplanLegende extends StatelessWidget {
                 '${kurs.name} (${kurs.kampfsportart})',
                 style: theme.textTheme.bodySmall,
               ),
+              if (parallelKursIds.contains(kurs.id)) ...[
+                const Gap(4),
+                Tooltip(
+                  message: 'Läuft parallel zu einem anderen Kurs',
+                  child: Icon(
+                    Icons.people_alt_outlined,
+                    size: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
       ],

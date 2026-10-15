@@ -12,7 +12,7 @@
 | **updated** | 2026-10-12 |
 | **description** | Schema definition for database structure and UI configuration. Used by AI coding agent to generate database models and UI screens. |
 | **file** | lib/assets/data/structur.md |
-| **db_schema_version** | 18 |
+| **db_schema_version** | 19 |
 
 ## UUID-Strategie für CSV-Export/Import
 
@@ -215,9 +215,10 @@ _Rechnung/Zahlung eines Mitglieds für die gebuchten Leistungen._
 | `leistung_id` | INTEGER | NotNull, FK->leistung.id(RESTRICT) | Billed service/contract |
 | `preis_id` | INTEGER | FK->preis.id(SET NULL) | Snapshot of the price at billing |
 | `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "RE-2026-0001" |
-| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Current payment status. **VERSIONIERT** in `beitrag_status_verlauf` — Änderungen erfordern einen Eintrag mit Erklärung |
+| `status` | TEXT | NotNull, Enum:[kontiert, offen, teilbezahlt, bezahlt, angemahnt, storniert, inkasso] | Current payment status. **VERSIONIERT** in `beitrag_status_verlauf` — Änderungen erfordern einen Eintrag mit Erklärung. `teilbezahlt` = **Schema v19** |
 | `kontiert_am` | DATE | NotNull | Date when the contribution/invoice was created and is due |
 | `abrechnungs_zeitraum` | DATE | Nullable | Abrechnungszeitraum (z.B. 1.3.2026 für März 2026). Nur befüllt bei automatischer Rechnungslegung, null bei manuellen Beiträgen. Wird für Duplikat-Prüfung verwendet. |
+| `faellig_am` | DATE | NotNull | Fälligkeitsdatum (Grundlage Mahnwesen). Default `kontiert_am + 14 Tage` (Stammdaten `zahlungsziel_tage`). **Schema v19** |
 | `status_datum` | DATE | NotNull | Datum des letzten Statuswechsels (Snapshot, redundant zu Verlauf) |
 | `bemerkung_id` | INTEGER | FK->bemerkung.id(SET NULL) | Optionale Bemerkung |
 
@@ -234,7 +235,7 @@ _Unveränderliche Status-History für einen Beitrag. Jede Statusänderung erzeug
 | `id` | INTEGER | PK, AutoIncrement | Technical ID |
 | `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
 | `beitrag_id` | INTEGER | NotNull, FK->beitrag.id(CASCADE) | Zugehöriger Beitrag — bei Löschung des Beitrags werden alle Verlaufseinträge mitgelöscht |
-| `status` | TEXT | NotNull, Enum:[kontiert, offen, bezahlt, angemahnt, storniert, inkasso] | Der neue Status zum Zeitpunkt dieser Änderung |
+| `status` | TEXT | NotNull, Enum:[kontiert, offen, teilbezahlt, bezahlt, angemahnt, storniert, inkasso] | Der neue Status zum Zeitpunkt dieser Änderung |
 | `geaendert_am` | DATETIME | NotNull | Exakter Zeitstempel der Statusänderung |
 | `bemerkung` | TEXT | NotNull, MaxLen:500 | **PFLICHTFELD**: Erklärung/Grund für die Statusänderung. Darf nicht leer sein. |
 
@@ -254,7 +255,7 @@ _Rechnung für Warenverkäufe (POS). Jede Rechnung kann mehrere Positionen haben
 | `rechnungsnummer` | TEXT | NotNull, Unique, MaxLen:100 | Eindeutige Rechnungsnummer, e.g. "R-2026-0001" |
 | `mitglied_id` | INTEGER | FK->mitglied.id(SET NULL) | Optional - für Walk-ins kann NULL sein |
 | `kunde_name` | TEXT | MaxLen:200 | Name des Kunden (für nicht-Mitglieder) |
-| `status` | TEXT | NotNull, Enum:[offen, bezahlt, storniert] | Zahlungsstatus |
+| `status` | TEXT | NotNull, Enum:[entwurf, offen, teilbezahlt, bezahlt, angemahnt, storniert] | Zahlungsstatus. `entwurf`, `teilbezahlt`, `angemahnt` = **Schema v19** |
 | `datum` | DATE | NotNull | Rechnungsdatum |
 | `faellig_am` | DATE | NotNull | Fälligkeitsdatum |
 | `bezahlt_am` | DATE | | Zahlungsdatum (NULL bis bezahlt) |
@@ -268,10 +269,13 @@ _Rechnung für Warenverkäufe (POS). Jede Rechnung kann mehrere Positionen haben
 **Constraints:**
 - `CHECK (mitglied_id IS NOT NULL OR kunde_name IS NOT NULL)` — Entweder Mitglied oder Kundenname muss gesetzt sein.
 
-**Status-Workflow:**
-- `offen` → `bezahlt` (Zahlung eingegangen)
-- `offen` → `storniert` (Rechnung storniert)
-- `bezahlt` → `storniert` (Stornierung nach Zahlung)
+**Status-Workflow (Schema v19, siehe [`plans/rechnungsstellung-redesign.md`](plans/rechnungsstellung-redesign.md:1)):**
+- `entwurf` → `offen` (Versenden/Kontieren)
+- `offen` → `teilbezahlt` → `bezahlt` (Teilzahlungen, Saldo-Prinzip via [`zahlung`](#114-zahlung))
+- `offen`/`teilbezahlt` → `angemahnt` (Mahnlauf-Stufen 1–3)
+- `angemahnt` → `inkasso` (manuelle Eskalation)
+- `entwurf`/`offen`/`teilbezahlt`/`bezahlt` → `storniert` (Storno + Gutschrift `G-YYYY-XXXXX`)
+- Jeder Statuswechsel wird in [`rechnung_status_verlauf`](#115-rechnung_status_verlauf) mit Pflicht-Bemerkung protokolliert
 
 ### 1.10 `rechnung_position`
 _Positionen (Zeilen) einer Rechnung. Pro Position ein verkaufter Artikel._
@@ -344,6 +348,60 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
 **Constraints:**
 - `CHECK (endezeit IS NULL OR endezeit > startzeit)` — Ende muss nach Start liegen
 
+### 1.14 `zahlung`
+_Zahlungseingänge zu Beiträgen oder Rechnungen (auch Teilzahlungen und Gutschrift-Ausgleiche). **Schema v19** (umgesetzt), siehe [`plans/rechnungsstellung-redesign.md`](plans/rechnungsstellung-redesign.md:241) und [`ADR-004`](plans/adr/ADR-004-billing-datenmodell.md:1)._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `beitrag_id` | INTEGER | FK->beitrag.id(CASCADE) | Genau EINES von `beitrag_id`/`rechnung_id` |
+| `rechnung_id` | INTEGER | FK->rechnung.id(CASCADE) | s.o. |
+| `betrag` | REAL | NotNull | Positiv = Zahlung, negativ = Gutschrift-Ausgleich |
+| `datum` | DATE | NotNull | Zahlungsdatum |
+| `zahlungsart` | TEXT | NotNull, Enum:[bar, karte, lastschrift, ueberweisung, sonstiges] | |
+| `bemerkung` | TEXT | Nullable | |
+| `created_at` | DATE | NotNull | |
+
+**Constraints:**
+- `CHECK ((beitrag_id IS NULL) != (rechnung_id IS NULL))` — Genau ein Beleg-Bezug
+
+**Regeln:**
+- Der Beitrags-/Rechnungsstatus wird aus `SUM(zahlungen)` vs. Forderung abgeleitet (Saldo-Prinzip)
+- Zahlungen sind READ-ONLY nach dem Einfügen (Korrektur über negative Zahlung/Gutschrift)
+
+### 1.15 `rechnung_status_verlauf`
+_Unveränderliche Status-History für Waren-Rechnungen, analog [`beitrag_status_verlauf`](#18-beitrag_status_verlauf). **Schema v19** (umgesetzt)._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `rechnung_id` | INTEGER | NotNull, FK->rechnung.id(CASCADE) | Zugehörige Rechnung |
+| `status` | TEXT | NotNull, Enum:[entwurf, offen, teilbezahlt, bezahlt, angemahnt, storniert] | Der neue Status |
+| `geaendert_am` | DATETIME | NotNull | Exakter Zeitstempel |
+| `bemerkung` | TEXT | NotNull, MaxLen:500 | **PFLICHTFELD**: Erklärung/Grund |
+
+**Regeln:** Identisch zu [`beitrag_status_verlauf`](#18-beitrag_status_verlauf) — READ-ONLY, Pflicht-Bemerkung.
+
+### 1.16 `mahnung`
+_Dokumentierte Mahnstufen je Forderung (Beitrag oder Rechnung). **Schema v19** (umgesetzt), siehe [`ADR-006`](plans/adr/ADR-006-mahnwesen.md:1)._
+
+| Feld | Typ | Modifikatoren | Kommentar |
+|---|---|---|---|
+| `id` | INTEGER | PK, AutoIncrement | Technical ID |
+| `uuid` | TEXT | NotNull, Unique, Default:auto-generated | Instanzunabhängige ID für CSV-Export/Import |
+| `beitrag_id` | INTEGER | FK->beitrag.id(CASCADE) | Genau EINES der beiden FKs |
+| `rechnung_id` | INTEGER | FK->rechnung.id(CASCADE) | |
+| `stufe` | INTEGER | NotNull | 1 = Zahlungserinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung, 4 = Inkasso |
+| `datum` | DATE | NotNull | |
+| `gebuehr` | REAL | NotNull, Default 0 | Mahngebühr |
+| `forderung` | REAL | NotNull | Offener Betrag zum Mahnzeitpunkt |
+| `bemerkung` | TEXT | Nullable | |
+
+**Constraints:**
+- `CHECK ((beitrag_id IS NULL) != (rechnung_id IS NULL))` — Genau ein Beleg-Bezug
+
 ## 2. Datenbank Indizes
 
 | Tabelle | Index Name | Felder | Unique | Kommentar |
@@ -388,6 +446,14 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
 | `kursplan_termin` | `idx_kursplan_termin_plan` | `kursplan_id` | Nein |  |
 | `kursplan_termin` | `idx_kursplan_termin_kurs` | `kurs_id` | Nein |  |
 | `kursplan_termin` | `idx_kursplan_termin_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `zahlung` | `idx_zahlung_beitrag` | `beitrag_id` | Nein | **Schema v19** |
+| `zahlung` | `idx_zahlung_rechnung` | `rechnung_id` | Nein | **Schema v19** |
+| `zahlung` | `idx_zahlung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `mahnung` | `idx_mahnung_beitrag` | `beitrag_id` | Nein | **Schema v19** |
+| `mahnung` | `idx_mahnung_rechnung` | `rechnung_id` | Nein | **Schema v19** |
+| `mahnung` | `idx_mahnung_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
+| `rechnung_status_verlauf` | `idx_rechnung_status_verlauf_rechnung` | `rechnung_id` | Nein | **Schema v19** |
+| `rechnung_status_verlauf` | `idx_rechnung_status_verlauf_uuid` | `uuid` | Ja | UUID-Lookup für CSV-Import |
 
 
 ## 3. Relationen
@@ -413,6 +479,11 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
 | `kursplan.bemerkung_id` | `bemerkung.id` | many-to-one | Kursplan hat eine optionale Bemerkung |
 | `kursplan_termin.kursplan_id` | `kursplan.id` | many-to-one (CASCADE) | Termin gehört zu einem Kursplan |
 | `kursplan_termin.kurs_id` | `kurs.id` | many-to-one (RESTRICT) | Termin referenziert einen Kurs |
+| `zahlung.beitrag_id` | `beitrag.id` | many-to-one (CASCADE) | Zahlung zu einem Beitrag (**Schema v19**) |
+| `zahlung.rechnung_id` | `rechnung.id` | many-to-one (CASCADE) | Zahlung zu einer Rechnung (**Schema v19**) |
+| `mahnung.beitrag_id` | `beitrag.id` | many-to-one (CASCADE) | Mahnung zu einem Beitrag (**Schema v19**) |
+| `mahnung.rechnung_id` | `rechnung.id` | many-to-one (CASCADE) | Mahnung zu einer Rechnung (**Schema v19**) |
+| `rechnung_status_verlauf.rechnung_id` | `rechnung.id` | many-to-one (CASCADE) | Status-History gehört zu einer Rechnung (**Schema v19**) |
 
 
 ## 4. UI Konfiguration
@@ -427,6 +498,33 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
 - **allTablesUseAppDataGrid**: True
 - **appDataGridBaseClass**: VpitDataGrid
 - **appDataGridLocation**: lib/widgets/data_grid_v2/vpit_data_grid.dart
+
+### 4.1.1 UI – Rechnungsstellung Redesign (Schema v19)
+
+> **Status**: GEPLANT – vollständige Spezifikation in [`plans/rechnungsstellung-redesign.md`](plans/rechnungsstellung-redesign.md:1), Entscheidungen in [`ADR-004`](plans/adr/ADR-004-billing-datenmodell.md:1), [`ADR-005`](plans/adr/ADR-005-rechnungszentrale-ui.md:1), [`ADR-006`](plans/adr/ADR-006-mahnwesen.md:1).
+
+**Neue Screens:**
+
+| Screen | Route | Typ | Beschreibung |
+|---|---|---|---|
+| `screen_offene_posten` | /offene-posten | dataGridScreen | Alle offenen Beiträge + Rechnungen mit Saldo, Fälligkeit, Überfälligkeit |
+| `screen_pos_kasse` | /pos | posScreen | Echte Kasse (ersetzt Placeholder): Produkt-Grid, Warenkorb, Zahlart, Tagesabschluss |
+| `dialog_abrechnungslauf` | Dialog | modalDialog (4 Schritte) | Ersetzt Rechnungslegung-Wizard: Empfängerkreis-Chips + Zeitraum, editierbare Vorschau, Freigabe, Ergebnis |
+| `dialog_zahlung_eingang` | Dialog | modalDialog | Zahlung erfassen (Voll-/Teilzahlung, Zahlart) |
+| `wizard_mahnlauf` | Dialog | modalDialog (3 Schritte) | Überfällige auswählen → Mahn-Vorschau → Erstellen |
+| `dialog_rechnung_editor` | Dialog | modalDialog | Ersetzt `dialog_rechnung_new`: aufgeteilt in Kopf + `PositionEditor` |
+| `dialog_sammelrechnung` | Dialog | modalDialog | Offene Verkäufe eines Mitglieds zu einer Rechnung zusammenfassen |
+| `dialog_gutschrift` | Dialog | modalDialog | Storno + Gutschrift (`G-YYYY-XXXXX`) |
+| `dialog_tagesabschluss` | Dialog | modalDialog | Kassenbericht je Zahlart (CSV/PDF) |
+
+**Geänderte Screens:** `screen_beitrag_list` und `screen_rechnung_list` erhalten zeilenweise Aktionen (Zahlung, Mahnen, Storno/Gutschrift) sowie Saldo-/Fälligkeitsspalten.
+
+**Statusfarben-Erweiterung** (zentrale Quellen bleiben [`beitrag_status_colors.dart`](lib/features/beitraege/utils/beitrag_status_colors.dart:1) und [`rechnung_status_colors.dart`](lib/features/rechnungen/utils/rechnung_status_colors.dart:1)):
+
+| Status | Farbe | Hex | Gilt für |
+|---|---|---|---|
+| `teilbezahlt` | Hellblau | `#BBDEFB` | Beiträge + Rechnungen |
+| `entwurf` | Hellgrau | `#F5F5F5` | Rechnungen |
 - **comment**: See datagrid_agent_config.md for full AppDataGrid specification including search, sort dialog and filter dialog.
 
 
@@ -614,10 +712,16 @@ _Wöchentlicher Kurstermin innerhalb eines Kursplans (Wochentag + Uhrzeiten)._
   - `woche_nav` (Wochen-Navigation) - Widget: IconButton-Row (◀/▶ ± 7 Tage, „Heute")
   - `woche_anzeige` (Wochenbereich + KW) - Widget: Text
   - `kursplan_auswahl` (Plan) - Widget: DropdownField – alle für die Woche gültigen Pläne; Vorauswahl: spätester `gueltig_von`
-  - `wochen_raster` (Kursplan) - Widget: CustomGrid – Spalten Mo–So, Zeit-Slots 30 Min, Kurs-Blöcke mit `kurs.farbe`
-  - `legende` (Kurs-Legende) - Widget: Wrap – Farbquadrat + Kursname + Kampfsportart
+  - `wochen_raster` (Kursplan) - Widget: CustomGrid – Spalten Mo–So, Zeit-Slots 30 Min, Kurs-Blöcke mit `kurs.farbe`; **gleichzeitige Kurse** werden per Lane-Packing nebeneinander dargestellt (siehe Regeln)
+  - `legende` (Kurs-Legende) - Widget: Wrap – Farbquadrat + Kursname + Kampfsportart; parallel laufende Kurse mit Parallel-Symbol
   - `kurse_verwalten` (Kurse) - Widget: Button → `dialog_kurs_list`
   - `plaene_verwalten` (Pläne) - Widget: Button → `dialog_kursplan_list`
+- **Regeln:**
+  - **Überlappende Termine (gleichzeitige Kurse)**: Lane-Packing (Greedy-Intervall-Partitionierung) – jeder Termin erhält die erste freie Spur; Blockbreite = Spaltenbreite / maximale Parallelität des Tages. Nicht überlappende Termine teilen sich eine Spur.
+  - **Responsiver Block-Inhalt**: Name + Zeit nur bei ausreichender Höhe/Breite; sonst Reduktion auf eine Zeile bzw. reine Farbfläche (`ClipRect` als Overflow-Schutz). Kein RenderFlex-Overflow.
+  - **Parallel-Indikator**: Gleichzeitig laufende Termine zeigen ein Parallel-Symbol; Tooltip listet Kursname, Kampfsportart, Zeit und parallel laufende Kurse.
+  - **Zeitachsen-Clamping**: Termine außerhalb 06:00–22:00 werden am Rasterrand angedockt und im Tooltip als „außerhalb des Anzeigebereichs" gekennzeichnet.
+  - **Layout-Logik**: reine, testbare Funktionen in `lib/features/calendar/domain/kursplan_layout.dart`. Details: `plans/kursplan-ueberlappung.md`, `ADR-007`.
 
 #### Screen: Sicherung & Wiederherstellung (`screen_backup_restore`)
 - **Route**: /backup
@@ -914,6 +1018,7 @@ Alle Status-Enums implementieren das Interface [`StatusManager`](lib/core/models
 |---------|--------|--------|----------|-----------|
 | Beitrag | `RE-` | `RE-YYYY-XXXXX` | `RE-2026-00001` | `RechnungsnummerGenerator.generateForBeitrag()` |
 | Rechnung (Waren) | `R-` | `R-YYYY-XXXXX` | `R-2026-00001` | `RechnungsnummerGenerator.generateForRechnung()` |
+| Gutschrift (Schema v19) | `G-` | `G-YYYY-XXXXX` | `G-2026-00001` | `RechnungsnummerGenerator.generateForGutschrift()` |
 
 > **WICHTIG**: Die Formate sind unterschiedlich und dürfen nicht verwechselt werden. Beiträge verwenden `RE-`, Rechnungen `R-`.
 
@@ -936,5 +1041,7 @@ Alle Status-Enums implementieren das Interface [`StatusManager`](lib/core/models
 | 15 | `beitrag.abrechnungs_zeitraum` hinzugefügt | — |
 | 16 | Tabellennamen angepasst (Singular: `mitglied`, `beitrag`, `rechnung`, `rechnung_position`) | — |
 | 17 | UUID-Spalten für alle Tabellen hinzugefügt | — |
+| 18 | `kurs`, `kursplan`, `kursplan_termin` hinzugefügt | — |
+| 19 | `zahlung`, `mahnung`, `rechnung_status_verlauf` hinzugefügt; `beitrag.faellig_am`; Status-Enums erweitert (Beiträge + `teilbezahlt`, Rechnungen + `entwurf`/`teilbezahlt`/`angemahnt`) | — |
 
 > **Regel**: Migrations sind **forward-only**. Nie `deleteTable` in Production ohne Daten-Migration.

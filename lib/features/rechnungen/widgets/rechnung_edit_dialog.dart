@@ -11,6 +11,7 @@ import '../../../../common_widgets/forms/app_dropdown_field.dart';
 import '../../../../common_widgets/forms/app_text_field.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/utils/color_extensions.dart';
+import '../../../../core/utils/datum_utils.dart';
 import '../data/rechnungen_repository.dart';
 import '../domain/models/rechnung_status.dart';
 import '../presentation/providers/rechnungen_list_provider.dart';
@@ -87,7 +88,7 @@ class RechnungEditDialog extends HookConsumerWidget {
     final bezahltAm = useState<DateTime?>(null);
     final rechnungsDatum = useState<DateTime>(DateTime.now());
     final faelligkeitDatum = useState<DateTime>(
-      DateTime.now().add(const Duration(days: 14)),
+      addiereTage(DateTime.now(), 14),
     );
 
     // Focus nodes

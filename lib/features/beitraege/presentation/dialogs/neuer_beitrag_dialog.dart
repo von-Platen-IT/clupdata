@@ -9,6 +9,7 @@ import '../../../../common_widgets/app_section_header.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/providers/database_provider.dart';
 import '../../../../core/utils/color_extensions.dart';
+import '../../../../core/utils/datum_utils.dart';
 import '../../../leistungen/data/leistungen_repository.dart';
 import '../../../leistungen/domain/models/leistungs_detail.dart';
 import '../../../members/data/members_repository.dart';
@@ -178,6 +179,7 @@ class NeuerBeitragDialog extends HookConsumerWidget {
             rechnungsnummer: rechnungsnummer.value,
             status: 'kontiert',
             kontiertAm: kontiertAm.value,
+            faelligAm: addiereTage(kontiertAm.value, 14),
             statusDatum: kontiertAm.value,
           ),
         );

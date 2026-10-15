@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
-import '../features/rechnungserstellung/presentation/rechnungslegung_wizard.dart';
+import '../features/abrechnung/presentation/abrechnungslauf_wizard.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
@@ -126,7 +126,7 @@ class MainMenuBar extends ConsumerWidget {
                   label: 'Beiträge',
                   shortcut: MenuShortcuts.rechnungBeitraege.menuLabel,
                 ),
-                onTap: () => RechnungslegungWizardDialog.show(context),
+                onTap: () => AbrechnungslaufWizardDialog.show(context),
               ),
               const PopupMenuDivider(),
               // Datenbank Submenü

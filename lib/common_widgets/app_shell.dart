@@ -8,12 +8,13 @@ import 'package:gap/gap.dart';
 import '../core/keyboard/keyboard_shortcuts.dart';
 import '../core/providers/active_menu_item_provider.dart';
 import '../core/utils/app_version.dart';
-import '../features/rechnungserstellung/presentation/rechnungslegung_wizard.dart';
+import '../features/abrechnung/presentation/abrechnungslauf_wizard.dart';
 import '../features/beitraege/presentation/dialogs/neuer_beitrag_dialog.dart';
 import '../features/rechnungen/widgets/neue_rechnung_dialog.dart';
 import '../features/members/widgets/member_edit_dialog.dart';
 import '../features/leistungen/widgets/leistung_edit_dialog.dart';
 import '../features/waren/widgets/waren_edit_dialog.dart';
+import 'app_sidebar.dart';
 import 'csv_bulk_export_dialog.dart';
 import 'csv_bulk_import_dialog.dart';
 import 'main_menu_bar.dart';
@@ -62,7 +63,7 @@ class AppShell extends HookConsumerWidget {
         MenuShortcuts.createWare: () => WarenEditDialog.show(context),
         // Rechnungserstellung
         MenuShortcuts.rechnungBeitraege: () =>
-            RechnungslegungWizardDialog.show(context),
+            AbrechnungslaufWizardDialog.show(context),
         MenuShortcuts.backup: () => context.go('/backup'),
         MenuShortcuts.restore: () => context.go('/backup'),
         MenuShortcuts.csvExport: () => showCsvBulkExportDialog(context, ref),
@@ -90,50 +91,50 @@ class AppShell extends HookConsumerWidget {
               Expanded(
                 child: Row(
                   children: [
-                    NavigationRail(
+                    AppSidebar(
                       selectedIndex: navigationShell.currentIndex,
-                      onDestinationSelected: onItemTapped,
-                      labelType: isExtended.value
-                          ? NavigationRailLabelType.none
-                          : NavigationRailLabelType.all,
+                      onItemSelected: onItemTapped,
                       extended: isExtended.value,
+                      // Bei aktiver Hauptmenü-Aktion wird die Sidebar-Auswahl
+                      // ausgeblendet (kein doppelter aktiver Zustand).
+                      istMenuAktiv: activeMenuItem != null,
                       leading: _buildLeading(context, isExtended),
                       trailing: _buildTrailing(context),
-                      destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.home_outlined),
-                          selectedIcon: Icon(Icons.home),
-                          label: Text('Start'),
+                      items: const [
+                        AppSidebarItem(
+                          icon: Icons.home_outlined,
+                          selectedIcon: Icons.home,
+                          label: 'Start',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.groups_outlined),
-                          selectedIcon: Icon(Icons.groups),
-                          label: Text('Mitglieder'),
+                        AppSidebarItem(
+                          icon: Icons.groups_outlined,
+                          selectedIcon: Icons.groups,
+                          label: 'Mitglieder',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.description_outlined),
-                          selectedIcon: Icon(Icons.description),
-                          label: Text('Leistungen'),
+                        AppSidebarItem(
+                          icon: Icons.description_outlined,
+                          selectedIcon: Icons.description,
+                          label: 'Leistungen',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.payments),
-                          selectedIcon: Icon(Icons.payments),
-                          label: Text('Beiträge'),
+                        AppSidebarItem(
+                          icon: Icons.payments_outlined,
+                          selectedIcon: Icons.payments,
+                          label: 'Beiträge',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.receipt_long_outlined),
-                          selectedIcon: Icon(Icons.receipt_long),
-                          label: Text('Rechnungen'),
+                        AppSidebarItem(
+                          icon: Icons.receipt_long_outlined,
+                          selectedIcon: Icons.receipt_long,
+                          label: 'Rechnungen',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.inventory_2_outlined),
-                          selectedIcon: Icon(Icons.inventory_2),
-                          label: Text('Waren'),
+                        AppSidebarItem(
+                          icon: Icons.inventory_2_outlined,
+                          selectedIcon: Icons.inventory_2,
+                          label: 'Waren',
                         ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.calendar_month_outlined),
-                          selectedIcon: Icon(Icons.calendar_month),
-                          label: Text('Kursplan'),
+                        AppSidebarItem(
+                          icon: Icons.calendar_month_outlined,
+                          selectedIcon: Icons.calendar_month,
+                          label: 'Kursplan',
                         ),
                       ],
                     ),

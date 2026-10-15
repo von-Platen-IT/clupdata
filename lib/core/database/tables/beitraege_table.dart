@@ -35,7 +35,7 @@ class Beitraege extends Table {
   TextColumn get rechnungsnummer =>
       text().withLength(min: 1, max: 100).unique()();
 
-  // Status: kontiert, offen, bezahlt, angemahnt, storniert, inkasso
+  // Status: kontiert, offen, teilbezahlt, bezahlt, angemahnt, storniert, inkasso
   TextColumn get status => text()();
 
   // Das Datum an dem der Beitrag erstellt wurde (kontiert)
@@ -43,6 +43,8 @@ class Beitraege extends Table {
   // Der Abrechnungszeitraum (z.B. 1.3.2026 für März 2026) zur Duplikat-Prüfung
   // Nur befüllt bei automatischer Rechnungslegung, null bei manuellen Beiträgen
   DateTimeColumn get abrechnungsZeitraum => dateTime().nullable()();
+  // Fälligkeitsdatum (Grundlage Mahnwesen). Default: kontiertAm + 14 Tage.
+  DateTimeColumn get faelligAm => dateTime()();
   DateTimeColumn get statusDatum => dateTime()();
 
   IntColumn get bemerkungId => integer().nullable().references(

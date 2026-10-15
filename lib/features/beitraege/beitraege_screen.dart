@@ -11,7 +11,7 @@ import '../../core/database/database.dart';
 import 'data/beitraege_repository.dart';
 import 'presentation/widgets/beitrag_data_grid.dart';
 import 'presentation/dialogs/neuer_beitrag_dialog.dart';
-import '../rechnungserstellung/presentation/rechnungslegung_wizard.dart';
+import '../abrechnung/presentation/abrechnungslauf_wizard.dart';
 
 /// Main screen for the Beiträge (invoices) module.
 class BeitraegeScreen extends HookConsumerWidget {
@@ -28,7 +28,7 @@ class BeitraegeScreen extends HookConsumerWidget {
             .register(
               CreateActionEntry(
                 label: 'Rechnungslegung',
-                action: (context) => RechnungslegungWizardDialog.show(context),
+                action: (context) => AbrechnungslaufWizardDialog.show(context),
               ),
             );
       });

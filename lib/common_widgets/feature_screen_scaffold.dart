@@ -33,6 +33,9 @@ class FeatureScreenScaffold extends StatelessWidget {
   /// sofern [hasSelection] true ist.
   final Widget? bottomPanel;
 
+  /// Zusätzliche Aktions-Buttons in der AppBar (z.B. Sammelrechnung).
+  final List<Widget> additionalActions;
+
   const FeatureScreenScaffold({
     super.key,
     required this.title,
@@ -41,6 +44,7 @@ class FeatureScreenScaffold extends StatelessWidget {
     this.onDeleteSelection,
     this.hasSelection = false,
     this.bottomPanel,
+    this.additionalActions = const [],
   });
 
   @override
@@ -68,6 +72,8 @@ class FeatureScreenScaffold extends StatelessWidget {
             ),
             const Gap(8),
           ],
+          ...additionalActions,
+          if (additionalActions.isNotEmpty) const Gap(8),
           if (onCreateNew != null) ...[
             ElevatedButton.icon(
               onPressed: onCreateNew,

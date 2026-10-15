@@ -33,6 +33,18 @@ class RechnungsnummerGenerator {
     existsFn: _rechnungRechnungsnummerExists,
   );
 
+  /// Generates a unique credit-note number (Gutschrift).
+  /// Format: `G-YYYY-XXXXX` where XXXXX is a sequential 5-digit number.
+  ///
+  /// Gutschriften werden als `rechnung`-Datensätze mit negativen Beträgen
+  /// gespeichert (Schema v19, siehe ADR-004).
+  Future<String> generateForGutschrift() => _generate(
+    prefix: 'G',
+    tableName: 'rechnung',
+    prefixLength: 2, // "G-" in substr is 1-indexed, so start = prefixLen + 1
+    existsFn: _rechnungRechnungsnummerExists,
+  );
+
   // ── Shared generation logic ──────────────────────────────────────────────
 
   /// Core number generation shared by both entity types.
@@ -50,13 +62,16 @@ class RechnungsnummerGenerator {
     final substrStart = prefixLength + 1; // 1-indexed for SQLite
 
     // Get the highest existing number for this year
+    // Nummernkreis je Prefix: `R-` und `G-` teilen sich die Tabelle `rechnung`,
+    // daher auf `PREFIX-YYYY-%` einschränken. Die laufende Nummer steht hinter
+    // `PREFIX-YYYY-` (substrStart + 5).
     final result = await _db
         .customSelect(
           // tableName is hardcoded in calling methods → safe
-          'SELECT MAX(CAST(substr(rechnungsnummer, $substrStart, 4) AS INTEGER)) '
+          'SELECT MAX(CAST(substr(rechnungsnummer, ${substrStart + 5}) AS INTEGER)) '
           'as max_num FROM $tableName '
-          'WHERE substr(rechnungsnummer, $substrStart, 4) = ?',
-          variables: [Variable<String>(year.toString())],
+          'WHERE rechnungsnummer LIKE ?',
+          variables: [Variable<String>('$prefix-$year-%')],
         )
         .getSingle();
 

@@ -1,3 +1,5 @@
+> ⚠️ **ERSETZT** durch [`plans/rechnungsstellung-redesign.md`](rechnungsstellung-redesign.md:1) (2026-10-14). Dieses Dokument bleibt als historische Referenz erhalten.
+
 # Plan: Refactoring – Rechnungsstellung auf Assistent umstellen
 
 > **Status**: Entwurf
